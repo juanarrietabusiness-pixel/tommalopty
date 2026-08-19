@@ -26,10 +26,9 @@ export default tseslint.config(
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
       ],
-      '@typescript-eslint/consistent-type-imports': [
-        'error',
-        { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
-      ],
+      // `consistent-type-imports` no se activa aquí: exige type-aware linting
+      // (lento y frágil con el parser de Next) y `verbatimModuleSyntax` del
+      // tsconfig ya obliga a usar `import type` en el compilador.
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       eqeqeq: ['error', 'smart'],
     },

@@ -38,3 +38,6 @@ Thumbs.db
 npm-debug.log*
 pnpm-debug.log*
 coverage/
+
+# Next.js
+next-env.d.ts

@@ -1,0 +1,4 @@
+/* Hoja de estilos de la tienda: tokens + base + componentes del storefront. */
+@import '@nebula/ui/styles/tokens.css';
+@import '@nebula/ui/styles/base.css';
+@import '@nebula/ui/styles/storefront.css';

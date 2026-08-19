@@ -1,0 +1,186 @@
+import type { MenuItem } from '@nebula/db';
+import {
+  getBanner,
+  getMenu,
+  getPublicSettings,
+  listProducts,
+  type CatalogProduct,
+} from '@nebula/db';
+import { getSupabaseServerClient, isSupabaseConfigured } from './supabase';
+import { DEMO_ANNOUNCEMENT, DEMO_CTA_BAND, DEMO_HERO, getDemoProducts } from './demo-data';
+
+/**
+ * Capa de lectura de la tienda.
+ *
+ * Cada función intenta leer de Supabase y, si no hay credenciales configuradas,
+ * cae al contenido de demostración. Los errores reales sí se registran: un fallo
+ * de consulta no debe confundirse con "todavía no hay base de datos".
+ */
+
+export interface BannerContent {
+  eyebrow?: string | null;
+  title?: string | null;
+  subtitle?: string | null;
+  ctaLabel?: string | null;
+  ctaHref?: string | null;
+  mediaUrl?: string | null;
+}
+
+function logQueryError(scope: string, error: unknown): void {
+  console.error(`[storefront] Error consultando ${scope}:`, error);
+}
+
+export async function getAnnouncement(): Promise<BannerContent | null> {
+  if (!isSupabaseConfigured()) return DEMO_ANNOUNCEMENT;
+
+  try {
+    const client = await getSupabaseServerClient();
+    const banner = await getBanner(client, 'announcement_bar');
+    if (!banner) return null;
+    return { eyebrow: banner.eyebrow, title: banner.title, subtitle: banner.subtitle };
+  } catch (error) {
+    logQueryError('la barra de anuncios', error);
+    return DEMO_ANNOUNCEMENT;
+  }
+}
+
+export async function getHero(): Promise<BannerContent> {
+  if (!isSupabaseConfigured()) return DEMO_HERO;
+
+  try {
+    const client = await getSupabaseServerClient();
+    const banner = await getBanner(client, 'hero');
+    if (!banner) return DEMO_HERO;
+    return {
+      eyebrow: banner.eyebrow,
+      title: banner.title,
+      subtitle: banner.subtitle,
+      ctaLabel: banner.cta_label,
+      ctaHref: banner.cta_url,
+      mediaUrl: banner.media_url,
+    };
+  } catch (error) {
+    logQueryError('el hero', error);
+    return DEMO_HERO;
+  }
+}
+
+export async function getCtaBand(): Promise<BannerContent> {
+  if (!isSupabaseConfigured()) return DEMO_CTA_BAND;
+
+  try {
+    const client = await getSupabaseServerClient();
+    const banner = await getBanner(client, 'cta_band');
+    if (!banner) return DEMO_CTA_BAND;
+    return { title: banner.title, subtitle: banner.subtitle, ctaLabel: banner.cta_label };
+  } catch (error) {
+    logQueryError('la banda de newsletter', error);
+    return DEMO_CTA_BAND;
+  }
+}
+
+export async function getFeaturedProducts(limit = 10): Promise<CatalogProduct[]> {
+  if (!isSupabaseConfigured()) return getDemoProducts().slice(0, limit);
+
+  try {
+    const client = await getSupabaseServerClient();
+    const { products } = await listProducts(client, { limit });
+    return products;
+  } catch (error) {
+    logQueryError('los productos destacados', error);
+    return getDemoProducts().slice(0, limit);
+  }
+}
+
+const DEFAULT_HEADER_MENU: MenuItem[] = [
+  { label: 'Inicio', url: '/' },
+  { label: 'Tienda', url: '/tienda' },
+  { label: 'Contacto', url: '/p/contacto' },
+];
+
+const DEFAULT_FOOTER_SHOP: MenuItem[] = [
+  { label: 'Todos los productos', url: '/tienda' },
+  { label: 'Ofertas', url: '/tienda?filtro=ofertas' },
+  { label: 'Novedades', url: '/tienda?filtro=novedades' },
+];
+
+const DEFAULT_FOOTER_HELP: MenuItem[] = [
+  { label: 'Contacto', url: '/p/contacto' },
+  { label: 'Envíos', url: '/p/envios' },
+  { label: 'Cambios y devoluciones', url: '/p/devoluciones' },
+];
+
+export async function getNavigation(): Promise<{
+  header: MenuItem[];
+  footerShop: MenuItem[];
+  footerHelp: MenuItem[];
+}> {
+  const fallback = {
+    header: DEFAULT_HEADER_MENU,
+    footerShop: DEFAULT_FOOTER_SHOP,
+    footerHelp: DEFAULT_FOOTER_HELP,
+  };
+
+  if (!isSupabaseConfigured()) return fallback;
+
+  try {
+    const client = await getSupabaseServerClient();
+    const [header, footerShop, footerHelp] = await Promise.all([
+      getMenu(client, 'header'),
+      getMenu(client, 'footer_shop'),
+      getMenu(client, 'footer_help'),
+    ]);
+
+    return {
+      header: header.length > 0 ? header : fallback.header,
+      footerShop: footerShop.length > 0 ? footerShop : fallback.footerShop,
+      footerHelp: footerHelp.length > 0 ? footerHelp : fallback.footerHelp,
+    };
+  } catch (error) {
+    logQueryError('los menús de navegación', error);
+    return fallback;
+  }
+}
+
+export interface BrandSettings {
+  name: string;
+  tagline: string;
+  email: string;
+  whatsapp: string;
+  freeShippingThreshold: number;
+}
+
+const DEFAULT_BRAND: BrandSettings = {
+  name: process.env.NEXT_PUBLIC_BRAND_NAME ?? 'Nébula Store',
+  tagline: 'Plantilla base de tienda online',
+  email: 'hola@tudominio.com',
+  whatsapp: '',
+  freeShippingThreshold: 50,
+};
+
+export async function getBrand(): Promise<BrandSettings> {
+  if (!isSupabaseConfigured()) return DEFAULT_BRAND;
+
+  try {
+    const client = await getSupabaseServerClient();
+    const settings = await getPublicSettings(client);
+    const brand = (settings.brand ?? {}) as Partial<BrandSettings>;
+    const store = (settings.store ?? {}) as { free_shipping_threshold?: number };
+
+    return {
+      name: brand.name ?? DEFAULT_BRAND.name,
+      tagline: brand.tagline ?? DEFAULT_BRAND.tagline,
+      email: brand.email ?? DEFAULT_BRAND.email,
+      whatsapp: brand.whatsapp ?? DEFAULT_BRAND.whatsapp,
+      freeShippingThreshold: store.free_shipping_threshold ?? DEFAULT_BRAND.freeShippingThreshold,
+    };
+  } catch (error) {
+    logQueryError('los ajustes de marca', error);
+    return DEFAULT_BRAND;
+  }
+}
+
+/** Convierte los items del CMS al formato que espera @nebula/ui. */
+export function toNavItems(items: MenuItem[]): { label: string; href: string }[] {
+  return items.map((item) => ({ label: item.label, href: item.url }));
+}
