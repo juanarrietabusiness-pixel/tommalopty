@@ -1,0 +1,31 @@
+{
+  "name": "nebula-commerce",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:storefront": "turbo run dev --filter=@nebula/storefront",
+    "dev:admin": "turbo run dev --filter=@nebula/admin",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,mjs,json,css,md,sql}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,json,css,md,sql}\"",
+    "db:types": "supabase gen types typescript --local > packages/db/src/generated/database.types.ts",
+    "db:reset": "supabase db reset",
+    "db:start": "supabase start"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "eslint": "^9.39.5",
+    "prettier": "^3.9.6",
+    "supabase": "^2.115.0",
+    "turbo": "^2.10.11",
+    "typescript": "~5.9.3"
+  }
+}
