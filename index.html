@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nébula Store — Esqueleto E‑commerce</title>
+<meta name="description" content="Esqueleto de front-end para plataforma e-commerce (header, hero, catálogo, carrito, footer). Contenido de marcador de posición — listo para conectar CMS, catálogo, pagos y CRM.">
+
+<!-- Tipografías (Google Fonts) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  /* ============================================================
+     TOKENS DE DISEÑO — cambiar aquí para retematizar todo el sitio
+     ============================================================ */
+  :root{
+    --color-bg:#ffffff;
+    --color-surface:#f7f7f5;
+    --color-text:#141414;
+    --color-muted:#6b7280;
+    --color-border:#e6e6e2;
+
+    --color-primary:#173c2e;      /* verde oscuro (barra de anuncios / botones oscuros) */
+    --color-primary-dark:#0e2a20;
+    --color-accent:#ff5a1f;       /* naranja (badge "Oferta", precios, CTAs) */
+    --color-accent-dark:#e0490f;
+
+    --font-heading:'Poppins', sans-serif;
+    --font-body:'Inter', sans-serif;
+
+    --container:1280px;
+    --radius-sm:6px;
+    --radius-md:12px;
+    --radius-lg:20px;
+
+    --shadow-card:0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+    --transition:180ms ease;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    font-family:var(--font-body);
+    color:var(--color-text);
+    background:var(--color-bg);
+    -webkit-font-smoothing:antialiased;
+  }
+  img,svg{display:block;max-width:100%;}
+  a{color:inherit;text-decoration:none;}
+  ul{list-style:none;margin:0;padding:0;}
+  button{font:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+  .container{
+    width:100%;
+    max-width:var(--container);
+    margin:0 auto;
+    padding:0 24px;
+  }
+  .visually-hidden{
+    position:absolute; width:1px;height:1px;overflow:hidden;
+    clip:rect(0 0 0 0); white-space:nowrap; border:0; padding:0; margin:-1px;
+  }
+
+  /* ============================================================
+     HEADER
+     ============================================================ */
+  .site-header{
+    position:sticky; top:0; z-index:60;
+    background:var(--color-bg);
+    border-bottom:1px solid var(--color-border);
+  }
+  .header-row{
+    display:flex; align-items:center; justify-content:space-between;
+    height:76px;
+  }
+  .logo{
+    display:flex; align-items:center; gap:10px;
+    font-family:var(--font-heading); font-weight:800; font-size:1.15rem;
+    letter-spacing:.02em;
+  }
+  .logo svg{width:28px;height:28px;color:var(--color-primary);}
+
+  .main-nav{display:flex; gap:32px;}
+  .main-nav a{
+    font-size:.85rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--color-text); position:relative; padding:4px 0;
+  }
+  .main-nav a::after{
+    content:""; position:absolute; left:0; right:0; bottom:-2px; height:2px;
+    background:var(--color-primary); transform:scaleX(0); transform-origin:left;
+    transition:transform var(--transition);
+  }
+  .main-nav a:hover::after{transform:scaleX(1);}
+
+  .header-actions{display:flex; align-items:center; gap:6px;}
+  .icon-btn{
+    width:40px;height:40px; display:flex; align-items:center; justify-content:center;
+    border-radius:50%; position:relative; transition:background var(--transition);
+  }
+  .icon-btn:hover{background:var(--color-surface);}
+  .icon-btn svg{width:20px;height:20px;}
+  .cart-count{
+    position:absolute; top:2px; right:2px;
+    background:var(--color-accent); color:#fff; font-size:.62rem; font-weight:700;
+    width:16px;height:16px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .hamburger{display:none;}
+
+  /* Barra de anuncios / promoción */
+  .announcement-bar{
+    background:var(--color-primary); color:#fff;
+  }
+  .announcement-bar .container{
+    display:flex; align-items:center; justify-content:center; gap:12px;
+    padding-top:10px; padding-bottom:10px;
+    font-size:.82rem; text-align:center; flex-wrap:wrap;
+  }
+  .pill{
+    background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.35);
+    padding:3px 10px; border-radius:999px; font-weight:600; font-size:.7rem;
+    text-transform:uppercase; letter-spacing:.04em;
+  }
+  .announcement-bar strong{font-weight:700;}
+  .announcement-bar .dot{opacity:.6;}
+
+  /* ============================================================
+     HERO
+     ============================================================ */
+  .hero{
+    position:relative;
+    min-height:560px;
+    display:flex; align-items:center;
+    /* TODO: reemplazar por imagen/vídeo de campaña real (CMS) */
+    background:
+      linear-gradient(180deg, rgba(10,20,15,.55), rgba(10,20,15,.65)),
+      radial-gradient(circle at 30% 20%, #3c6355 0%, transparent 55%),
+      linear-gradient(135deg, #1b4332 0%, #2d5a45 45%, #0e2a20 100%);
+    color:#fff;
+    overflow:hidden;
+  }
+  .hero-placeholder-tag{
+    position:absolute; top:16px; right:16px;
+    font-size:.65rem; text-transform:uppercase; letter-spacing:.05em;
+    background:rgba(255,255,255,.15); border:1px dashed rgba(255,255,255,.5);
+    padding:4px 10px; border-radius:999px;
+  }
+  .hero-content{position:relative; z-index:2; max-width:720px; padding:80px 0;}
+  .hero-eyebrow{
+    display:inline-block; font-size:.75rem; font-weight:700; letter-spacing:.12em;
+    text-transform:uppercase; color:#ffd9c4; margin-bottom:18px;
+  }
+  .hero h1{
+    font-family:var(--font-heading); font-weight:800;
+    font-size:clamp(2rem, 5vw, 3.4rem); line-height:1.05; margin:0 0 28px;
+    text-transform:uppercase; letter-spacing:.01em;
+  }
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    padding:14px 30px; border-radius:999px; font-weight:700; font-size:.8rem;
+    text-transform:uppercase; letter-spacing:.06em; transition:all var(--transition);
+    border:2px solid transparent; white-space:nowrap;
+  }
+  .btn-outline-light{border-color:#fff; color:#fff;}
+  .btn-outline-light:hover{background:#fff; color:var(--color-primary-dark);}
+  .btn-accent{background:var(--color-accent); color:#fff;}
+  .btn-accent:hover{background:var(--color-accent-dark);}
+  .btn-dark{background:var(--color-primary); color:#fff;}
+  .btn-dark:hover{background:var(--color-primary-dark);}
+
+  /* ============================================================
+     SECCIONES GENERALES
+     ============================================================ */
+  section{padding:64px 0;}
+  .section-head{
+    display:flex; align-items:baseline; justify-content:space-between;
+    margin-bottom:32px; gap:16px; flex-wrap:wrap;
+  }
+  .section-head h2{
+    font-family:var(--font-heading); font-weight:800; font-size:1.5rem;
+    text-transform:uppercase; letter-spacing:.03em; margin:0;
+  }
+  .link-view-all{
+    font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+    border-bottom:1px solid var(--color-text); padding-bottom:2px;
+  }
+
+  /* Barra de confianza */
+  .trust-bar{
+    background:var(--color-surface); padding:28px 0;
+    border-top:1px solid var(--color-border); border-bottom:1px solid var(--color-border);
+  }
+  .trust-grid{
+    display:grid; grid-template-columns:repeat(4,1fr); gap:20px;
+  }
+  .trust-item{display:flex; align-items:center; gap:12px; font-size:.82rem;}
+  .trust-item svg{width:26px;height:26px; flex-shrink:0; color:var(--color-primary);}
+  .trust-item strong{display:block; font-size:.82rem;}
+  .trust-item span{color:var(--color-muted); font-size:.76rem;}
+
+  /* ============================================================
+     GRID DE PRODUCTOS  (renderizado vía JS desde products[] —
+     en el futuro esta función leerá del catálogo/CMS/API)
+     ============================================================ */
+  .product-grid{
+    display:grid;
+    grid-template-columns:repeat(5, 1fr);
+    gap:20px;
+  }
+  .product-card{
+    position:relative;
+    background:#fff;
+    border-radius:var(--radius-md);
+    overflow:hidden;
+    transition:box-shadow var(--transition), transform var(--transition);
+  }
+  .product-card:hover{box-shadow:var(--shadow-card); transform:translateY(-3px);}
+  .product-media{
+    position:relative;
+    aspect-ratio:1/1;
+    border-radius:var(--radius-md);
+    background:linear-gradient(135deg,#eef0ea,#dfe3d8);
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+  }
+  .product-media svg{width:34%; height:34%; color:#aab3a0; opacity:.9;}
+  .badge-offer{
+    position:absolute; top:10px; right:10px; z-index:2;
+    background:var(--color-accent); color:#fff; font-size:.65rem; font-weight:700;
+    text-transform:uppercase; letter-spacing:.03em; padding:5px 10px; border-radius:999px;
+  }
+  .product-info{padding:14px 4px 4px;}
+  .product-title{
+    font-size:.85rem; font-weight:600; line-height:1.35; margin:0 0 8px;
+    min-height:2.7em; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .product-price{display:flex; align-items:baseline; gap:8px; margin-bottom:12px;}
+  .price-sale{font-weight:700; color:var(--color-accent-dark); font-size:.95rem;}
+  .price-regular{font-size:.78rem; color:var(--color-muted); text-decoration:line-through;}
+  .btn-add{
+    width:100%; padding:10px; border-radius:999px; background:var(--color-primary);
+    color:#fff; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+    transition:background var(--transition);
+  }
+  .btn-add:hover{background:var(--color-primary-dark);}
+  .btn-add.added{background:var(--color-accent);}
+
+  /* Banda de valor / newsletter previa al footer */
+  .cta-band{
+    background:var(--color-primary); color:#fff; text-align:center;
+  }
+  .cta-band h2{
+    font-family:var(--font-heading); font-weight:800; font-size:1.7rem;
+    text-transform:uppercase; margin:0 0 12px;
+  }
+  .cta-band p{color:rgba(255,255,255,.75); margin:0 0 26px; font-size:.9rem;}
+  .newsletter-form{
+    display:flex; gap:10px; max-width:420px; margin:0 auto; flex-wrap:wrap; justify-content:center;
+  }
+  .newsletter-form input{
+    flex:1; min-width:200px; padding:13px 16px; border-radius:999px; border:none; font-size:.85rem;
+  }
+
+  /* ============================================================
+     FOOTER
+     ============================================================ */
+  .site-footer{background:#101410; color:#c9cdc4; padding:56px 0 24px;}
+  .footer-grid{
+    display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:32px;
+    padding-bottom:36px; border-bottom:1px solid rgba(255,255,255,.08);
+  }
+  .footer-brand p{font-size:.82rem; line-height:1.6; color:#9aa094; max-width:280px;}
+  .social-row{display:flex; gap:10px; margin-top:16px;}
+  .social-row a{
+    width:36px;height:36px; border-radius:50%; border:1px solid rgba(255,255,255,.2);
+    display:flex; align-items:center; justify-content:center; transition:background var(--transition);
+  }
+  .social-row a:hover{background:rgba(255,255,255,.1);}
+  .social-row svg{width:16px;height:16px;}
+  .footer-col h3{
+    font-size:.72rem; text-transform:uppercase; letter-spacing:.08em; color:#fff;
+    margin:0 0 16px; font-weight:700;
+  }
+  .footer-col ul li{margin-bottom:10px;}
+  .footer-col a{font-size:.82rem; color:#9aa094; transition:color var(--transition);}
+  .footer-col a:hover{color:#fff;}
+  .footer-bottom{
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;
+    padding-top:20px; font-size:.75rem; color:#7d8377;
+  }
+  .footer-bottom a{color:#7d8377;}
+  .footer-bottom a:hover{color:#fff;}
+
+  /* ============================================================
+     DRAWER DE CARRITO
+     ============================================================ */
+  .overlay{
+    position:fixed; inset:0; background:rgba(10,10,10,.45);
+    opacity:0; pointer-events:none; transition:opacity var(--transition); z-index:80;
+  }
+  .overlay.is-open{opacity:1; pointer-events:auto;}
+
+  .cart-drawer{
+    position:fixed; top:0; right:0; height:100%; width:min(400px, 92vw);
+    background:#fff; z-index:90; box-shadow:-10px 0 30px rgba(0,0,0,.15);
+    transform:translateX(100%); transition:transform var(--transition);
+    display:flex; flex-direction:column;
+  }
+  .cart-drawer.is-open{transform:translateX(0);}
+  .drawer-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:20px 22px; border-bottom:1px solid var(--color-border);
+  }
+  .drawer-header h2{font-family:var(--font-heading); font-size:1rem; margin:0; text-transform:uppercase;}
+  .drawer-body{flex:1; overflow-y:auto; padding:22px; display:flex; flex-direction:column; gap:16px;}
+  .drawer-empty{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; color:var(--color-muted); gap:14px; height:100%;
+  }
+  .drawer-empty svg{width:52px;height:52px; opacity:.4;}
+  .cart-line{display:flex; gap:12px; align-items:center;}
+  .cart-line .thumb{
+    width:64px;height:64px; border-radius:var(--radius-sm);
+    background:linear-gradient(135deg,#eef0ea,#dfe3d8); flex-shrink:0;
+  }
+  .cart-line .info{flex:1;}
+  .cart-line .info p{margin:0; font-size:.82rem; font-weight:600;}
+  .cart-line .info span{font-size:.75rem; color:var(--color-muted);}
+  .drawer-footer{border-top:1px solid var(--color-border); padding:20px 22px;}
+  .drawer-footer .subtotal{
+    display:flex; justify-content:space-between; font-weight:700; margin-bottom:14px; font-size:.9rem;
+  }
+
+  /* ============================================================
+     MENÚ MÓVIL
+     ============================================================ */
+  .mobile-nav{
+    position:fixed; top:0; left:0; height:100%; width:min(320px,85vw);
+    background:#fff; z-index:90; transform:translateX(-100%); transition:transform var(--transition);
+    padding:22px; overflow-y:auto;
+  }
+  .mobile-nav.is-open{transform:translateX(0);}
+  .mobile-nav .close-btn{margin-bottom:24px;}
+  .mobile-nav ul li{margin-bottom:4px;}
+  .mobile-nav a{
+    display:block; padding:14px 6px; font-weight:700; text-transform:uppercase;
+    font-size:.9rem; letter-spacing:.04em; border-bottom:1px solid var(--color-border);
+  }
+
+  /* ============================================================
+     RESPONSIVE
+     ============================================================ */
+  @media (max-width:980px){
+    .product-grid{grid-template-columns:repeat(3,1fr);}
+    .trust-grid{grid-template-columns:repeat(2,1fr);}
+    .footer-grid{grid-template-columns:1fr 1fr;}
+  }
+  @media (max-width:720px){
+    .main-nav{display:none;}
+    .hamburger{display:flex;}
+    .product-grid{grid-template-columns:repeat(2,1fr);}
+    .hero{min-height:460px;}
+    .footer-grid{grid-template-columns:1fr;}
+  }
+  @media (max-width:480px){
+    .product-grid{grid-template-columns:repeat(2,1fr); gap:14px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ======================================================================
+     HEADER
+     ====================================================================== -->
+<header class="site-header">
+  <div class="container header-row">
+    <button class="hamburger icon-btn" id="openMobileNav" aria-label="Abrir menú">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18" stroke-linecap="round"/></svg>
+    </button>
+
+    <a href="#" class="logo">
+      <!-- TODO: sustituir por el logo real de la marca (SVG/PNG del CMS) -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2c3 3 3 6 1 8-2-1-4-1-5 1-1 2 0 4 2 5-3 1-6-1-7-4-1-4 2-9 9-10Z"/></svg>
+      <span>NÉBULA STORE</span>
+    </a>
+
+    <nav class="main-nav" aria-label="Navegación principal">
+      <a href="#">Inicio</a>
+      <a href="#catalogo">Tienda</a>
+      <a href="#">Contacto</a>
+    </nav>
+
+    <div class="header-actions">
+      <button class="icon-btn" id="openSearch" aria-label="Buscar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
+      </button>
+      <button class="icon-btn" id="openCart" aria-label="Abrir carrito">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h2l2.4 12.2a2 2 0 0 0 2 1.8h8.2a2 2 0 0 0 2-1.6L21 8H6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="21" r="1"/><circle cx="17" cy="21" r="1"/></svg>
+        <span class="cart-count" id="cartCount">0</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Barra de anuncios/promoción — TODO: contenido editable desde el CMS -->
+  <div class="announcement-bar">
+    <div class="container">
+      <span class="pill">Oferta destacada</span>
+      <span><strong>Hasta -45% OFF</strong></span>
+      <span class="dot">·</span>
+      <span>Envío gratis en pedidos superiores a $50</span>
+    </div>
+  </div>
+</header>
+
+<!-- ======================================================================
+     HERO — TODO: alimentar desde bloque de campaña del CMS
+     ====================================================================== -->
+<section class="hero">
+  <span class="hero-placeholder-tag">Imagen de campaña — placeholder</span>
+  <div class="container">
+    <div class="hero-content">
+      <span class="hero-eyebrow">Nueva colección</span>
+      <h1>Toda la tienda en descuento</h1>
+      <a href="#catalogo" class="btn btn-outline-light">Ver ofertas</a>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     BARRA DE CONFIANZA
+     ====================================================================== -->
+<div class="trust-bar">
+  <div class="container trust-grid">
+    <div class="trust-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7h13l3 5v6h-3M3 7v10h3M16 12H3M7 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm11 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/></svg>
+      <div><strong>Envío gratis</strong><span>En pedidos +$50</span></div>
+    </div>
+    <div class="trust-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2 4 5v6c0 5 3.4 9 8 11 4.6-2 8-6 8-11V5l-8-3Z"/></svg>
+      <div><strong>Pago seguro</strong><span>Cifrado de extremo a extremo</span></div>
+    </div>
+    <div class="trust-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg>
+      <div><strong>Devoluciones fáciles</strong><span>30 días para cambios</span></div>
+    </div>
+    <div class="trust-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10Z"/></svg>
+      <div><strong>Soporte 24/7</strong><span>Estamos para ayudarte</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================================
+     CATÁLOGO / MÁS VENDIDOS
+     El grid se renderiza desde products[] (ver <script> al final).
+     TODO: sustituir products[] por la respuesta de la API de catálogo/CMS.
+     ====================================================================== -->
+<section id="catalogo" class="container">
+  <div class="section-head">
+    <h2>Más vendidos</h2>
+    <a href="#" class="link-view-all">Ver todo</a>
+  </div>
+  <div class="product-grid" id="productGrid">
+    <!-- las tarjetas de producto se inyectan aquí vía JS -->
+  </div>
+</section>
+
+<!-- Banda CTA / newsletter -->
+<section class="cta-band">
+  <div class="container">
+    <h2>Únete y recibe -10% en tu primera compra</h2>
+    <p>Suscríbete para enterarte de nuevos lanzamientos y ofertas exclusivas.</p>
+    <form class="newsletter-form" id="newsletterForm">
+      <label class="visually-hidden" for="newsletterEmail">Correo electrónico</label>
+      <input id="newsletterEmail" type="email" placeholder="tu@correo.com" required>
+      <button type="submit" class="btn btn-accent">Suscribirme</button>
+    </form>
+  </div>
+</section>
+
+<!-- ======================================================================
+     FOOTER
+     ====================================================================== -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="logo" style="color:#fff;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2c3 3 3 6 1 8-2-1-4-1-5 1-1 2 0 4 2 5-3 1-6-1-7-4-1-4 2-9 9-10Z"/></svg>
+          <span>NÉBULA STORE</span>
+        </div>
+        <p>Plantilla base de tienda online — reemplazar por la descripción real de marca del cliente.</p>
+        <div class="social-row">
+          <a href="#" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 21v-7.5H16l.4-3H13.5V8.4c0-.87.24-1.46 1.5-1.46H16.5V4.35C16.2 4.3 15.2 4.2 14 4.2c-2.4 0-4 1.46-4 4.15v2.15H7.5v3H10V21h3.5Z"/></svg></a>
+          <a href="#" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg></a>
+          <a href="#" aria-label="TikTok"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 3c.4 2.2 2 3.7 4.2 4v2.9c-1.5.1-2.9-.4-4.2-1.3v6.6a5.7 5.7 0 1 1-5.7-5.7c.3 0 .6 0 .9.1v2.9a2.8 2.8 0 1 0 2 2.7V3h2.8Z"/></svg></a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h3>Tienda</h3>
+        <ul>
+          <li><a href="#">Todos los productos</a></li>
+          <li><a href="#">Ofertas</a></li>
+          <li><a href="#">Novedades</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h3>Ayuda</h3>
+        <ul>
+          <li><a href="#">Contacto</a></li>
+          <li><a href="#">Envíos</a></li>
+          <li><a href="#">Cambios y devoluciones</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h3>Contacto</h3>
+        <ul>
+          <li><a href="#">¡Escríbenos por WhatsApp!</a></li>
+          <li><a href="#">hola@tudominio.com</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="year"></span> Nébula Store — plantilla de esqueleto</span>
+      <a href="#">Términos y políticas</a>
+    </div>
+  </div>
+</footer>
+
+<!-- ======================================================================
+     OVERLAY COMPARTIDO (carrito / menú móvil)
+     ====================================================================== -->
+<div class="overlay" id="overlay"></div>
+
+<!-- ======================================================================
+     DRAWER DE CARRITO — TODO: conectar a lógica real de carrito/checkout/pasarela de pago
+     ====================================================================== -->
+<aside class="cart-drawer" id="cartDrawer" aria-hidden="true">
+  <div class="drawer-header">
+    <h2>Tu carrito</h2>
+    <button class="icon-btn" id="closeCart" aria-label="Cerrar carrito">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="drawer-body" id="cartBody">
+    <div class="drawer-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 6h2l2.4 12.2a2 2 0 0 0 2 1.8h8.2a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="21" r="1"/><circle cx="17" cy="21" r="1"/></svg>
+      <p>Tu carrito está vacío.<br>Añade productos para verlos aquí.</p>
+    </div>
+  </div>
+  <div class="drawer-footer">
+    <div class="subtotal"><span>Subtotal</span><span id="cartSubtotal">$0.00</span></div>
+    <button class="btn btn-dark" style="width:100%;">Finalizar compra</button>
+  </div>
+</aside>
+
+<!-- ======================================================================
+     MENÚ MÓVIL
+     ====================================================================== -->
+<nav class="mobile-nav" id="mobileNav" aria-hidden="true">
+  <button class="icon-btn close-btn" id="closeMobileNav" aria-label="Cerrar menú">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18" stroke-linecap="round"/></svg>
+  </button>
+  <ul>
+    <li><a href="#">Inicio</a></li>
+    <li><a href="#catalogo">Tienda</a></li>
+    <li><a href="#">Contacto</a></li>
+  </ul>
+</nav>
+
+<script>
+/* ============================================================
+   DATOS DE PRODUCTO — PLACEHOLDER
+   TODO: reemplazar esta fuente estática por una llamada a la API
+   del catálogo / CMS (ej. fetch('/api/products')).
+   ============================================================ */
+const products = [
+  { id: 1, title: "Producto destacado uno", price: 29.98, compareAt: 37.97, badge: true },
+  { id: 2, title: "Producto destacado dos", price: 23.80, compareAt: 32.99, badge: true },
+  { id: 3, title: "Producto destacado tres", price: 27.77, compareAt: 38.99, badge: true },
+  { id: 4, title: "Producto destacado cuatro", price: 24.85, compareAt: 30.75, badge: false },
+  { id: 5, title: "Producto destacado cinco", price: 32.90, compareAt: 48.00, badge: true },
+  { id: 6, title: "Producto destacado seis", price: 27.57, compareAt: 40.77, badge: true },
+  { id: 7, title: "Producto destacado siete", price: 24.95, compareAt: 34.99, badge: true },
+  { id: 8, title: "Producto destacado ocho", price: 44.77, compareAt: 52.99, badge: true },
+  { id: 9, title: "Producto destacado nueve", price: 25.99, compareAt: 38.00, badge: false },
+  { id: 10, title: "Producto destacado diez", price: 27.50, compareAt: 37.87, badge: true },
+];
+
+const placeholderIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>`;
+
+function money(n){ return '$' + n.toFixed(2); }
+
+function renderProducts(){
+  const grid = document.getElementById('productGrid');
+  grid.innerHTML = products.map(p => `
+    <article class="product-card" data-id="${p.id}">
+      <div class="product-media">
+        ${p.badge ? '<span class="badge-offer">Oferta</span>' : ''}
+        ${placeholderIcon}
+      </div>
+      <div class="product-info">
+        <p class="product-title">${p.title}</p>
+        <div class="product-price">
+          <span class="price-sale">${money(p.price)}</span>
+          ${p.compareAt ? `<span class="price-regular">${money(p.compareAt)}</span>` : ''}
+        </div>
+        <button class="btn-add" data-id="${p.id}">Añadir</button>
+      </div>
+    </article>
+  `).join('');
+}
+renderProducts();
+
+/* ============================================================
+   CARRITO — simulación en memoria (front-end only).
+   TODO: sustituir por gestión de estado real (contexto/store),
+   persistencia (sesión/local API) e integración con checkout/pasarela de pago.
+   ============================================================ */
+let cart = [];
+
+function updateCartUI(){
+  const count = cart.reduce((sum, i) => sum + i.qty, 0);
+  document.getElementById('cartCount').textContent = count;
+
+  const body = document.getElementById('cartBody');
+  if(cart.length === 0){
+    body.innerHTML = `
+      <div class="drawer-empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 6h2l2.4 12.2a2 2 0 0 0 2 1.8h8.2a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="21" r="1"/><circle cx="17" cy="21" r="1"/></svg>
+        <p>Tu carrito está vacío.<br>Añade productos para verlos aquí.</p>
+      </div>`;
+  } else {
+    body.innerHTML = cart.map(item => `
+      <div class="cart-line">
+        <div class="thumb"></div>
+        <div class="info">
+          <p>${item.title}</p>
+          <span>${item.qty} × ${money(item.price)}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  const subtotal = cart.reduce((sum, i) => sum + i.qty * i.price, 0);
+  document.getElementById('cartSubtotal').textContent = money(subtotal);
+}
+
+document.getElementById('productGrid').addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn-add');
+  if(!btn) return;
+  const id = Number(btn.dataset.id);
+  const product = products.find(p => p.id === id);
+  const existing = cart.find(i => i.id === id);
+  if(existing){ existing.qty += 1; } else { cart.push({ ...product, qty: 1 }); }
+
+  btn.classList.add('added');
+  btn.textContent = 'Añadido ✓';
+  setTimeout(() => { btn.classList.remove('added'); btn.textContent = 'Añadir'; }, 1200);
+
+  updateCartUI();
+  openCart();
+});
+
+/* ============================================================
+   INTERACCIONES DE UI: drawer de carrito, menú móvil, overlay
+   ============================================================ */
+const overlay = document.getElementById('overlay');
+const cartDrawer = document.getElementById('cartDrawer');
+const mobileNav = document.getElementById('mobileNav');
+
+function openCart(){
+  cartDrawer.classList.add('is-open');
+  overlay.classList.add('is-open');
+}
+function closeCart(){
+  cartDrawer.classList.remove('is-open');
+  overlay.classList.remove('is-open');
+}
+function openMobileNav(){
+  mobileNav.classList.add('is-open');
+  overlay.classList.add('is-open');
+}
+function closeMobileNav(){
+  mobileNav.classList.remove('is-open');
+  overlay.classList.remove('is-open');
+}
+
+document.getElementById('openCart').addEventListener('click', openCart);
+document.getElementById('closeCart').addEventListener('click', closeCart);
+document.getElementById('openMobileNav').addEventListener('click', openMobileNav);
+document.getElementById('closeMobileNav').addEventListener('click', closeMobileNav);
+overlay.addEventListener('click', () => { closeCart(); closeMobileNav(); });
+
+/* TODO: implementar overlay/panel de búsqueda real (conectar a Algolia, catálogo, etc.) */
+document.getElementById('openSearch').addEventListener('click', () => {
+  alert('Aquí se abrirá el buscador — pendiente de conectar a la búsqueda del catálogo.');
+});
+
+document.getElementById('newsletterForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  alert('Formulario de newsletter — pendiente de conectar a proveedor de email/CRM.');
+  e.target.reset();
+});
+
+document.getElementById('year').textContent = new Date().getFullYear();
+</script>
+</body>
+</html>
