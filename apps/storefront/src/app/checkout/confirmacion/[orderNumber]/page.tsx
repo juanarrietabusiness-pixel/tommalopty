@@ -55,9 +55,7 @@ export default async function OrderConfirmationPage({
   return (
     <div className="container section">
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
-        <h1 className="page-title">
-          {isPaid ? '¡Gracias por tu compra!' : 'Pedido registrado'}
-        </h1>
+        <h1 className="page-title">{isPaid ? '¡Gracias por tu compra!' : 'Pedido registrado'}</h1>
         <p className="page-subtitle">
           Pedido <strong>{order.order_number}</strong> · {shortDate(order.created_at)}
         </p>

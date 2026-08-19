@@ -44,7 +44,9 @@ export default async function CatalogPage({
     const variant =
       product.product_variants?.find((candidate) => candidate.is_default) ??
       product.product_variants?.[0];
-    const inventory = Array.isArray(variant?.inventory) ? variant?.inventory[0] : variant?.inventory;
+    const inventory = Array.isArray(variant?.inventory)
+      ? variant?.inventory[0]
+      : variant?.inventory;
 
     return {
       id: product.id,
@@ -110,7 +112,8 @@ export default async function CatalogPage({
           {
             key: 'featured',
             header: 'Portada',
-            render: (row) => (row.is_featured ? <span className="tag tag-accent">Destacado</span> : '—'),
+            render: (row) =>
+              row.is_featured ? <span className="tag tag-accent">Destacado</span> : '—',
           },
           {
             key: 'stock',

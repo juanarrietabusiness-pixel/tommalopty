@@ -8,11 +8,19 @@ export interface BarChartPoint {
   value: number;
 }
 
-export function BarChart({ points, formatValue }: { points: BarChartPoint[]; formatValue?: (value: number) => string }) {
+export function BarChart({
+  points,
+  formatValue,
+}: {
+  points: BarChartPoint[];
+  formatValue?: (value: number) => string;
+}) {
   if (points.length === 0) {
-    return <div className="empty-state">
-      <p>Sin datos en el periodo seleccionado.</p>
-    </div>;
+    return (
+      <div className="empty-state">
+        <p>Sin datos en el periodo seleccionado.</p>
+      </div>
+    );
   }
 
   const max = Math.max(...points.map((point) => point.value), 1);

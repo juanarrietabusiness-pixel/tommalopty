@@ -75,7 +75,12 @@ export function SiteHeader({
             <Link href={accountHref} className="icon-btn" aria-label="Mi cuenta">
               <UserIcon />
             </Link>
-            <button type="button" className="icon-btn" onClick={openCart} aria-label="Abrir carrito">
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={openCart}
+              aria-label="Abrir carrito"
+            >
               <CartIcon />
               {/* Hasta rehidratar mostramos 0 para no provocar desajuste de SSR. */}
               <span className="cart-count">{isHydrated ? count : 0}</span>

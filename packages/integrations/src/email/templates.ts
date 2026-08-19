@@ -48,7 +48,10 @@ export interface OrderConfirmationData {
   orderUrl: string;
 }
 
-export function orderConfirmationEmail(data: OrderConfirmationData): { subject: string; html: string } {
+export function orderConfirmationEmail(data: OrderConfirmationData): {
+  subject: string;
+  html: string;
+} {
   const rows = data.items
     .map(
       (item) => `<tr>

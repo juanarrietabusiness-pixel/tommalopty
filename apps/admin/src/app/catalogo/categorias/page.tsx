@@ -33,9 +33,22 @@ export default async function CategoriesPage() {
           rowKey={(row) => row.id}
           emptyMessage="Todavía no hay categorías."
           columns={[
-            { key: 'name', header: 'Categoría', render: (row) => <span className="cell-strong">{row.name}</span> },
-            { key: 'slug', header: 'Slug', render: (row) => <span className="cell-muted">/{row.slug}</span> },
-            { key: 'products', header: 'Productos', align: 'right', render: (row) => row.productCount },
+            {
+              key: 'name',
+              header: 'Categoría',
+              render: (row) => <span className="cell-strong">{row.name}</span>,
+            },
+            {
+              key: 'slug',
+              header: 'Slug',
+              render: (row) => <span className="cell-muted">/{row.slug}</span>,
+            },
+            {
+              key: 'products',
+              header: 'Productos',
+              align: 'right',
+              render: (row) => row.productCount,
+            },
             { key: 'position', header: 'Orden', align: 'right', render: (row) => row.position },
             {
               key: 'active',

@@ -58,7 +58,12 @@ export default async function InventoryPage() {
               </div>
             ),
           },
-          { key: 'reserved', header: 'Reservado', align: 'right', render: (row) => number(row.reserved) },
+          {
+            key: 'reserved',
+            header: 'Reservado',
+            align: 'right',
+            render: (row) => number(row.reserved),
+          },
           {
             key: 'available',
             header: 'Disponible',

@@ -14,7 +14,12 @@ export function SignOutButton() {
   }
 
   return (
-    <button type="button" className="btn btn-outline btn-sm" onClick={handleSignOut} style={{ width: '100%' }}>
+    <button
+      type="button"
+      className="btn btn-outline btn-sm"
+      onClick={handleSignOut}
+      style={{ width: '100%' }}
+    >
       Cerrar sesión
     </button>
   );

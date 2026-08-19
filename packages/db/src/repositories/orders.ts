@@ -93,7 +93,9 @@ export async function listOrderEvents(client: Client, orderId: string) {
 export async function listPayments(client: Client, orderId: string) {
   const { data, error } = await client
     .from('payments')
-    .select('id, provider, provider_payment_id, status, amount, currency, error_message, created_at')
+    .select(
+      'id, provider, provider_payment_id, status, amount, currency, error_message, created_at',
+    )
     .eq('order_id', orderId)
     .order('created_at', { ascending: false });
 

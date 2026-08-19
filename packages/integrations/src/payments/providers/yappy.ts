@@ -43,7 +43,10 @@ export const yappyProvider: PaymentProvider = {
     throw new NotImplementedError('yappy', 'refundPayment');
   },
 
-  verifyWebhook(_request: { body: string; headers: Record<string, string> }): Promise<WebhookVerification> {
+  verifyWebhook(_request: {
+    body: string;
+    headers: Record<string, string>;
+  }): Promise<WebhookVerification> {
     throw new NotImplementedError('yappy', 'verifyWebhook');
   },
 };

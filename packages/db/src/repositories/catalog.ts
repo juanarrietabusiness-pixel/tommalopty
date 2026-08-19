@@ -46,10 +46,7 @@ export async function listProducts(
     if (productIds.length === 0) return { products: [], total: 0 };
   }
 
-  let query = client
-    .from('product_catalog')
-    .select('*', { count: 'exact' })
-    .eq('status', 'active');
+  let query = client.from('product_catalog').select('*', { count: 'exact' }).eq('status', 'active');
 
   if (productIds) query = query.in('id', productIds);
   if (options.featuredOnly) query = query.eq('is_featured', true);

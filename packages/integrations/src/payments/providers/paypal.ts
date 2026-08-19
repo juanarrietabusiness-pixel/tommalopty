@@ -46,7 +46,10 @@ export const paypalProvider: PaymentProvider = {
     throw new NotImplementedError('paypal', 'refundPayment');
   },
 
-  verifyWebhook(_request: { body: string; headers: Record<string, string> }): Promise<WebhookVerification> {
+  verifyWebhook(_request: {
+    body: string;
+    headers: Record<string, string>;
+  }): Promise<WebhookVerification> {
     throw new NotImplementedError('paypal', 'verifyWebhook');
   },
 };

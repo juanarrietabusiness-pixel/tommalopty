@@ -18,7 +18,10 @@ export default async function CmsPagesPage() {
   const storefrontUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 
   return (
-    <PanelPage title="Páginas" description="Contenido estático de la tienda: envíos, devoluciones, términos…">
+    <PanelPage
+      title="Páginas"
+      description="Contenido estático de la tienda: envíos, devoluciones, términos…"
+    >
       <div className="grid-sidebar">
         <DataTable
           rows={pages ?? []}

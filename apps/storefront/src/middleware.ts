@@ -2,12 +2,15 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 /**
- * Proxy (antes `middleware`): refresca la sesión de Supabase en cada navegación.
+ * Refresco de sesión en el borde.
  *
- * Sin esto, el token de acceso caduca y los Server Components empiezan a ver al
- * visitante como anónimo. También protege el área de cuenta.
+ * Nota de convención: Next 16 marca `middleware.ts` como obsoleto a favor de
+ * `proxy.ts`, pero `proxy` solo corre en runtime Node y el adaptador de
+ * Cloudflare Workers (@opennextjs/cloudflare) todavía no lo soporta. Mientras
+ * eso no cambie, esta es la única forma de desplegar en Cloudflare, que es el
+ * hosting elegido. Migrar a `proxy.ts` en cuanto el adaptador lo permita.
  */
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

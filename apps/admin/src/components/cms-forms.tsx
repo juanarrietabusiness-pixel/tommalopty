@@ -31,7 +31,11 @@ export function BannerForm({ initial }: { initial: BannerValues }) {
     <form action={formAction} className="card">
       <div className="card-head">
         <h3>{PLACEMENT_LABELS[initial.placement]}</h3>
-        {initial.isActive ? <span className="tag tag-success">Activo</span> : <span className="tag">Oculto</span>}
+        {initial.isActive ? (
+          <span className="tag tag-success">Activo</span>
+        ) : (
+          <span className="tag">Oculto</span>
+        )}
       </div>
 
       <FormFeedback state={state} />
@@ -57,18 +61,31 @@ export function BannerForm({ initial }: { initial: BannerValues }) {
 
       <div className="field">
         <label htmlFor={`subtitle-${initial.placement}`}>Subtítulo</label>
-        <input id={`subtitle-${initial.placement}`} name="subtitle" defaultValue={initial.subtitle} />
+        <input
+          id={`subtitle-${initial.placement}`}
+          name="subtitle"
+          defaultValue={initial.subtitle}
+        />
       </div>
 
       {initial.placement !== 'announcement_bar' ? (
         <div className="field-row">
           <div className="field">
             <label htmlFor={`ctaLabel-${initial.placement}`}>Texto del botón</label>
-            <input id={`ctaLabel-${initial.placement}`} name="ctaLabel" defaultValue={initial.ctaLabel} />
+            <input
+              id={`ctaLabel-${initial.placement}`}
+              name="ctaLabel"
+              defaultValue={initial.ctaLabel}
+            />
           </div>
           <div className="field">
             <label htmlFor={`ctaUrl-${initial.placement}`}>Enlace del botón</label>
-            <input id={`ctaUrl-${initial.placement}`} name="ctaUrl" defaultValue={initial.ctaUrl} placeholder="/tienda" />
+            <input
+              id={`ctaUrl-${initial.placement}`}
+              name="ctaUrl"
+              defaultValue={initial.ctaUrl}
+              placeholder="/tienda"
+            />
           </div>
         </div>
       ) : null}
@@ -77,13 +94,19 @@ export function BannerForm({ initial }: { initial: BannerValues }) {
         <div className="field">
           <label htmlFor="mediaUrl">Imagen de campaña (URL)</label>
           <input id="mediaUrl" name="mediaUrl" defaultValue={initial.mediaUrl} />
-          <span className="field-hint">
-            Sin imagen se usa el degradado del diseño original.
-          </span>
+          <span className="field-hint">Sin imagen se usa el degradado del diseño original.</span>
         </div>
       ) : null}
 
-      <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: '0.85rem', marginBottom: 16 }}>
+      <label
+        style={{
+          display: 'flex',
+          gap: 8,
+          alignItems: 'center',
+          fontSize: '0.85rem',
+          marginBottom: 16,
+        }}
+      >
         <input type="checkbox" name="isActive" defaultChecked={initial.isActive} />
         Mostrar en la tienda
       </label>

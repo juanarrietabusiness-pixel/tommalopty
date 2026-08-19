@@ -53,11 +53,17 @@ function cartReducer(state: CartLine[], action: CartAction): CartLine[] {
     case 'add': {
       const existing = state.find((line) => line.variantId === action.line.variantId);
       if (!existing) {
-        return [...state, { ...action.line, quantity: clampToStock(action.line.quantity, action.line.maxQuantity) }];
+        return [
+          ...state,
+          { ...action.line, quantity: clampToStock(action.line.quantity, action.line.maxQuantity) },
+        ];
       }
       return state.map((line) =>
         line.variantId === action.line.variantId
-          ? { ...line, quantity: clampToStock(line.quantity + action.line.quantity, line.maxQuantity) }
+          ? {
+              ...line,
+              quantity: clampToStock(line.quantity + action.line.quantity, line.maxQuantity),
+            }
           : line,
       );
     }

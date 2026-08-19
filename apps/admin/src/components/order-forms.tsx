@@ -48,8 +48,8 @@ export function OrderStatusForm({
           <option value="cancelled">Cancelado</option>
         </select>
         <span className="field-hint">
-          Lo normal es que lo actualice el webhook de la pasarela; cámbialo a mano solo para
-          pagos fuera de línea.
+          Lo normal es que lo actualice el webhook de la pasarela; cámbialo a mano solo para pagos
+          fuera de línea.
         </span>
       </div>
 

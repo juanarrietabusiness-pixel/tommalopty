@@ -17,4 +17,12 @@ export { EmptyState } from './components/empty-state';
 export { QuantityStepper, type QuantityStepperProps } from './components/quantity-stepper';
 
 export * from './components/icons';
-export { money, number, percent, shortDate, dateTime, slugify, discountPercent } from './lib/format';
+export {
+  money,
+  number,
+  percent,
+  shortDate,
+  dateTime,
+  slugify,
+  discountPercent,
+} from './lib/format';

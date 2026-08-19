@@ -53,7 +53,9 @@ export function NewsletterBand({
     <section className="cta-band">
       <div className="container">
         <h2>{title ?? 'Únete y recibe -10% en tu primera compra'}</h2>
-        <p>{subtitle ?? 'Suscríbete para enterarte de nuevos lanzamientos y ofertas exclusivas.'}</p>
+        <p>
+          {subtitle ?? 'Suscríbete para enterarte de nuevos lanzamientos y ofertas exclusivas.'}
+        </p>
         <form className="newsletter-form" onSubmit={handleSubmit}>
           <label className="visually-hidden" htmlFor="newsletterEmail">
             Correo electrónico

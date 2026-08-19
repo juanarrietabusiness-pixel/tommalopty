@@ -19,7 +19,9 @@ export function DiscountForm() {
       <div className="field">
         <label htmlFor="code">Código</label>
         <input id="code" name="code" required placeholder="BIENVENIDA10" />
-        <span className="field-hint">Se guarda en mayúsculas y no distingue mayúsculas al canjear.</span>
+        <span className="field-hint">
+          Se guarda en mayúsculas y no distingue mayúsculas al canjear.
+        </span>
         <FieldError state={state} field="code" />
       </div>
 
@@ -40,7 +42,14 @@ export function DiscountForm() {
         </div>
         <div className="field">
           <label htmlFor="minSubtotal">Subtotal mínimo</label>
-          <input id="minSubtotal" name="minSubtotal" type="number" step="0.01" min="0" defaultValue={0} />
+          <input
+            id="minSubtotal"
+            name="minSubtotal"
+            type="number"
+            step="0.01"
+            min="0"
+            defaultValue={0}
+          />
         </div>
       </div>
 

@@ -12,6 +12,9 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/.next/**',
       '**/.turbo/**',
+      // Salida del adaptador de Cloudflare: código generado, no se linta.
+      '**/.open-next/**',
+      '**/.wrangler/**',
       '**/dist/**',
       '**/coverage/**',
       '**/generated/**',

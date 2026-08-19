@@ -89,7 +89,9 @@ export default async function CustomersPage({
             key: 'spent',
             header: 'Total gastado',
             align: 'right',
-            render: (customer) => <span className="cell-strong">{money(customer.total_spent)}</span>,
+            render: (customer) => (
+              <span className="cell-strong">{money(customer.total_spent)}</span>
+            ),
           },
           {
             key: 'last',

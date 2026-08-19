@@ -72,7 +72,13 @@ export function ProductForm({ initial }: { initial?: ProductFormValues }) {
 
             <div className="field">
               <label htmlFor="title">Título</label>
-              <input id="title" name="title" defaultValue={values.title} onBlur={handleTitleBlur} required />
+              <input
+                id="title"
+                name="title"
+                defaultValue={values.title}
+                onBlur={handleTitleBlur}
+                required
+              />
               <FieldError state={state} field="title" />
             </div>
 

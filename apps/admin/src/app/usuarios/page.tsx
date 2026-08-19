@@ -62,7 +62,9 @@ export default async function UsersPage() {
           {
             key: 'created',
             header: 'Alta',
-            render: (profile) => <span className="cell-muted">{shortDate(profile.created_at)}</span>,
+            render: (profile) => (
+              <span className="cell-muted">{shortDate(profile.created_at)}</span>
+            ),
           },
           {
             key: 'change',

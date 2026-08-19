@@ -36,17 +36,32 @@ export function SiteFooter({
             {description ? <p>{description}</p> : null}
             <div className="social-row">
               {social?.facebook ? (
-                <a href={social.facebook} aria-label="Facebook" rel="noreferrer noopener" target="_blank">
+                <a
+                  href={social.facebook}
+                  aria-label="Facebook"
+                  rel="noreferrer noopener"
+                  target="_blank"
+                >
                   <FacebookIcon />
                 </a>
               ) : null}
               {social?.instagram ? (
-                <a href={social.instagram} aria-label="Instagram" rel="noreferrer noopener" target="_blank">
+                <a
+                  href={social.instagram}
+                  aria-label="Instagram"
+                  rel="noreferrer noopener"
+                  target="_blank"
+                >
                   <InstagramIcon />
                 </a>
               ) : null}
               {social?.tiktok ? (
-                <a href={social.tiktok} aria-label="TikTok" rel="noreferrer noopener" target="_blank">
+                <a
+                  href={social.tiktok}
+                  aria-label="TikTok"
+                  rel="noreferrer noopener"
+                  target="_blank"
+                >
                   <TikTokIcon />
                 </a>
               ) : null}

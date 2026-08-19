@@ -35,11 +35,7 @@ function parseSort(value: string | undefined) {
   }
 }
 
-export default async function ShopPage({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>;
-}) {
+export default async function ShopPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const page = Math.max(1, Number(params.pagina ?? '1') || 1);
   const offset = (page - 1) * PAGE_SIZE;

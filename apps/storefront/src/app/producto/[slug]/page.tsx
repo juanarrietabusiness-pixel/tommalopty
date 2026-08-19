@@ -97,7 +97,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         <ProductGallery images={product.images} title={product.title} />
 
         <div>
-          {product.subtitle ? <span className="hero-eyebrow" style={{ color: 'var(--color-muted)' }}>{product.subtitle}</span> : null}
+          {product.subtitle ? (
+            <span className="hero-eyebrow" style={{ color: 'var(--color-muted)' }}>
+              {product.subtitle}
+            </span>
+          ) : null}
           <h1>{product.title}</h1>
           <ProductPurchasePanel product={product} />
           {product.description ? (

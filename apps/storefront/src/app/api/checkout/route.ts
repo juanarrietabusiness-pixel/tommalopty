@@ -68,7 +68,9 @@ export async function POST(request: Request) {
   const variantIds = input.lines.map((line) => line.variantId);
   const { data: variants, error: variantsError } = await supabase
     .from('product_variants')
-    .select('id, title, sku, price, product_id, is_active, products (title), inventory (quantity, reserved_quantity, track_inventory)')
+    .select(
+      'id, title, sku, price, product_id, is_active, products (title), inventory (quantity, reserved_quantity, track_inventory)',
+    )
     .in('id', variantIds);
 
   if (variantsError) {
@@ -205,13 +207,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'order_creation_failed' }, { status: 500 });
   }
 
-  const { error: itemsError } = await supabase.from('order_items').insert(
-    items.map((item) => ({ ...item, order_id: order.id })),
-  );
+  const { error: itemsError } = await supabase
+    .from('order_items')
+    .insert(items.map((item) => ({ ...item, order_id: order.id })));
 
   if (itemsError) {
     console.error('[checkout] Error creando las líneas del pedido:', itemsError);
-    return NextResponse.json({ error: 'order_items_failed', orderNumber: order.order_number }, { status: 500 });
+    return NextResponse.json(
+      { error: 'order_items_failed', orderNumber: order.order_number },
+      { status: 500 },
+    );
   }
 
   // 6. Señal de inicio de pago para Meta (no bloquea el checkout).

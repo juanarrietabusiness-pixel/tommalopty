@@ -47,7 +47,10 @@ export const wompiProvider: PaymentProvider = {
     throw new NotImplementedError('wompi', 'refundPayment');
   },
 
-  verifyWebhook(_request: { body: string; headers: Record<string, string> }): Promise<WebhookVerification> {
+  verifyWebhook(_request: {
+    body: string;
+    headers: Record<string, string>;
+  }): Promise<WebhookVerification> {
     throw new NotImplementedError('wompi', 'verifyWebhook');
   },
 };

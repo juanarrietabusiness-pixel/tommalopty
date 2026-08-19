@@ -13,9 +13,7 @@ import { trackPixelEvent } from './meta-pixel';
  */
 export function ProductPurchasePanel({ product }: { product: ProductDetail }) {
   const { addLine } = useCart();
-  const [selectedVariantId, setSelectedVariantId] = useState(
-    product.variants[0]?.id ?? '',
-  );
+  const [selectedVariantId, setSelectedVariantId] = useState(product.variants[0]?.id ?? '');
   const [quantity, setQuantity] = useState(1);
 
   const variant = useMemo(
@@ -90,9 +88,7 @@ export function ProductPurchasePanel({ product }: { product: ProductDetail }) {
         </div>
       ) : null}
 
-      <p
-        className={`stock-line ${outOfStock ? 'stock-out' : lowStock ? 'stock-low' : 'stock-in'}`}
-      >
+      <p className={`stock-line ${outOfStock ? 'stock-out' : lowStock ? 'stock-low' : 'stock-in'}`}>
         {outOfStock
           ? 'Agotado temporalmente'
           : lowStock

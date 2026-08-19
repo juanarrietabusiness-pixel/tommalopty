@@ -10,7 +10,11 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
     <nav className="breadcrumbs" aria-label="Migas de pan">
       {items.map((item, index) => (
         <span key={`${item.label}-${index}`}>
-          {item.href ? <Link href={item.href}>{item.label}</Link> : <span aria-current="page">{item.label}</span>}
+          {item.href ? (
+            <Link href={item.href}>{item.label}</Link>
+          ) : (
+            <span aria-current="page">{item.label}</span>
+          )}
           {index < items.length - 1 ? <span aria-hidden> / </span> : null}
         </span>
       ))}

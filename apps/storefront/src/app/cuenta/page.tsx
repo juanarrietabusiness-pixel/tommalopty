@@ -54,9 +54,7 @@ export default async function AccountPage() {
               <span className="field-hint">{shortDate(order.created_at)}</span>
               <strong>{money(order.total)}</strong>
             </div>
-            <span className="field-hint">
-              {(order.order_items ?? []).length} artículo(s)
-            </span>
+            <span className="field-hint">{(order.order_items ?? []).length} artículo(s)</span>
           </div>
         ))
       )}

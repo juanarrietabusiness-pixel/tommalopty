@@ -51,7 +51,13 @@ export function IntegrationForm({
       </div>
 
       <label
-        style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: '0.85rem', marginBottom: 16 }}
+        style={{
+          display: 'flex',
+          gap: 8,
+          alignItems: 'center',
+          fontSize: '0.85rem',
+          marginBottom: 16,
+        }}
       >
         <input type="checkbox" name="isEnabled" defaultChecked={isEnabled} disabled={!canEdit} />
         Activar integración

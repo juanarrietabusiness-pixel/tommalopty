@@ -97,10 +97,7 @@ const pageSchema = z.object({
   seoDescription: z.string().optional(),
 });
 
-export async function savePage(
-  _previous: ActionResult,
-  formData: FormData,
-): Promise<ActionResult> {
+export async function savePage(_previous: ActionResult, formData: FormData): Promise<ActionResult> {
   await requireAdmin();
 
   const parsed = pageSchema.safeParse({

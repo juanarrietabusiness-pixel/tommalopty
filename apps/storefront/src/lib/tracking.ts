@@ -12,7 +12,12 @@ import { meta } from '@nebula/integrations';
 export async function sendServerEvent(input: {
   eventName: meta.MetaEventName;
   eventId: string;
-  user?: { email?: string | null; phone?: string | null; firstName?: string | null; lastName?: string | null };
+  user?: {
+    email?: string | null;
+    phone?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+  };
   customData?: meta.MetaCustomData;
   sourceUrl?: string;
 }): Promise<void> {

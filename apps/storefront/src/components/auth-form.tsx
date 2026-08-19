@@ -99,9 +99,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
               minLength={8}
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             />
-            {mode === 'signup' ? (
-              <span className="field-hint">Mínimo 8 caracteres.</span>
-            ) : null}
+            {mode === 'signup' ? <span className="field-hint">Mínimo 8 caracteres.</span> : null}
           </div>
 
           <button
@@ -110,11 +108,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
             style={{ width: '100%' }}
             disabled={status === 'sending'}
           >
-            {status === 'sending'
-              ? 'Procesando…'
-              : mode === 'login'
-                ? 'Entrar'
-                : 'Crear cuenta'}
+            {status === 'sending' ? 'Procesando…' : mode === 'login' ? 'Entrar' : 'Crear cuenta'}
           </button>
         </form>
 

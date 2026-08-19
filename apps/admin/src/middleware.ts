@@ -2,11 +2,15 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 /**
- * Refresca la sesión de Supabase y bloquea el panel a quien no ha entrado.
- * La comprobación de rol se hace en cada pantalla (`requireStaff`) y, sobre
- * todo, en las políticas RLS de la base de datos.
+ * Refresco de sesión en el borde.
+ *
+ * Nota de convención: Next 16 marca `middleware.ts` como obsoleto a favor de
+ * `proxy.ts`, pero `proxy` solo corre en runtime Node y el adaptador de
+ * Cloudflare Workers (@opennextjs/cloudflare) todavía no lo soporta. Mientras
+ * eso no cambie, esta es la única forma de desplegar en Cloudflare, que es el
+ * hosting elegido. Migrar a `proxy.ts` en cuanto el adaptador lo permita.
  */
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

@@ -19,7 +19,13 @@ export function CustomerNoteForm({ customerId }: { customerId: string }) {
       </div>
 
       <label
-        style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: '0.82rem', marginBottom: 14 }}
+        style={{
+          display: 'flex',
+          gap: 8,
+          alignItems: 'center',
+          fontSize: '0.82rem',
+          marginBottom: 14,
+        }}
       >
         <input type="checkbox" name="isPinned" />
         Fijar arriba

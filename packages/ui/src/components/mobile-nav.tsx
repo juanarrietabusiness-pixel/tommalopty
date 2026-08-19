@@ -17,7 +17,12 @@ export function MobileNav({ items, isOpen, onClose }: MobileNavProps) {
       aria-hidden={!isOpen}
       aria-label="Navegación móvil"
     >
-      <button type="button" className="icon-btn close-btn" onClick={onClose} aria-label="Cerrar menú">
+      <button
+        type="button"
+        className="icon-btn close-btn"
+        onClick={onClose}
+        aria-label="Cerrar menú"
+      >
         <CloseIcon />
       </button>
       <ul>

@@ -43,7 +43,10 @@ export const pagueloFacilProvider: PaymentProvider = {
     throw new NotImplementedError('paguelofacil', 'refundPayment');
   },
 
-  verifyWebhook(_request: { body: string; headers: Record<string, string> }): Promise<WebhookVerification> {
+  verifyWebhook(_request: {
+    body: string;
+    headers: Record<string, string>;
+  }): Promise<WebhookVerification> {
     throw new NotImplementedError('paguelofacil', 'verifyWebhook');
   },
 };

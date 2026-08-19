@@ -52,7 +52,9 @@ export function CheckoutForm({
 
   const selectedMethod = shippingMethods.find((method) => method.id === shippingMethodId);
   const shippingCost =
-    selectedMethod && selectedMethod.freeAboveSubtotal !== null && subtotal >= selectedMethod.freeAboveSubtotal
+    selectedMethod &&
+    selectedMethod.freeAboveSubtotal !== null &&
+    subtotal >= selectedMethod.freeAboveSubtotal
       ? 0
       : (selectedMethod?.price ?? 0);
   const total = subtotal + shippingCost;
@@ -225,7 +227,9 @@ export function CheckoutForm({
                     <strong>{option.label}</strong>
                     <span>
                       {option.isConfigured
-                        ? option.methods.map((method) => METHOD_LABELS[method] ?? method).join(' · ')
+                        ? option.methods
+                            .map((method) => METHOD_LABELS[method] ?? method)
+                            .join(' · ')
                         : 'Pendiente de configurar credenciales'}
                     </span>
                   </span>
@@ -233,8 +237,8 @@ export function CheckoutForm({
               ))}
             </div>
             <p className="field-hint" style={{ marginTop: 14 }}>
-              Los datos de tu tarjeta se introducen en el entorno seguro de la pasarela: esta
-              tienda nunca los recibe ni los almacena.
+              Los datos de tu tarjeta se introducen en el entorno seguro de la pasarela: esta tienda
+              nunca los recibe ni los almacena.
             </p>
           </section>
 

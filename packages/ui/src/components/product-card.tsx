@@ -29,8 +29,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
   const { addLine } = useCart();
   const [justAdded, setJustAdded] = useState(false);
 
-  const outOfStock =
-    product.trackInventory === true && (product.availableQuantity ?? 0) <= 0;
+  const outOfStock = product.trackInventory === true && (product.availableQuantity ?? 0) <= 0;
   const canAdd = Boolean(product.defaultVariantId) && !outOfStock;
 
   function handleAdd() {

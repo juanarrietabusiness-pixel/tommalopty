@@ -138,7 +138,9 @@ export default async function ReportsPage({
                 header: 'Disponible',
                 align: 'right',
                 render: (row) => (
-                  <span className="tag tag-warning">{number(Number(row.available_quantity ?? 0))}</span>
+                  <span className="tag tag-warning">
+                    {number(Number(row.available_quantity ?? 0))}
+                  </span>
                 ),
               },
             ]}

@@ -31,7 +31,11 @@ export default async function DashboardPage() {
     <PanelPage title="Dashboard" description="Resumen de los últimos 30 días.">
       <StatGrid>
         <StatCard label="Ingresos" value={money(metrics.revenue)} hint="Pedidos pagados" />
-        <StatCard label="Pedidos" value={number(metrics.orders_count)} hint="Creados en el periodo" />
+        <StatCard
+          label="Pedidos"
+          value={number(metrics.orders_count)}
+          hint="Creados en el periodo"
+        />
         <StatCard label="Ticket medio" value={money(metrics.average_order_value)} />
         <StatCard label="Clientes nuevos" value={number(metrics.new_customers)} />
         <StatCard
