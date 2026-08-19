@@ -1,0 +1,24 @@
+{
+  "name": "@nebula/integrations",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./payments": "./src/payments/index.ts",
+    "./meta": "./src/meta/index.ts",
+    "./email": "./src/email/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@nebula/config": "workspace:*",
+    "eslint": "^9.39.5",
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.11"
+  }
+}
