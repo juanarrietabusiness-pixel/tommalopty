@@ -7,7 +7,7 @@ import { getCtaBand, getFeaturedProducts, getHero } from '@/lib/storefront-data'
 export const revalidate = 300;
 
 export default async function HomePage() {
-  const [hero, products, ctaBand] = await Promise.all([
+  const [hero, catalogo, ctaBand] = await Promise.all([
     getHero(),
     getFeaturedProducts(10),
     getCtaBand(),
@@ -28,7 +28,14 @@ export default async function HomePage() {
 
       <section className="container section" id="catalogo">
         <SectionHead title="Más vendidos" linkLabel="Ver todo" linkHref="/tienda" />
-        <ProductGrid products={toProductCards(products)} />
+        <ProductGrid
+          products={toProductCards(catalogo.products)}
+          emptyMessage={
+            catalogo.degraded
+              ? 'No pudimos cargar el catálogo en este momento. Vuelve a intentarlo en unos minutos.'
+              : 'Todavía no hay productos publicados.'
+          }
+        />
       </section>
 
       <NewsletterBand

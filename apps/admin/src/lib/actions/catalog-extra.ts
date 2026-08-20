@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getSupabaseServerClient } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/auth';
-import { fromDatabaseError, fromZodError, success, type ActionResult } from './result';
+import { checkWrite, fromDatabaseError, fromZodError, success, type ActionResult } from './result';
 
 /* --- Categorías ----------------------------------------------------------- */
 
@@ -47,13 +47,22 @@ export async function createCategory(
   return success('Categoría creada.');
 }
 
-export async function toggleCategory(categoryId: string, isActive: boolean): Promise<void> {
+export async function toggleCategory(categoryId: string, isActive: boolean): Promise<ActionResult> {
   await requireAdmin();
 
   const supabase = await getSupabaseServerClient();
-  await supabase.from('categories').update({ is_active: isActive }).eq('id', categoryId);
+  const problema = checkWrite(
+    await supabase
+      .from('categories')
+      .update({ is_active: isActive })
+      .eq('id', categoryId)
+      .select('id'),
+  );
+
+  if (problema) return problema;
 
   revalidatePath('/catalogo/categorias');
+  return success(isActive ? 'Categoría visible.' : 'Categoría oculta.');
 }
 
 /* --- Inventario ----------------------------------------------------------- */
@@ -79,15 +88,18 @@ export async function updateInventory(
   if (!parsed.success) return fromZodError(parsed.error);
 
   const supabase = await getSupabaseServerClient();
-  const { error } = await supabase
-    .from('inventory')
-    .update({
-      quantity: parsed.data.quantity,
-      low_stock_threshold: parsed.data.lowStockThreshold,
-    })
-    .eq('variant_id', parsed.data.variantId);
+  const problema = checkWrite(
+    await supabase
+      .from('inventory')
+      .update({
+        quantity: parsed.data.quantity,
+        low_stock_threshold: parsed.data.lowStockThreshold,
+      })
+      .eq('variant_id', parsed.data.variantId)
+      .select('variant_id'),
+  );
 
-  if (error) return fromDatabaseError(error);
+  if (problema) return problema;
 
   revalidatePath('/catalogo/inventario');
   return success('Inventario actualizado.');
@@ -155,11 +167,20 @@ export async function createDiscount(
   return success('Descuento creado.');
 }
 
-export async function toggleDiscount(discountId: string, isActive: boolean): Promise<void> {
+export async function toggleDiscount(discountId: string, isActive: boolean): Promise<ActionResult> {
   await requireAdmin();
 
   const supabase = await getSupabaseServerClient();
-  await supabase.from('discounts').update({ is_active: isActive }).eq('id', discountId);
+  const problema = checkWrite(
+    await supabase
+      .from('discounts')
+      .update({ is_active: isActive })
+      .eq('id', discountId)
+      .select('id'),
+  );
+
+  if (problema) return problema;
 
   revalidatePath('/descuentos');
+  return success(isActive ? 'Descuento activado.' : 'Descuento desactivado.');
 }

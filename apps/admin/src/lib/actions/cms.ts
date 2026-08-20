@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { getSupabaseServerClient } from '@/lib/supabase';
 import { toBlocks } from '@/lib/cms-blocks';
 import { requireAdmin } from '@/lib/auth';
-import { fromDatabaseError, fromZodError, success, type ActionResult } from './result';
+import { checkWrite, fromDatabaseError, fromZodError, success, type ActionResult } from './result';
 
 /**
  * CMS propio: banners y páginas se editan aquí y la tienda los lee por ISR,
@@ -63,23 +63,35 @@ export async function saveBanner(
     is_active: input.isActive,
   };
 
-  const { error } = input.id
-    ? await supabase.from('cms_banners').update(payload).eq('id', input.id)
-    : await supabase.from('cms_banners').insert(payload);
-
-  if (error) return fromDatabaseError(error);
+  // El INSERT sí devuelve error si RLS lo rechaza; el UPDATE no, por eso se
+  // comprueban las filas afectadas.
+  if (input.id) {
+    const problema = checkWrite(
+      await supabase.from('cms_banners').update(payload).eq('id', input.id).select('id'),
+    );
+    if (problema) return problema;
+  } else {
+    const { error } = await supabase.from('cms_banners').insert(payload);
+    if (error) return fromDatabaseError(error);
+  }
 
   revalidatePath('/contenido/banners');
   return success(input.id ? 'Banner actualizado.' : 'Banner creado.');
 }
 
-export async function deleteBanner(bannerId: string): Promise<void> {
+export async function deleteBanner(bannerId: string): Promise<ActionResult> {
   await requireAdmin();
 
   const supabase = await getSupabaseServerClient();
-  await supabase.from('cms_banners').delete().eq('id', bannerId);
+  const problema = checkWrite(
+    await supabase.from('cms_banners').delete().eq('id', bannerId).select('id'),
+    'No se borró el banner: tu rol no tiene permiso.',
+  );
+
+  if (problema) return problema;
 
   revalidatePath('/contenido/banners');
+  return success('Banner eliminado.');
 }
 
 /* --- Páginas --------------------------------------------------------------- */
@@ -125,11 +137,15 @@ export async function savePage(_previous: ActionResult, formData: FormData): Pro
     published_at: input.status === 'published' ? new Date().toISOString() : null,
   };
 
-  const { error } = input.id
-    ? await supabase.from('cms_pages').update(payload).eq('id', input.id)
-    : await supabase.from('cms_pages').insert(payload);
-
-  if (error) return fromDatabaseError(error);
+  if (input.id) {
+    const problema = checkWrite(
+      await supabase.from('cms_pages').update(payload).eq('id', input.id).select('id'),
+    );
+    if (problema) return problema;
+  } else {
+    const { error } = await supabase.from('cms_pages').insert(payload);
+    if (error) return fromDatabaseError(error);
+  }
 
   revalidatePath('/contenido/paginas');
   return success(input.id ? 'Página actualizada.' : 'Página creada.');

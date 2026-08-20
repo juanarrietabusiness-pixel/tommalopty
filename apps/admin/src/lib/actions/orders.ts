@@ -5,7 +5,14 @@ import { z } from 'zod';
 import { validateOrderTransition } from '@nebula/domain';
 import { getSupabaseServerClient } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/auth';
-import { failure, fromDatabaseError, fromZodError, success, type ActionResult } from './result';
+import {
+  checkWrite,
+  failure,
+  fromDatabaseError,
+  fromZodError,
+  success,
+  type ActionResult,
+} from './result';
 
 /**
  * Gestión de pedidos.
@@ -78,18 +85,21 @@ export async function updateOrderStatus(
     });
   }
 
-  const { error } = await supabase
-    .from('orders')
-    .update({
-      status: input.status,
-      payment_status: input.paymentStatus,
-      fulfillment_status: input.fulfillmentStatus,
-      // Marcar como pagado fija la fecha de venta que usan los reportes.
-      ...(input.paymentStatus === 'paid' ? { placed_at: new Date().toISOString() } : {}),
-    })
-    .eq('id', input.orderId);
+  const problema = checkWrite(
+    await supabase
+      .from('orders')
+      .update({
+        status: input.status,
+        payment_status: input.paymentStatus,
+        fulfillment_status: input.fulfillmentStatus,
+        // Marcar como pagado fija la fecha de venta que usan los reportes.
+        ...(input.paymentStatus === 'paid' ? { placed_at: new Date().toISOString() } : {}),
+      })
+      .eq('id', input.orderId)
+      .select('id'),
+  );
 
-  if (error) return fromDatabaseError(error);
+  if (problema) return problema;
 
   revalidatePath('/pedidos');
   revalidatePath(`/pedidos/${input.orderId}`);

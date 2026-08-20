@@ -143,6 +143,24 @@ test.describe('checkout', () => {
     await expect(page.getByText(/nunca los recibe ni los almacena/i)).toBeVisible();
   });
 
+  // Regresión: el navegador calculaba el total con precios de localStorage, sin
+  // restar el descuento y evaluando el envío gratis antes del descuento. La
+  // pantalla decía un importe y la pasarela cobraba otro.
+  test('el total sale del servidor, no del navegador', async ({ page }) => {
+    await page.goto('/');
+    await page
+      .locator('.product-card')
+      .first()
+      .getByRole('button', { name: /añadir/i })
+      .click();
+    await page.goto('/checkout');
+
+    // Sin base de datos configurada la cotización no está disponible, así que
+    // el resumen debe decirlo en vez de afirmar un total inventado.
+    const nota = page.locator('.summary-card .field-hint').last();
+    await expect(nota).toContainText(/importe final se confirma en el servidor|importe exacto/i);
+  });
+
   test('con el carrito vacío invita a volver a la tienda', async ({ page }) => {
     await page.goto('/checkout');
     await expect(page.locator('.notice-info')).toContainText(/carrito está vacío/i);

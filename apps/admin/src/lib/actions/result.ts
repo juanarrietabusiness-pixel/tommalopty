@@ -46,3 +46,26 @@ export function fromDatabaseError(error: { code?: string; message: string }): Ac
       return failure(`No se pudo guardar: ${error.message}`);
   }
 }
+
+/**
+ * Comprueba que una escritura realmente escribió.
+ *
+ * Postgres NO devuelve error cuando RLS filtra un UPDATE o un DELETE: la
+ * política simplemente hace invisible la fila, la sentencia afecta a cero filas
+ * y la respuesta es un 200 con datos vacíos. Sin esta comprobación, el panel le
+ * dice «guardado» a un operador cuya escritura fue rechazada.
+ *
+ * Uso: encadenar `.select('id')` a la mutación y pasar el resultado aquí.
+ * Devuelve `null` si todo fue bien, o el error a devolver al formulario.
+ */
+export function checkWrite(
+  result: {
+    data: unknown[] | null;
+    error: { code?: string; message: string } | null;
+  },
+  emptyMessage = 'No se guardó: tu rol no tiene permiso para esta operación, o el registro ya no existe.',
+): ActionResult | null {
+  if (result.error) return fromDatabaseError(result.error);
+  if (!result.data || result.data.length === 0) return failure(emptyMessage);
+  return null;
+}

@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getSupabaseServerClient } from '@/lib/supabase';
 import { requireStaff } from '@/lib/auth';
-import { fromDatabaseError, fromZodError, success, type ActionResult } from './result';
+import { checkWrite, fromDatabaseError, fromZodError, success, type ActionResult } from './result';
 
 /**
  * CRM: notas y etiquetas sobre la ficha del cliente.
@@ -69,12 +69,16 @@ export async function updateCustomerTags(
     .filter(Boolean);
 
   const supabase = await getSupabaseServerClient();
-  const { error } = await supabase
-    .from('customers')
-    .update({ tags })
-    .eq('id', parsed.data.customerId);
 
-  if (error) return fromDatabaseError(error);
+  // Un operador llega hasta aquí (la acción exige `requireStaff`), pero RLS solo
+  // deja escribir en `customers` a admin. Sin comprobar filas afectadas, el
+  // panel le decía «Etiquetas actualizadas» sin haber cambiado nada.
+  const problema = checkWrite(
+    await supabase.from('customers').update({ tags }).eq('id', parsed.data.customerId).select('id'),
+    'No se guardaron las etiquetas: hace falta rol de administrador.',
+  );
+
+  if (problema) return problema;
 
   revalidatePath(`/clientes/${parsed.data.customerId}`);
   return success('Etiquetas actualizadas.');

@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getSupabaseServerClient } from '@/lib/supabase';
 import { requireAdmin, requireStaff } from '@/lib/auth';
-import { failure, fromDatabaseError, fromZodError, success, type ActionResult } from './result';
+import { checkWrite, failure, fromZodError, success, type ActionResult } from './result';
 
 /**
  * Integraciones y roles.
@@ -38,16 +38,19 @@ export async function updateIntegration(
   if (!parsed.success) return fromZodError(parsed.error);
 
   const supabase = await getSupabaseServerClient();
-  const { error } = await supabase
-    .from('integrations')
-    .update({
-      is_enabled: parsed.data.isEnabled,
-      environment: parsed.data.environment,
-      updated_by: session.userId,
-    })
-    .eq('provider', parsed.data.provider);
+  const problema = checkWrite(
+    await supabase
+      .from('integrations')
+      .update({
+        is_enabled: parsed.data.isEnabled,
+        environment: parsed.data.environment,
+        updated_by: session.userId,
+      })
+      .eq('provider', parsed.data.provider)
+      .select('provider'),
+  );
 
-  if (error) return fromDatabaseError(error);
+  if (problema) return problema;
 
   revalidatePath('/configuracion');
   return success('Integración actualizada.');
@@ -82,12 +85,16 @@ export async function updateUserRole(
   }
 
   const supabase = await getSupabaseServerClient();
-  const { error } = await supabase
-    .from('profiles')
-    .update({ role: parsed.data.role })
-    .eq('id', parsed.data.profileId);
+  const problema = checkWrite(
+    await supabase
+      .from('profiles')
+      .update({ role: parsed.data.role })
+      .eq('id', parsed.data.profileId)
+      .select('id'),
+    'No se cambió el rol: hace falta ser superadministrador.',
+  );
 
-  if (error) return fromDatabaseError(error);
+  if (problema) return problema;
 
   revalidatePath('/usuarios');
   return success('Rol actualizado.');

@@ -5,7 +5,14 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { getSupabaseServerClient } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/auth';
-import { failure, fromDatabaseError, fromZodError, success, type ActionResult } from './result';
+import {
+  checkWrite,
+  failure,
+  fromDatabaseError,
+  fromZodError,
+  success,
+  type ActionResult,
+} from './result';
 
 /**
  * Alta y edición de productos.
@@ -114,10 +121,16 @@ export async function createProduct(
 
     if (variant) {
       // El trigger `ensure_inventory_row` ya creó la fila; aquí solo se ajusta.
-      await supabase
-        .from('inventory')
-        .update({ quantity: input.quantity })
-        .eq('variant_id', variant.id);
+      const problemaStock = checkWrite(
+        await supabase
+          .from('inventory')
+          .update({ quantity: input.quantity })
+          .eq('variant_id', variant.id)
+          .select('variant_id'),
+        'El producto se creó, pero no se pudo fijar el stock inicial.',
+      );
+
+      if (problemaStock) return problemaStock;
     }
   }
 
@@ -138,23 +151,39 @@ export async function updateProduct(
   const input = parsed.data;
   const supabase = await getSupabaseServerClient();
 
-  const { error } = await supabase
+  const { data: previo } = await supabase
     .from('products')
-    .update({
-      title: input.title,
-      slug: input.slug,
-      subtitle: input.subtitle ?? null,
-      description: input.description ?? null,
-      brand: input.brand ?? null,
-      status: input.status,
-      is_featured: input.isFeatured,
-      tags: parseTags(input.tags),
-      seo_title: input.seoTitle ?? null,
-      seo_description: input.seoDescription ?? null,
-    })
-    .eq('id', productId);
+    .select('published_at')
+    .eq('id', productId)
+    .maybeSingle();
 
-  if (error) return fromDatabaseError(error);
+  if (!previo) return failure('El producto ya no existe.');
+
+  const problemaProducto = checkWrite(
+    await supabase
+      .from('products')
+      .update({
+        title: input.title,
+        slug: input.slug,
+        subtitle: input.subtitle ?? null,
+        description: input.description ?? null,
+        brand: input.brand ?? null,
+        status: input.status,
+        is_featured: input.isFeatured,
+        tags: parseTags(input.tags),
+        seo_title: input.seoTitle ?? null,
+        seo_description: input.seoDescription ?? null,
+        // Al publicar hay que fijar la fecha: el catálogo ordena por ella, así
+        // que sin esto un producto recién publicado queda al final para siempre.
+        ...(input.status === 'active' && !previo.published_at
+          ? { published_at: new Date().toISOString() }
+          : {}),
+      })
+      .eq('id', productId)
+      .select('id'),
+  );
+
+  if (problemaProducto) return problemaProducto;
 
   const { data: variant } = await supabase
     .from('product_variants')
@@ -165,35 +194,46 @@ export async function updateProduct(
 
   if (!variant) return failure('El producto no tiene variante por defecto.');
 
-  const { error: variantError } = await supabase
-    .from('product_variants')
-    .update({
-      price: input.price,
-      compare_at_price: input.compareAtPrice === '' ? null : Number(input.compareAtPrice),
-      sku: input.sku ?? null,
-    })
-    .eq('id', variant.id);
+  const problemaVariante = checkWrite(
+    await supabase
+      .from('product_variants')
+      .update({
+        price: input.price,
+        compare_at_price: input.compareAtPrice === '' ? null : Number(input.compareAtPrice),
+        sku: input.sku ?? null,
+      })
+      .eq('id', variant.id)
+      .select('id'),
+  );
 
-  if (variantError) return fromDatabaseError(variantError);
+  if (problemaVariante) return problemaVariante;
 
-  const { error: inventoryError } = await supabase
-    .from('inventory')
-    .update({ quantity: input.quantity })
-    .eq('variant_id', variant.id);
+  const problemaInventario = checkWrite(
+    await supabase
+      .from('inventory')
+      .update({ quantity: input.quantity })
+      .eq('variant_id', variant.id)
+      .select('variant_id'),
+  );
 
-  if (inventoryError) return fromDatabaseError(inventoryError);
+  if (problemaInventario) return problemaInventario;
 
   revalidatePath('/catalogo');
   revalidatePath(`/catalogo/${productId}`);
   return success('Producto actualizado.');
 }
 
-export async function archiveProduct(productId: string): Promise<void> {
+export async function archiveProduct(productId: string): Promise<ActionResult> {
   await requireAdmin();
 
   const supabase = await getSupabaseServerClient();
   // Archivar en lugar de borrar: los pedidos históricos referencian el producto.
-  await supabase.from('products').update({ status: 'archived' }).eq('id', productId);
+  const problema = checkWrite(
+    await supabase.from('products').update({ status: 'archived' }).eq('id', productId).select('id'),
+  );
+
+  if (problema) return problema;
 
   revalidatePath('/catalogo');
+  return success('Producto archivado.');
 }

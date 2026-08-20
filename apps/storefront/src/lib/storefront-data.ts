@@ -12,9 +12,16 @@ import { DEMO_ANNOUNCEMENT, DEMO_CTA_BAND, DEMO_HERO, getDemoProducts } from './
 /**
  * Capa de lectura de la tienda.
  *
- * Cada función intenta leer de Supabase y, si no hay credenciales configuradas,
- * cae al contenido de demostración. Los errores reales sí se registran: un fallo
- * de consulta no debe confundirse con "todavía no hay base de datos".
+ * Hay dos situaciones que parecen la misma y NO lo son:
+ *
+ *   1. No hay Supabase configurado — entorno de revisión de diseño. Aquí sí se
+ *      muestra el contenido de demostración: es lo que se quiere ver.
+ *   2. Hay Supabase pero la consulta falló — la base está caída o hay un bug.
+ *      Aquí NO se muestra demostración: enseñar productos y precios inventados
+ *      a un cliente real es peor que no enseñar nada, porque los añade al
+ *      carrito y el checkout los rechaza. Se devuelve vacío y se registra.
+ *
+ * Confundirlas fue un fallo real detectado en auditoría.
  */
 
 export interface BannerContent {
@@ -27,6 +34,8 @@ export interface BannerContent {
 }
 
 function logQueryError(scope: string, error: unknown): void {
+  // Visible en los logs del worker. Si esto aparece en producción, hay
+  // incidente: ver docs/RUNBOOK.md.
   console.error(`[storefront] Error consultando ${scope}:`, error);
 }
 
@@ -40,7 +49,8 @@ export async function getAnnouncement(): Promise<BannerContent | null> {
     return { eyebrow: banner.eyebrow, title: banner.title, subtitle: banner.subtitle };
   } catch (error) {
     logQueryError('la barra de anuncios', error);
-    return DEMO_ANNOUNCEMENT;
+    // Sin barra de anuncios la tienda funciona; con una promoción inventada, no.
+    return null;
   }
 }
 
@@ -61,7 +71,9 @@ export async function getHero(): Promise<BannerContent> {
     };
   } catch (error) {
     logQueryError('el hero', error);
-    return DEMO_HERO;
+    // El hero sin contenido del CMS cae al texto por defecto del diseño, que no
+    // afirma nada falso sobre precios ni promociones.
+    return { title: null, ctaLabel: 'Ver ofertas', ctaHref: '/tienda' };
   }
 }
 
@@ -79,16 +91,28 @@ export async function getCtaBand(): Promise<BannerContent> {
   }
 }
 
-export async function getFeaturedProducts(limit = 10): Promise<CatalogProduct[]> {
-  if (!isSupabaseConfigured()) return getDemoProducts().slice(0, limit);
+export interface CatalogResult {
+  products: CatalogProduct[];
+  /** true = la consulta falló. Permite distinguir "tienda vacía" de "algo se rompió". */
+  degraded: boolean;
+}
+
+export async function getFeaturedProducts(limit = 10): Promise<CatalogResult> {
+  // Sin base de datos configurada: contenido de demostración, a propósito.
+  if (!isSupabaseConfigured()) {
+    return { products: getDemoProducts().slice(0, limit), degraded: false };
+  }
 
   try {
     const client = await getSupabaseServerClient();
     const { products } = await listProducts(client, { limit });
-    return products;
+    return { products, degraded: false };
   } catch (error) {
+    // Con base de datos configurada, un fallo NO devuelve productos de
+    // demostración: serían precios falsos para un cliente real. Mejor un grid
+    // vacío que diga la verdad que una tienda que miente.
     logQueryError('los productos destacados', error);
-    return getDemoProducts().slice(0, limit);
+    return { products: [], degraded: true };
   }
 }
 

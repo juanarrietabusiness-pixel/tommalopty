@@ -1,8 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { money, useCart } from '@nebula/ui';
+import type { Cotizacion } from '@/app/api/checkout/cotizar/route';
 
 export interface ShippingMethodOption {
   id: string;
@@ -50,14 +51,55 @@ export function CheckoutForm({
   const [status, setStatus] = useState<'idle' | 'sending'>('idle');
   const [error, setError] = useState<string | null>(null);
 
-  const selectedMethod = shippingMethods.find((method) => method.id === shippingMethodId);
-  const shippingCost =
-    selectedMethod &&
-    selectedMethod.freeAboveSubtotal !== null &&
-    subtotal >= selectedMethod.freeAboveSubtotal
-      ? 0
-      : (selectedMethod?.price ?? 0);
-  const total = subtotal + shippingCost;
+  // Los totales los calcula el servidor, nunca este componente: aquí no se
+  // conocen los precios reales del catálogo ni cuánto descuenta un cupón, y
+  // adivinarlos hacía que la pantalla mostrara un importe y se cobrara otro.
+  const [cotizacion, setCotizacion] = useState<Cotizacion | null>(null);
+  const [cotizando, setCotizando] = useState(false);
+  const peticionRef = useRef(0);
+
+  useEffect(() => {
+    if (!isHydrated || lines.length === 0) return;
+
+    const peticion = ++peticionRef.current;
+    const controlador = new AbortController();
+
+    // Se espera a que la persona deje de teclear el cupón antes de consultar.
+    const temporizador = window.setTimeout(() => {
+      setCotizando(true);
+
+      void fetch('/api/checkout/cotizar', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        signal: controlador.signal,
+        body: JSON.stringify({
+          lines: lines.map((line) => ({ variantId: line.variantId, quantity: line.quantity })),
+          shippingMethodId: shippingMethodId || undefined,
+          discountCode: discountCode.trim() || undefined,
+        }),
+      })
+        .then((response) => (response.ok ? (response.json() as Promise<Cotizacion>) : null))
+        .then((datos) => {
+          // Una respuesta que llega tarde no debe pisar a una más reciente.
+          if (peticion === peticionRef.current) setCotizacion(datos);
+        })
+        .catch(() => {
+          if (peticion === peticionRef.current) setCotizacion(null);
+        })
+        .finally(() => {
+          if (peticion === peticionRef.current) setCotizando(false);
+        });
+    }, 400);
+
+    return () => {
+      window.clearTimeout(temporizador);
+      controlador.abort();
+    };
+  }, [lines, shippingMethodId, discountCode, isHydrated]);
+
+  // Con el carrito vacío no hay cotización que mostrar. Se deriva en el render
+  // en lugar de limpiarla desde el efecto.
+  const resumen = lines.length > 0 ? cotizacion : null;
 
   if (isHydrated && lines.length === 0) {
     return (
@@ -279,29 +321,60 @@ export function CheckoutForm({
             />
           </div>
 
+          {resumen?.discount ? (
+            <p
+              className={resumen.discount.applied ? 'field-hint' : 'field-error'}
+              role="status"
+              style={{ marginTop: -8, marginBottom: 12 }}
+            >
+              {resumen.discount.applied
+                ? `Código aplicado: −${money(resumen.discountTotal)}`
+                : resumen.discount.reason}
+            </p>
+          ) : null}
+
           <div className="summary-row">
             <span>Subtotal</span>
-            <span>{money(subtotal)}</span>
+            <span>{money(resumen?.subtotal ?? subtotal)}</span>
           </div>
+
+          {resumen && resumen.discountTotal > 0 ? (
+            <div className="summary-row">
+              <span>Descuento</span>
+              <span>−{money(resumen.discountTotal)}</span>
+            </div>
+          ) : null}
+
           <div className="summary-row">
             <span>Envío</span>
-            <span>{shippingCost === 0 ? 'Gratis' : money(shippingCost)}</span>
+            <span>
+              {resumen
+                ? resumen.shippingTotal === 0
+                  ? 'Gratis'
+                  : money(resumen.shippingTotal)
+                : 'Se calcula al confirmar'}
+            </span>
           </div>
+
           <div className="summary-row total">
             <span>Total</span>
-            <span>{money(total)}</span>
+            <span aria-live="polite">
+              {cotizando ? 'Calculando…' : resumen ? money(resumen.total) : money(subtotal)}
+            </span>
           </div>
 
           <button
             type="submit"
             className="btn btn-dark"
             style={{ width: '100%', marginTop: 18 }}
-            disabled={status === 'sending' || lines.length === 0}
+            disabled={status === 'sending' || cotizando || lines.length === 0}
           >
             {status === 'sending' ? 'Procesando…' : 'Confirmar pedido'}
           </button>
           <p className="field-hint" style={{ marginTop: 12, textAlign: 'center' }}>
-            El descuento se valida en el servidor al confirmar.
+            {resumen
+              ? 'Este es el importe exacto que se cobrará.'
+              : 'El importe final se confirma en el servidor.'}
           </p>
         </aside>
       </div>
