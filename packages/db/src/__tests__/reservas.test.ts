@@ -199,6 +199,23 @@ describeIfDb('caducidad de las reservas de stock', () => {
       }
     }
   });
+
+  it('el servidor sí puede ejecutarla', async () => {
+    // La otra mitad del permiso. Revocar de PUBLIC deja EXECUTE solo al
+    // propietario, así que sin el `grant` explícito a service_role la función
+    // queda inservible desde fuera de la base. Es exactamente lo que le pasó a
+    // `create_order` en la 0014, y solo se vio al probar el camino bueno.
+    await client.query('begin');
+    try {
+      await client.query('set local role service_role');
+      const { rows } = await client.query<{ caducados: number }>(
+        `select public.caducar_reservas_de_pedidos(2) as caducados`,
+      );
+      expect(typeof rows[0]!.caducados).toBe('number');
+    } finally {
+      await client.query('rollback');
+    }
+  });
 });
 
 describeIfDb('quién puede crear pedidos', () => {
