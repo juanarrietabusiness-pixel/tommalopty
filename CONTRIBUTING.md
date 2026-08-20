@@ -55,11 +55,15 @@ CI ejecuta esto en cada PR y **todo tiene que estar en verde**:
 | `pnpm build`        | Build de producción de ambas apps          |
 | Migraciones         | Que el esquema aplique limpio desde cero   |
 
+Cuando terminan, un comentario en el PR resume el estado de todo en una tabla.
+
 Además, **a mano**:
 
 - Una aprobación de otra persona. Dos si el PR toca pagos, RLS o datos de
   clientes.
-- Capturas si cambia algo visible.
+- **Abrir el enlace de previsualización** que el bot comenta en el PR y mirar el
+  cambio de verdad. Las capturas automáticas de móvil, tablet y escritorio
+  también quedan adjuntas.
 - Sin `TODO` nuevos sin issue asociado.
 
 **No se mergea con CI en rojo.** Ni "es un fallo intermitente", ni "lo arreglo

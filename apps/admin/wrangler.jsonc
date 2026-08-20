@@ -14,7 +14,11 @@
   "observability": {
     "enabled": true
   },
-  "vars": {
-    "NEXT_PUBLIC_SITE_URL": "http://localhost:3001"
-  }
+  // Habilita las URL de previsualización por versión y por rama. Es lo que
+  // permite abrir cada PR en un enlace propio antes de mergear.
+  // Wrangler 4.44+ las hace coincidir con `workers_dev` si no se declara.
+  "preview_urls": true
+  // Sin `vars` a propósito: las variables NEXT_PUBLIC_* las incrusta Next en
+  // tiempo de build, no en tiempo de ejecución. Se pasan al construir (ver
+  // docs/DESPLIEGUE.md). Los secretos van con `wrangler secret put`.
 }

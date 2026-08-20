@@ -32,6 +32,9 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
 
+      - if: always()
+        run: echo "### Formato, lint y tipos — ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
+
   unitarios:
     name: Tests unitarios
     runs-on: ubuntu-latest
@@ -45,9 +48,18 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       # Sin base de datos, los tests de RLS se omiten solos; corren en el job `base-datos`.
-      - run: pnpm test
+      - run: pnpm test | tee /tmp/unit.log
 
-  base-datos:
+      - if: always()
+        run: |
+          {
+            echo "### Tests unitarios"
+            echo '```'
+            grep -E "Tests |Test Files " /tmp/unit.log || echo "sin salida"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  esquema:
     name: Esquema y políticas RLS
     runs-on: ubuntu-latest
     needs: estatico
@@ -75,7 +87,16 @@ jobs:
       - name: Tests de RLS contra Postgres real
         env:
           TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
-        run: pnpm --filter @nebula/db test
+        run: pnpm --filter @nebula/db test | tee /tmp/rls.log
+
+      - if: always()
+        run: |
+          {
+            echo "### Políticas RLS"
+            echo '```'
+            grep -E "Tests |Test Files " /tmp/rls.log || echo "sin salida"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Comprobar que los tipos generados están al día
         run: |
@@ -128,7 +149,17 @@ jobs:
         run: pnpm --filter @nebula/tests exec playwright install --with-deps chromium
 
       # Corre en escritorio, móvil y tablet, e incluye la auditoría WCAG 2.1 AA.
-      - run: pnpm test:e2e
+      - run: pnpm test:e2e | tee /tmp/e2e.log
+
+      - if: always()
+        run: |
+          {
+            echo "### E2E, accesibilidad y SEO"
+            echo '```'
+            grep -E "passed|failed" /tmp/e2e.log | tail -3 || echo "sin salida"
+            echo '```'
+            echo "Escritorio, móvil y tablet · incluye auditoría WCAG 2.1 AA"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -136,3 +167,70 @@ jobs:
           name: playwright-report
           path: tests/playwright-report/
           retention-days: 7
+
+  resumen:
+    name: Resumen en el PR
+    runs-on: ubuntu-latest
+    needs: [estatico, unitarios, esquema, build, e2e]
+    if: always() && github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/github-script@v7
+        env:
+          R_ESTATICO: ${{ needs.estatico.result }}
+          R_UNIT: ${{ needs.unitarios.result }}
+          R_DB: ${{ needs.esquema.result }}
+          R_BUILD: ${{ needs.build.result }}
+          R_E2E: ${{ needs.e2e.result }}
+        with:
+          script: |
+            const icono = (r) =>
+              r === 'success' ? '🟢' : r === 'skipped' ? '⚪️' : r === 'cancelled' ? '⚫️' : '🔴';
+
+            const filas = [
+              ['Formato · lint · tipos', process.env.R_ESTATICO, 'TypeScript estricto en 7 paquetes'],
+              ['Tests unitarios', process.env.R_UNIT, 'Dinero, precios, stock, estados de pedido'],
+              ['Esquema y RLS', process.env.R_DB, 'Políticas verificadas contra Postgres real'],
+              ['Build de producción', process.env.R_BUILD, 'Tienda y panel'],
+              ['E2E · accesibilidad · SEO', process.env.R_E2E, 'Escritorio, móvil y tablet · WCAG 2.1 AA'],
+            ];
+
+            const todoOk = filas.every(([, r]) => r === 'success');
+
+            const cuerpo = [
+              '<!-- nebula-ci -->',
+              `### ${todoOk ? 'Todas las comprobaciones pasaron' : 'Hay comprobaciones en rojo'}`,
+              '',
+              '| | Comprobación | Qué cubre |',
+              '| --- | --- | --- |',
+              ...filas.map(([n, r, q]) => `| ${icono(r)} | ${n} | ${q} |`),
+              '',
+              todoOk
+                ? 'Listo para revisión humana.'
+                : '**No se mergea con CI en rojo.** Revisa los trabajos fallidos antes de pedir revisión.',
+            ].join('\n');
+
+            const { data: comentarios } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const previo = comentarios.find((c) => c.body?.includes('<!-- nebula-ci -->'));
+
+            if (previo) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: previo.id,
+                body: cuerpo,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: cuerpo,
+              });
+            }

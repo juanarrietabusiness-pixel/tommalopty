@@ -105,6 +105,71 @@ Storage. Una vez definido el dominio público:
    quiere pasar a `next/image`. Hoy se usa `<img>` a propósito, porque el
    dominio varía por entorno.
 
+## Previsualizar un PR antes de mergear
+
+Cada pull request genera dos cosas automáticamente.
+
+### 1. Capturas — funciona hoy, sin credenciales
+
+El trabajo `capturas` de [`preview.yml`](../.github/workflows/preview.yml) construye
+la tienda, la levanta y fotografía portada, catálogo, carrito y checkout en
+escritorio, tablet y móvil. Deja las imágenes adjuntas al PR y comenta el enlace
+de descarga.
+
+No necesita ninguna cuenta: la tienda arranca en modo demostración.
+
+### 2. Enlace en vivo — necesita cuenta de Cloudflare
+
+El trabajo `enlace` sube una **versión** del Worker con
+`wrangler versions upload --preview-alias pr-<número>` y comenta la URL en el PR.
+
+Dos detalles que importan:
+
+- **Es una versión subida, no desplegada.** Producción no se toca hasta que se
+  ejecuta `wrangler deploy` o se promueve la versión.
+- **El enlace no cambia** mientras se añadan commits al mismo PR, porque el
+  alias se deriva del número de pull request.
+
+Mientras no existan los secretos, el trabajo **se salta con un aviso** en lugar
+de dejar el PR en rojo.
+
+#### Qué configurar para activarlo
+
+En **Settings → Secrets and variables → Actions** del repositorio:
+
+| Secreto                     | De dónde sale                                                               |
+| --------------------------- | --------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`      | Cloudflare → My Profile → API Tokens, con permiso _Edit Cloudflare Workers_ |
+| `CLOUDFLARE_ACCOUNT_ID`     | Cloudflare → Workers & Pages, en la barra lateral derecha                   |
+| `STAGING_SUPABASE_URL`      | Proyecto Supabase de staging                                                |
+| `STAGING_SUPABASE_ANON_KEY` | Proyecto Supabase de staging                                                |
+
+Y como _variable_ (no secreto): `PREVIEW_SITE_URL`, con el dominio de
+previsualización.
+
+Apunta la previsualización a **staging, nunca a producción**: un PR con una
+migración a medias no puede tocar datos reales.
+
+#### Alternativa sin GitHub Actions
+
+Cloudflare también ofrece integración directa con el repositorio (**Workers
+Builds**): conectas el repo desde el panel y Cloudflare construye cada PR y
+comenta la URL por su cuenta, sin workflow. Es menos configurable, pero si el
+equipo prefiere no mantener el workflow de despliegue, es una opción válida.
+Los trabajos de tests seguirían en GitHub Actions igual.
+
+## Qué se ejecuta y cuándo
+
+| Evento                   | Qué corre                                                                                                         |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| Abrir o actualizar un PR | Formato, lint, tipos, unitarios, esquema + RLS, build, E2E + accesibilidad, capturas y enlace de previsualización |
+| Push a `develop`         | Todo lo anterior salvo la previsualización                                                                        |
+| Push a `main`            | Todo lo anterior salvo la previsualización                                                                        |
+
+Al terminar, un comentario en el PR resume el estado de cada comprobación en
+una tabla. Se edita el mismo comentario en cada commit, en lugar de apilar uno
+nuevo cada vez.
+
 ## CI/CD
 
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) ejecuta en cada PR:

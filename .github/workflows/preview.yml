@@ -1,0 +1,219 @@
+name: Previsualización del PR
+
+# Publica un enlace donde ver los cambios antes de mergear, y deja las capturas
+# de las tres pantallas como evidencia adjunta al PR.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# Un PR nuevo cancela la previsualización anterior: no tiene sentido gastar
+# minutos publicando un commit que ya quedó atrás.
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  NEXT_PUBLIC_SUPABASE_URL: ''
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ''
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Capturas: funciona sin ninguna credencial. Es la previsualización que hay
+  # disponible desde el primer día, mientras la cuenta de Cloudflare no exista.
+  # ---------------------------------------------------------------------------
+  capturas:
+    name: Capturas en móvil, tablet y escritorio
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.33.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Instalar Chromium
+        run: pnpm --filter @nebula/tests exec playwright install --with-deps chromium
+
+      # Sin Supabase configurado la tienda arranca con el contenido de
+      # demostración, que es justo lo que se quiere previsualizar en un PR.
+      - name: Construir la tienda
+        env:
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:4321
+        run: pnpm --filter @nebula/storefront build
+
+      - name: Levantar la tienda
+        env:
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:4321
+        run: |
+          nohup pnpm --filter @nebula/storefront exec next start --port 4321 > /tmp/tienda.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf -o /dev/null http://127.0.0.1:4321/; then
+              echo "Tienda arriba"; exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::La tienda no respondió en 60 segundos"; exit 1
+
+      - name: Capturar las pantallas
+        env:
+          E2E_BASE_URL: http://127.0.0.1:4321
+        run: pnpm --filter @nebula/tests capturas
+
+      - uses: actions/upload-artifact@v4
+        id: subida
+        with:
+          name: capturas-pr-${{ github.event.pull_request.number }}
+          path: docs/previsualizacion/*.png
+          retention-days: 14
+
+      - name: Comentar en el PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marca = '<!-- nebula-capturas -->';
+            const url = '${{ steps.subida.outputs.artifact-url }}';
+            const cuerpo = [
+              marca,
+              '### Previsualización visual',
+              '',
+              `**[Descargar las capturas](${url})** — portada, catálogo, carrito y checkout en escritorio, tablet y móvil.`,
+              '',
+              `Commit: \`${context.payload.pull_request.head.sha.slice(0, 7)}\``,
+            ].join('\n');
+
+            const { data: comentarios } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const previo = comentarios.find((c) => c.body?.includes(marca));
+
+            // Se edita el comentario existente en lugar de apilar uno por commit.
+            if (previo) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: previo.id,
+                body: cuerpo,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: cuerpo,
+              });
+            }
+
+  # ---------------------------------------------------------------------------
+  # Enlace en vivo: requiere cuenta de Cloudflare. Mientras no existan los
+  # secretos, el trabajo se salta con un aviso claro en lugar de fallar el PR.
+  # ---------------------------------------------------------------------------
+  credenciales:
+    name: ¿Hay credenciales de Cloudflare?
+    runs-on: ubuntu-latest
+    outputs:
+      hay: ${{ steps.check.outputs.hay }}
+    steps:
+      - id: check
+        run: |
+          if [ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ] && [ -n "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]; then
+            echo "hay=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "hay=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Sin CLOUDFLARE_API_TOKEN ni CLOUDFLARE_ACCOUNT_ID: se omite el enlace en vivo. Ver docs/DESPLIEGUE.md."
+          fi
+
+  enlace:
+    name: Publicar previsualización en Cloudflare
+    runs-on: ubuntu-latest
+    needs: credenciales
+    if: needs.credenciales.outputs.hay == 'true'
+    strategy:
+      matrix:
+        app: [storefront, admin]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.33.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Construir para Workers
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ vars.PREVIEW_SITE_URL || 'https://preview.example.com' }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+        run: pnpm --filter @nebula/${{ matrix.app }} cf:build
+
+      # `versions upload` sube una versión SIN promoverla a producción, y el
+      # alias mantiene el mismo enlace mientras se añaden commits al PR.
+      - name: Subir versión de previsualización
+        id: subir
+        working-directory: apps/${{ matrix.app }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          alias="pr-${{ github.event.pull_request.number }}"
+          pnpm exec wrangler versions upload --preview-alias "$alias" | tee salida.txt
+          url=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' salida.txt | head -1)
+          echo "url=${url}" >> "$GITHUB_OUTPUT"
+          echo "alias=${alias}" >> "$GITHUB_OUTPUT"
+
+      - name: Comentar el enlace en el PR
+        uses: actions/github-script@v7
+        env:
+          APP: ${{ matrix.app }}
+          URL: ${{ steps.subir.outputs.url }}
+        with:
+          script: |
+            const app = process.env.APP;
+            const url = process.env.URL;
+            if (!url) {
+              core.warning(`No se pudo extraer la URL de previsualización de ${app}`);
+              return;
+            }
+
+            const marca = `<!-- nebula-preview-${app} -->`;
+            const nombre = app === 'storefront' ? 'Tienda' : 'Panel administrativo';
+            const cuerpo = [
+              marca,
+              `### ${nombre} — previsualización en vivo`,
+              '',
+              `**${url}**`,
+              '',
+              'El enlace no cambia mientras se añadan commits a este PR.',
+              'Es una versión subida, no desplegada: producción no se toca.',
+            ].join('\n');
+
+            const { data: comentarios } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const previo = comentarios.find((c) => c.body?.includes(marca));
+
+            if (previo) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: previo.id,
+                body: cuerpo,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: cuerpo,
+              });
+            }
