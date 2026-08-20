@@ -169,6 +169,19 @@ describeIfDb('visitante anónimo', () => {
     });
   });
 
+  it('no puede crear pedidos saltándose el servidor', async () => {
+    // `create_order` es SECURITY DEFINER y PostgREST la expone en /rest/v1/rpc/.
+    // Si el EXECUTE de PUBLIC vuelve (un `create or replace` lo reconcede en
+    // silencio), cualquiera con la anon key reserva stock a voluntad.
+    await asRole(client, { role: 'anon' }, async (db) => {
+      const blocked = await isWriteBlocked(
+        db,
+        `select * from public.create_order('colado@test.local', '[]'::jsonb)`,
+      );
+      expect(blocked).toBe(true);
+    });
+  });
+
   it('sí puede suscribirse a la newsletter', async () => {
     await asRole(client, { role: 'anon' }, async (db) => {
       const blocked = await isWriteBlocked(
@@ -264,6 +277,16 @@ describeIfDb('cliente autenticado', () => {
         `update public.product_variants set price = 0.01 where price > 0`,
       );
       expect(result.rowCount).toBe(0);
+    });
+  });
+
+  it('tampoco puede crear pedidos saltándose el servidor', async () => {
+    await asRole(client, { role: 'authenticated', userId: CLIENTE_A }, async (db) => {
+      const blocked = await isWriteBlocked(
+        db,
+        `select * from public.create_order('cliente-colado@test.local', '[]'::jsonb)`,
+      );
+      expect(blocked).toBe(true);
     });
   });
 
