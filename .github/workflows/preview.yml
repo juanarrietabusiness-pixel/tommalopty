@@ -16,6 +16,13 @@ permissions:
   contents: read
   pull-requests: write
 
+# Actions usa `bash -e {0}`, sin `pipefail`: en `wrangler ... | tee salida.txt` el
+# código de salida era el de `tee`, así que una subida fallida seguía adelante y
+# solo se notaba más tarde, al no encontrar la URL.
+defaults:
+  run:
+    shell: bash
+
 env:
   NEXT_PUBLIC_SUPABASE_URL: ''
   NEXT_PUBLIC_SUPABASE_ANON_KEY: ''
@@ -27,6 +34,7 @@ jobs:
   # ---------------------------------------------------------------------------
   capturas:
     name: Capturas en móvil, tablet y escritorio
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -117,6 +125,7 @@ jobs:
   # ---------------------------------------------------------------------------
   credenciales:
     name: ¿Hay credenciales de Cloudflare?
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     outputs:
       hay: ${{ steps.check.outputs.hay }}
@@ -132,6 +141,7 @@ jobs:
 
   enlace:
     name: Publicar previsualización en Cloudflare
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     needs: credenciales
     if: needs.credenciales.outputs.hay == 'true'
@@ -165,7 +175,9 @@ jobs:
         run: |
           alias="pr-${{ github.event.pull_request.number }}"
           pnpm exec wrangler versions upload --preview-alias "$alias" | tee salida.txt
-          url=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' salida.txt | head -1)
+          # Sin URL, el paso siguiente avisa y sigue: eso es a propósito, así que
+          # aquí no se aborta (con `pipefail`, un grep sin coincidencias lo haría).
+          url=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' salida.txt | head -1 || true)
           echo "url=${url}" >> "$GITHUB_OUTPUT"
           echo "alias=${alias}" >> "$GITHUB_OUTPUT"
 
