@@ -1,0 +1,45 @@
+/* ============================================================================
+   TOKENS DE DISEÑO — única fuente de verdad del look & feel
+   ----------------------------------------------------------------------------
+   Retematizar la tienda entera se hace aquí. Los valores provienen del
+   esqueleto aprobado por la clienta (docs/design-reference/index.html).
+   ========================================================================== */
+:root {
+  --color-bg: #ffffff;
+  --color-surface: #f7f7f5;
+  --color-text: #141414;
+  --color-muted: #6b7280;
+  --color-border: #e6e6e2;
+
+  --color-primary: #173c2e; /* verde oscuro: barra de anuncios, botones oscuros */
+  --color-primary-dark: #0e2a20;
+  /* Naranja de marca. Se conserva para superficies decorativas grandes, donde
+     no transporta texto: mantiene la identidad visual aprobada. */
+  --color-accent: #ff5a1f;
+  /* Variante accesible del mismo naranja. El de marca sobre blanco da 3.12:1 y
+     WCAG AA exige 4.5:1 en texto pequeño; este da 4.62:1. Se usa en todo lo que
+     lleva texto encima: badge de oferta, precios, botones de acción. */
+  --color-accent-dark: #d1440e;
+  --color-accent-darker: #a3350a;
+
+  /* Estados — derivados para formularios y avisos del panel */
+  --color-success: #1f7a4d;
+  --color-warning: #b45309;
+  --color-danger: #b42318;
+  --color-info: #1e5b8a;
+
+  --font-heading: 'Poppins', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+
+  --container: 1280px;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
+  --shadow-panel: 0 1px 2px rgba(0, 0, 0, 0.05), 0 12px 32px rgba(0, 0, 0, 0.08);
+  --transition: 180ms ease;
+
+  --header-height: 76px;
+  --sidebar-width: 248px;
+}

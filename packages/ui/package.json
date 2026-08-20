@@ -1,0 +1,41 @@
+{
+  "name": "@nebula/ui",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./admin": "./src/admin/index.ts",
+    "./styles/tokens.css": "./src/styles/tokens.css",
+    "./styles/base.css": "./src/styles/base.css",
+    "./styles/storefront.css": "./src/styles/storefront.css",
+    "./styles/admin.css": "./src/styles/admin.css"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@nebula/db": "workspace:*"
+  },
+  "devDependencies": {
+    "@nebula/config": "workspace:*",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "eslint": "^9.39.5",
+    "next": "^16.3.1",
+    "react": "^19.2.0",
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.11"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "next": "^16.0.0"
+  }
+}

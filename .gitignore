@@ -1,0 +1,48 @@
+# Dependencias
+node_modules/
+.pnpm-store/
+
+# Builds
+.next/
+out/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+
+# Entornos — nunca commitear credenciales de pasarelas de pago ni service-role keys
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Supabase local
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+
+# Cloudflare
+.wrangler/
+.open-next/
+.dev.vars
+
+# Editores / SO
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logs y cobertura
+*.log
+npm-debug.log*
+pnpm-debug.log*
+coverage/
+
+# Next.js
+next-env.d.ts
+
+# Playwright
+tests/test-results/
+tests/playwright-report/
+tests/blob-report/

@@ -1,0 +1,4 @@
+/* El panel usa los mismos tokens que la tienda, con la capa de admin encima. */
+@import '@nebula/ui/styles/tokens.css';
+@import '@nebula/ui/styles/base.css';
+@import '@nebula/ui/styles/admin.css';

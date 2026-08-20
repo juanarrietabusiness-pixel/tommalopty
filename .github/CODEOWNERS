@@ -1,0 +1,20 @@
+# Quién revisa qué. GitHub pide su aprobación automáticamente.
+#
+# Sustituir los marcadores por los usuarios reales del equipo. Mientras estén
+# sin asignar, estas rutas NO tienen revisor obligatorio.
+
+# Por defecto
+# *                        @equipo/desarrollo
+
+# Lo que toca dinero, datos personales o permisos: revisión reforzada.
+# /supabase/migrations/     @equipo/backend @equipo/seguridad
+# /packages/domain/         @equipo/backend
+# /packages/integrations/   @equipo/backend @equipo/seguridad
+# /apps/storefront/src/app/api/  @equipo/backend @equipo/seguridad
+
+# Diseño: cambiar tokens afecta a toda la plataforma.
+# /packages/ui/src/styles/  @equipo/diseno
+
+# Infraestructura y despliegue.
+# /.github/                 @equipo/plataforma
+# /apps/*/wrangler.jsonc    @equipo/plataforma

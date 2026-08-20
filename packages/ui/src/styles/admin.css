@@ -1,0 +1,491 @@
+/* ============================================================================
+   PANEL ADMINISTRATIVO — mismos tokens que la tienda, densidad de aplicación
+   ========================================================================== */
+.admin-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  min-height: 100vh;
+  background: var(--color-surface);
+}
+
+/* --- Barra lateral --------------------------------------------------------- */
+.admin-sidebar {
+  background: var(--color-primary-dark);
+  color: #c9cdc4;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+.admin-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 20px;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: #fff;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.admin-brand svg {
+  width: 24px;
+  height: 24px;
+}
+.admin-brand small {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.admin-nav {
+  flex: 1;
+  padding: 16px 12px;
+}
+.admin-nav-group {
+  margin-bottom: 22px;
+}
+.admin-nav-group h4 {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #6f7a70;
+  margin: 0 0 8px 10px;
+  font-weight: 700;
+}
+.admin-nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.83rem;
+  font-weight: 500;
+  color: #c9cdc4;
+  transition: background var(--transition);
+}
+.admin-nav a svg {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+.admin-nav a:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+.admin-nav a[aria-current='page'] {
+  background: var(--color-accent);
+  color: #fff;
+  font-weight: 600;
+}
+.admin-nav a[aria-current='page'] svg {
+  opacity: 1;
+}
+
+.admin-sidebar-footer {
+  padding: 16px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.75rem;
+}
+.admin-sidebar-footer strong {
+  display: block;
+  color: #fff;
+  font-size: 0.8rem;
+}
+.admin-sidebar-footer span {
+  color: #7d8377;
+}
+
+/* --- Cabecera y contenido -------------------------------------------------- */
+.admin-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.admin-topbar {
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  padding: 0 28px;
+  height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+.admin-topbar h1 {
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 0;
+}
+.admin-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-content {
+  padding: 28px;
+  flex: 1;
+}
+
+.admin-page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.admin-page-head p {
+  margin: 4px 0 0;
+  color: var(--color-muted);
+  font-size: 0.84rem;
+}
+
+/* --- Tarjetas y KPIs ------------------------------------------------------- */
+.card {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 22px;
+}
+.card + .card {
+  margin-top: 20px;
+}
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.card-head h2,
+.card-head h3 {
+  font-family: var(--font-heading);
+  font-size: 0.92rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 0;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+}
+.stat-card .stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-muted);
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+.stat-card .stat-value {
+  font-family: var(--font-heading);
+  font-size: 1.7rem;
+  font-weight: 800;
+  margin: 0;
+  line-height: 1.1;
+}
+.stat-card .stat-hint {
+  font-size: 0.74rem;
+  color: var(--color-muted);
+  margin: 6px 0 0;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.grid-sidebar {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  align-items: start;
+}
+
+/* --- Tablas ---------------------------------------------------------------- */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+  min-width: 640px;
+}
+.data-table th {
+  text-align: left;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+  font-weight: 700;
+  padding: 14px 16px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+.data-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.data-table tbody tr:hover {
+  background: var(--color-surface);
+}
+.data-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.data-table .cell-strong {
+  font-weight: 600;
+}
+.data-table .cell-muted {
+  color: var(--color-muted);
+  font-size: 0.78rem;
+}
+.table-thumb {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #eef0ea, #dfe3d8);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.table-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cell-product {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* --- Barra de filtros ------------------------------------------------------ */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.toolbar input[type='search'],
+.toolbar input[type='text'],
+.toolbar select {
+  font: inherit;
+  font-size: 0.84rem;
+  padding: 9px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+.toolbar input[type='search'] {
+  min-width: 260px;
+}
+.toolbar-spacer {
+  flex: 1;
+}
+
+/* --- Formularios del panel ------------------------------------------------- */
+.form-section {
+  margin-bottom: 28px;
+}
+.form-section h3 {
+  font-family: var(--font-heading);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 4px;
+}
+.form-section > p {
+  font-size: 0.78rem;
+  color: var(--color-muted);
+  margin: 0 0 16px;
+}
+.form-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+/* --- Bitácora / timeline --------------------------------------------------- */
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.timeline-item {
+  display: flex;
+  gap: 14px;
+  padding-bottom: 18px;
+  position: relative;
+}
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 16px;
+  bottom: 0;
+  width: 1px;
+  background: var(--color-border);
+}
+.timeline-item:last-child::before {
+  display: none;
+}
+.timeline-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  margin-top: 4px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+.timeline-body p {
+  margin: 0;
+  font-size: 0.84rem;
+}
+.timeline-body time {
+  font-size: 0.72rem;
+  color: var(--color-muted);
+}
+
+/* --- Login del panel ------------------------------------------------------- */
+.admin-login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary-dark);
+  padding: 24px;
+}
+.admin-login-card {
+  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  width: min(420px, 100%);
+  box-shadow: var(--shadow-panel);
+}
+.admin-login-card h1 {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  text-transform: uppercase;
+  margin: 0 0 6px;
+}
+.admin-login-card > p {
+  color: var(--color-muted);
+  font-size: 0.84rem;
+  margin: 0 0 26px;
+}
+
+/* --- Gráfico de barras simple (reportes sin dependencias) ------------------ */
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 180px;
+  padding-top: 12px;
+}
+.bar-chart-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.bar-chart-bar {
+  width: 100%;
+  background: var(--color-primary);
+  border-radius: 4px 4px 0 0;
+  min-height: 2px;
+  transition: background var(--transition);
+}
+.bar-chart-col:hover .bar-chart-bar {
+  background: var(--color-accent);
+}
+.bar-chart-label {
+  font-size: 0.62rem;
+  color: var(--color-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* --- Responsive ------------------------------------------------------------ */
+@media (max-width: 1100px) {
+  .grid-sidebar,
+  .grid-3,
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 860px) {
+  .admin-shell {
+    grid-template-columns: 1fr;
+  }
+  .admin-sidebar {
+    position: static;
+    height: auto;
+  }
+  .admin-nav {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 12px;
+  }
+  .admin-nav-group {
+    margin-bottom: 0;
+  }
+  .admin-nav-group h4 {
+    display: none;
+  }
+  .admin-content {
+    padding: 20px 16px;
+  }
+}

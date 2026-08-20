@@ -1,0 +1,24 @@
+{
+  // Configuración de despliegue en Cloudflare Workers.
+  // Los SECRETOS no van aquí (este archivo está en git): cárgalos con
+  //   wrangler secret put <NOMBRE>
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nebula-admin",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  },
+  // Habilita las URL de previsualización por versión y por rama. Es lo que
+  // permite abrir cada PR en un enlace propio antes de mergear.
+  // Wrangler 4.44+ las hace coincidir con `workers_dev` si no se declara.
+  "preview_urls": true
+  // Sin `vars` a propósito: las variables NEXT_PUBLIC_* las incrusta Next en
+  // tiempo de build, no en tiempo de ejecución. Se pasan al construir (ver
+  // docs/DESPLIEGUE.md). Los secretos van con `wrangler secret put`.
+}
