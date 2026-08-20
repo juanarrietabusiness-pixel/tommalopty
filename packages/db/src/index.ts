@@ -8,6 +8,7 @@ export type {
   Enums,
 } from './generated/database.types';
 
+export { createSupabaseAnonClient } from './client/anon';
 export { createSupabaseBrowserClient } from './client/browser';
 export { createSupabaseServerClient, type CookieAdapter } from './client/server';
 export { createSupabaseServiceClient } from './client/service';

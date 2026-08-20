@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { payments } from '@nebula/integrations';
+import { email as emails, payments } from '@nebula/integrations';
 import { getSupabaseServiceClient } from '@/lib/supabase';
 import { createEventId, sendServerEvent } from '@/lib/tracking';
 
@@ -145,6 +145,40 @@ export async function POST(request: Request) {
 
   // Arranque del pago en la pasarela elegida.
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+  const orderUrl = `${siteUrl}/checkout/confirmacion/${order.confirmation_token}`;
+
+  // El correo que la pantalla de confirmación lleva prometiendo desde el primer
+  // día. Se manda aquí y no después de la pasarela porque el pedido ya existe:
+  // si el pago falla, el cliente igual tiene su número de pedido y el enlace
+  // para seguirlo. Y va en `after()` para no sumarle a la compra la latencia de
+  // un servicio de correo.
+  after(async () => {
+    // Las líneas se releen de la base, no del cuerpo de la petición: el
+    // navegador solo mandó variante y cantidad, y los títulos y precios que el
+    // cliente debe ver en su correo son los que `create_order` dejó grabados.
+    const { data: lineas } = await supabase
+      .from('order_items')
+      .select('product_title, quantity, total')
+      .eq('order_id', order.order_id);
+
+    const resultado = await emails.enviarPedidoRecibido({
+      orderNumber: order.order_number,
+      email: input.email,
+      firstName: input.shippingAddress.firstName,
+      lastName: input.shippingAddress.lastName,
+      total: Number(order.total),
+      items: (lineas ?? []).map((linea) => ({
+        title: linea.product_title,
+        quantity: linea.quantity,
+        total: Number(linea.total),
+      })),
+      orderUrl,
+    });
+
+    if (!resultado.sent && resultado.reason !== 'email_not_configured') {
+      console.error(`[checkout] No se pudo avisar de ${order.order_number}:`, resultado.reason);
+    }
+  });
 
   try {
     const provider = payments.getProvider(input.paymentProvider);
@@ -166,7 +200,7 @@ export async function POST(request: Request) {
       items: [],
       // El token opaco, no el número de pedido: los números son secuenciales y
       // enumerarlos dejaría leer pedidos ajenos.
-      returnUrl: `${siteUrl}/checkout/confirmacion/${order.confirmation_token}`,
+      returnUrl: orderUrl,
       cancelUrl: `${siteUrl}/carrito`,
     });
 

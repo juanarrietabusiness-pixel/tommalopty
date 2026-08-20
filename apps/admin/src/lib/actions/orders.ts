@@ -1,8 +1,10 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { z } from 'zod';
 import { validateOrderTransition } from '@nebula/domain';
+import { email as emails } from '@nebula/integrations';
 import { getSupabaseServerClient } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/auth';
 import {
@@ -63,7 +65,7 @@ export async function updateOrderStatus(
   // Estado actual, para validar que la transición es legal antes de escribir.
   const { data: current } = await supabase
     .from('orders')
-    .select('status, payment_status')
+    .select('status, payment_status, order_number, email, shipping_address')
     .eq('id', input.orderId)
     .maybeSingle();
 
@@ -100,6 +102,28 @@ export async function updateOrderStatus(
   );
 
   if (problema) return problema;
+
+  // Aviso de envío al cliente. Solo en la transición: volver a guardar la ficha
+  // de un pedido que ya estaba enviado no puede reenviar el correo.
+  if (input.status === 'shipped' && current.status !== 'shipped') {
+    after(async () => {
+      const { firstName, lastName } = emails.nombreDeDireccion(current.shipping_address);
+
+      const resultado = await emails.enviarPedidoEnviado({
+        orderNumber: current.order_number,
+        email: current.email,
+        firstName,
+        lastName,
+      });
+
+      if (!resultado.sent && resultado.reason !== 'email_not_configured') {
+        console.error(
+          `[pedidos] No se pudo avisar del envío de ${current.order_number}:`,
+          resultado.reason,
+        );
+      }
+    });
+  }
 
   revalidatePath('/pedidos');
   revalidatePath(`/pedidos/${input.orderId}`);

@@ -12,15 +12,28 @@ export interface SiteFooterProps {
   description?: string | null;
   columns: FooterColumn[];
   social?: { facebook?: string; instagram?: string; tiktok?: string };
-  legalHref?: string;
+  /**
+   * Enlaces legales de la línea inferior.
+   *
+   * Con valores por defecto a propósito: la Ley 81 de 2019 obliga a informar del
+   * tratamiento de datos, y ninguna pasarela de pago aprueba un comercio sin
+   * términos y privacidad visibles. Si dependieran de que el CMS tenga menús
+   * cargados, una tienda recién montada saldría sin ellos.
+   */
+  legalLinks?: NavItem[];
 }
+
+const LEGAL_POR_DEFECTO: NavItem[] = [
+  { label: 'Términos y condiciones', href: '/p/terminos' },
+  { label: 'Política de privacidad', href: '/p/privacidad' },
+];
 
 export function SiteFooter({
   brandName,
   description,
   columns,
   social,
-  legalHref = '/p/terminos',
+  legalLinks = LEGAL_POR_DEFECTO,
 }: SiteFooterProps) {
   const year = new Date().getFullYear();
 
@@ -86,7 +99,13 @@ export function SiteFooter({
           <span>
             © {year} {brandName}
           </span>
-          <Link href={legalHref}>Términos y políticas</Link>
+          <nav className="footer-legal" aria-label="Información legal">
+            {legalLinks.map((link) => (
+              <Link href={link.href} key={link.href}>
+                {link.label}
+              </Link>
+            ))}
+          </nav>
         </div>
       </div>
     </footer>

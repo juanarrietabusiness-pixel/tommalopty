@@ -82,12 +82,21 @@ Desde ahí, el resto de roles se gestionan en el propio panel (**Usuarios y role
 - [`docs/PAGOS-PANAMA.md`](docs/PAGOS-PANAMA.md) — por qué no se usa Stripe y qué pasarelas se integran
 - [`docs/DESPLIEGUE.md`](docs/DESPLIEGUE.md) — entornos, variables y publicación en Cloudflare
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — fases del proyecto y estado actual
+- [`docs/adr/`](docs/adr/) — decisiones de arquitectura y por qué se tomaron
 - [`docs/BRIEF.md`](docs/BRIEF.md) — brief original del proyecto, versionado
 
 ## Estado
 
-Lo que ya funciona de punta a punta y lo que queda pendiente está en
-[`docs/ROADMAP.md`](docs/ROADMAP.md). En resumen: catálogo, carrito, checkout,
-pedidos, CRM, CMS y reportes están operativos; **las pasarelas de pago están
-preparadas pero sin implementar** — sus adaptadores fallan con un mensaje
-explícito hasta que se conecten.
+El objetivo actual es **tener la plataforma completa y desplegada**: tienda,
+panel y CMS terminados, con la estructura lista para enchufar lo que falte. Que
+no haya catálogo real ni pagos activos no lo impide.
+
+Catálogo, carrito, checkout, pedidos, CRM, CMS y reportes están operativos. Lo
+que falta por construir y lo que ya funciona, en
+[`docs/ROADMAP.md`](docs/ROADMAP.md); el orden de trabajo, en
+[`docs/PLAN.md`](docs/PLAN.md).
+
+**Las pasarelas de pago están preparadas pero sin implementar**, a propósito: sus
+adaptadores fallan con un mensaje explícito y el checkout no finge cobros. Se
+conectan cuando la aplicación esté terminada, y el proveedor lo decide la dueña
+de la plataforma — [ADR 0006](docs/adr/0006-pasarela-al-final.md).

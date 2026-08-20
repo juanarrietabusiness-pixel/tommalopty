@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { ProductGrid, SectionHead } from '@nebula/ui';
 import { searchProducts } from '@nebula/db';
-import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
+import { getSupabaseAnonClient, isSupabaseConfigured } from '@/lib/supabase';
 import { toProductCards } from '@/lib/mappers';
 
 export const metadata: Metadata = {
@@ -18,9 +18,7 @@ export default async function SearchPage({
   const term = q.trim();
 
   const products =
-    term && isSupabaseConfigured()
-      ? await searchProducts(await getSupabaseServerClient(), term, 40)
-      : [];
+    term && isSupabaseConfigured() ? await searchProducts(getSupabaseAnonClient(), term, 40) : [];
 
   return (
     <div className="container section">

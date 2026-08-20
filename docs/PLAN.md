@@ -7,6 +7,21 @@ código, es este documento el que está mal.
 
 ---
 
+## El objetivo, en una frase
+
+**Tener la plataforma completa y desplegada: tienda, panel y CMS terminados, con
+toda la estructura lista para enchufar lo que falte.**
+
+Que no haya catálogo real ni métodos de pago activos no lo impide. Cobrar es un
+paso posterior, y su momento y su proveedor los decide la dueña de la plataforma
+([ADR 0006](adr/0006-pasarela-al-final.md)).
+
+Esto invierte el orden que tenía este documento. Antes abría con "Fase A · Poder
+cobrar (bloqueante)"; ahora esa fase espera, y lo que manda es terminar lo que no
+existe.
+
+---
+
 ## Dónde estamos hoy
 
 Se partió de un `index.html` de 711 líneas. Hoy hay una plataforma con dos
@@ -18,8 +33,15 @@ con variantes, carrito persistente, checkout que calcula precios en servidor,
 pedidos con reserva de inventario, panel de cliente, panel administrativo con
 CMS y CRM, y reportes.
 
-**No se puede cobrar todavía.** Las cuatro pasarelas están preparadas con su
-interfaz completa, pero sin implementar. Es el único bloqueante real para vender.
+**No se puede cobrar todavía, y es deliberado.** Las cuatro pasarelas están
+preparadas con su interfaz completa, sin implementar. No bloquea el objetivo
+actual: se conectan al final, cuando la dueña decida proveedor
+([ADR 0006](adr/0006-pasarela-al-final.md)).
+
+**Lo que sí bloquea es el panel a medias.** Hay cinco tablas cuyo contenido no se
+puede editar desde ninguna pantalla: menús, blog, reseñas y campañas no tienen
+interfaz, y las imágenes de producto se pegan como URL en vez de subirse. Ahí
+está el trabajo.
 
 ### Lo que la auditoría cambió
 
@@ -42,39 +64,80 @@ adorno: es la única forma de que este código sobreviva a su propio crecimiento
 
 ## Cómo se decide qué sigue
 
-Por orden. Nada de la fase siguiente empieza si algo de la anterior está a medias.
+Por orden. Nada de la fase siguiente empieza si algo de la anterior está a
+medias. La fase 0 va primero; la A espera a que la dueña decida contratar.
 
-### Fase A · Poder cobrar _(bloqueante)_
+### Fase 0 · Estructura completa y desplegada _(lo que manda hoy)_
 
-Sin esto no hay negocio, solo un catálogo bonito.
+Terminar lo que no existe y ponerlo en un entorno real. Nada de esto necesita
+pasarela, catálogo real ni contenido definitivo.
+
+**Panel y CMS, lo que falta por construir:**
+
+0.1 **Editor de menús.** `cms_menus` se carga por seed y no se puede tocar desde
+el panel. Cambiar un enlace del pie exige SQL.
+0.2 **Subida de imágenes.** Los buckets `product-images` y `cms-media` ya están
+declarados en `supabase/config.toml`; falta la interfaz. Hoy se pegan URLs.
+0.3 **Variantes múltiples.** Hoy solo se gestiona la variante por defecto, así
+que talla y color no son vendibles.
+0.4 **Blog.** `cms_posts` existe sin ninguna pantalla.
+0.5 **Reseñas.** `reviews` existe con estados de moderación y sin moderador.
+0.6 **Campañas.** `campaigns` existe sin interfaz.
+0.7 **Datos personales del cliente.** El panel de cliente muestra pedidos,
+direcciones y favoritos, pero no deja editar nombre ni teléfono.
+
+**Despliegue:**
+
+0.8 **Secretos de Cloudflare** y primer despliegue de los dos Workers.
+0.9 **Entorno de staging** con la base ya creada, y el historial de migraciones
+reconciliado.
+0.10 **Páginas legales completadas** y revisadas. Hacen falta para publicar,
+independientemente del pago.
+
+### Fase A · Poder cobrar _(en espera de decisión de negocio)_
+
+No es bloqueante del objetivo actual. Arranca cuando la dueña de la plataforma
+decida proveedor — ver [ADR 0006](adr/0006-pasarela-al-final.md). Se conserva
+entero para ese momento.
 
 1. **Contratar pasarela.** Recomendación: PayPal (internacional) + Wompi o
    PagueloFacil (tarjetas locales). Stripe no opera en Panamá.
 2. **Implementar el adaptador.** La interfaz y los pasos están documentados en
    cada archivo de `packages/integrations/src/payments/providers/`.
-3. **Verificar el importe en el webhook.** El contrato actual no compara lo
-   cobrado con el total del pedido: hay que añadirlo antes de aceptar dinero real.
+3. ~~**Verificar el importe en el webhook.**~~ Hecho. `WebhookVerification`
+   exige ahora un campo `amount`, y el handler no marca un pedido como pagado si
+   el importe o la divisa no cuadran con `orders.total`: lo registra como
+   anómalo y lo deja pendiente. Al ser un campo requerido del contrato, un
+   adaptador que no lo rellene no compila.
 4. **Probar el flujo completo en sandbox**, incluidos reembolsos.
 
 ### Fase B · Poder operar
 
 Sin esto se vende, pero cada pedido cuesta trabajo manual.
 
-5. **Emails transaccionales.** El proveedor y las plantillas existen; falta
-   engancharlos a los eventos de pedido. Hoy la confirmación promete un correo
-   que no se envía.
-6. **Subida de imágenes desde el panel** a R2. Hoy hay que pegar URLs.
-7. **Variantes múltiples desde el panel.** Hoy solo se gestiona la variante por
-   defecto.
-8. **Reembolsos desde el panel** (depende de la pasarela).
+5. ~~**Emails transaccionales.**~~ Hecho. Tres avisos enganchados a los eventos
+   reales: pedido recibido (al crearlo, desde el checkout), pago confirmado
+   (desde el webhook, solo si el importe cuadra) y pedido enviado (al marcarlo
+   desde el panel). Sin `RESEND_API_KEY` no se envía nada y nada falla: el
+   pedido es el hecho, el correo es el aviso.
+6. Subida de imágenes y 7. variantes múltiples se adelantan a la **fase 0**:
+   son estructura del panel, no operación de venta.
+7. **Reembolsos desde el panel.** Se queda aquí: depende de la pasarela, así que
+   espera con ella.
 
 ### Fase C · Poder crecer
 
 Sin esto se opera, pero el crecimiento cuesta más de lo que debería.
 
-9. **Rendimiento del catálogo.** La ISR declarada no se aplica: leer las cookies
-   fuerza render dinámico en cada visita. Para páginas públicas hay que usar un
-   cliente anónimo sin cookies.
+9. ~~**Rendimiento del catálogo.**~~ Hecho, y el alcance era mayor de lo
+   detectado: no eran las cuatro rutas con `revalidate`, era toda la tienda. La
+   capa de datos compartida —marca, menús, banners— la usa el layout, así que
+   `/`, `/carrito`, `/entrar`, `/buscar`, `/sitemap.xml` y hasta el 404 se
+   renderizaban en cada visita. Con el cliente anónimo sin cookies
+   (`getSupabaseAnonClient`), portada y sitemap son estáticos, y ficha de
+   producto y páginas de CMS se prerenderizan. `/tienda` sigue dinámica, pero
+   por leer `searchParams`, que es legítimo. Un paso de CI falla si alguna
+   página vuelve a perder su prerenderizado.
 10. **Consultas que escalen.** El filtro por categoría carga todos los IDs en
     memoria; los buscadores del panel no tienen índice; los informes agregan la
     tabla entera en cada carga. Detallado en la auditoría.
@@ -104,8 +167,8 @@ carga cuesta conversión.
 - ✅ Fuentes servidas localmente, sin salto de tipografía
 - ✅ CSS sin framework: ~25 KB, no 200 KB
 - ✅ Grid de producto renderizado en servidor
-- ⚠️ **La ISR no se está aplicando** (fase C, punto 9). Es la mayor mejora
-  pendiente de rendimiento.
+- ✅ **Portada y sitemap estáticos; ficha de producto y páginas de CMS
+  prerenderizadas.** Antes cada visita llegaba a Postgres, incluido el 404
 - 🔲 Optimización de imágenes al conectar R2
 - 🔲 Presupuesto de rendimiento medido en CI (Lighthouse)
 
@@ -166,9 +229,10 @@ No es cumplimiento normativo: es mercado. Y el mismo trabajo mejora el SEO.
 
 | Riesgo                               | Impacto                 | Qué lo contiene                                                      |
 | ------------------------------------ | ----------------------- | -------------------------------------------------------------------- |
-| No hay pasarela contratada           | No se puede vender      | Fase A                                                               |
+| No hay pasarela contratada           | No se puede vender aún  | Aplazado a propósito ([ADR 0006](adr/0006-pasarela-al-final.md))     |
 | Sin backups verificados              | Pérdida total de datos  | Supabase Pro + prueba trimestral de restauración                     |
-| Contenido y catálogo de demostración | No se puede lanzar      | Decisión de la clienta                                               |
+| Contenido y catálogo de demostración | No impide desplegar     | Se sustituye cargando datos, sin tocar código                        |
+| Páginas legales sin revisar          | La pasarela no aprueba  | Borradores listos; falta completar datos y revisión legal en Panamá  |
 | Un solo entorno                      | Se prueba en producción | Crear staging antes del lanzamiento                                  |
 | Un único proveedor de hosting        | Dependencia             | El código no usa APIs propietarias ([ADR 0002](adr/0002-hosting.md)) |
 
@@ -189,10 +253,16 @@ No es cumplimiento normativo: es mercado. Y el mismo trabajo mejora el SEO.
 
 ## Lo primero que hay que decidir
 
-Tres decisiones de negocio, no técnicas, que hoy bloquean el avance:
+Una sola cosa bloquea hoy, y no es la pasarela:
 
-1. **Qué pasarelas se contratan.** Bloquea todo lo demás.
-2. **Marca, catálogo y textos reales.** Hoy la tienda muestra los marcadores de
-   posición del esqueleto.
-3. **Dominio y cuenta de Cloudflare**, para levantar staging y empezar a probar
-   de verdad.
+1. **Dominio y cuenta de Cloudflare.** Sin esto no hay despliegue, y sin
+   despliegue no hay "en producción". Es lo único de la fase 0 que no depende de
+   escribir código.
+
+Lo demás ya no bloquea:
+
+- **La pasarela espera** a que la aplicación esté completa, y la elige la dueña
+  de la plataforma ([ADR 0006](adr/0006-pasarela-al-final.md)).
+- **La marca y el catálogo reales** pueden entrar después. La plataforma se
+  despliega y se enseña con contenido de demostración; sustituirlo es cargar
+  datos, no cambiar código.

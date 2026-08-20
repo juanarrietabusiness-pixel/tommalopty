@@ -157,7 +157,7 @@ test.describe('checkout', () => {
 
     // Sin base de datos configurada la cotización no está disponible, así que
     // el resumen debe decirlo en vez de afirmar un total inventado.
-    const nota = page.locator('.summary-card .field-hint').last();
+    const nota = page.getByTestId('nota-total');
     await expect(nota).toContainText(/importe final se confirma en el servidor|importe exacto/i);
   });
 
@@ -165,6 +165,50 @@ test.describe('checkout', () => {
     await page.goto('/checkout');
     await expect(page.locator('.notice-info')).toContainText(/carrito está vacío/i);
     await expect(page.getByRole('link', { name: /vuelve a la tienda/i })).toBeVisible();
+  });
+});
+
+test.describe('páginas legales', () => {
+  // No son enlaces decorativos: la Ley 81 de 2019 obliga a informar del
+  // tratamiento de datos, y ninguna pasarela aprueba un comercio sin términos,
+  // privacidad y devoluciones visibles. Si alguien los quita, la tienda deja de
+  // poder cobrar y no se nota hasta la revisión del proveedor.
+  test('el pie enlaza términos, privacidad y devoluciones', async ({ page }) => {
+    await page.goto('/');
+    const legal = page.getByRole('navigation', { name: /información legal/i });
+
+    await expect(legal.getByRole('link', { name: /términos y condiciones/i })).toHaveAttribute(
+      'href',
+      '/p/terminos',
+    );
+    await expect(legal.getByRole('link', { name: /política de privacidad/i })).toHaveAttribute(
+      'href',
+      '/p/privacidad',
+    );
+    await expect(
+      page.locator('footer').getByRole('link', { name: /cambios y devoluciones/i }),
+    ).toBeVisible();
+  });
+
+  test('el checkout muestra la aceptación antes de confirmar', async ({ page }) => {
+    await page.goto('/');
+    await page
+      .locator('.product-card')
+      .first()
+      .getByRole('button', { name: /añadir/i })
+      .click();
+    await page.goto('/checkout');
+
+    const aceptacion = page.getByText(/al confirmar el pedido aceptas/i);
+    await expect(aceptacion).toBeVisible();
+    await expect(aceptacion.getByRole('link', { name: /términos/i })).toHaveAttribute(
+      'href',
+      '/p/terminos',
+    );
+    await expect(aceptacion.getByRole('link', { name: /privacidad/i })).toHaveAttribute(
+      'href',
+      '/p/privacidad',
+    );
   });
 });
 

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Breadcrumbs } from '@nebula/ui';
 import { getPage, listPublishedPageSlugs, type Json } from '@nebula/db';
-import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
+import { getSupabaseAnonClient, isSupabaseConfigured } from '@/lib/supabase';
 
 export const revalidate = 900;
 export const dynamicParams = true;
@@ -10,7 +10,7 @@ export const dynamicParams = true;
 export async function generateStaticParams() {
   if (!isSupabaseConfigured()) return [];
   try {
-    const client = await getSupabaseServerClient();
+    const client = getSupabaseAnonClient();
     const pages = await listPublishedPageSlugs(client);
     return pages.map((page) => ({ slug: page.slug }));
   } catch {
@@ -20,7 +20,7 @@ export async function generateStaticParams() {
 
 async function loadPage(slug: string) {
   if (!isSupabaseConfigured()) return null;
-  const client = await getSupabaseServerClient();
+  const client = getSupabaseAnonClient();
   return getPage(client, slug);
 }
 

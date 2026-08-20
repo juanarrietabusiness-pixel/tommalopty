@@ -86,6 +86,17 @@ export interface WebhookVerification {
   paymentStatus: 'paid' | 'authorized' | 'failed' | 'refunded' | 'cancelled' | null;
   providerPaymentId: string | null;
   orderReference: string | null;
+  /**
+   * Importe y divisa que la pasarela dice haber cobrado.
+   *
+   * Obligatorio a propósito, aunque valga `null`: el handler de webhooks no
+   * marca un pedido como pagado sin comparar esto contra `orders.total`, y un
+   * campo opcional se olvida justo cuando hay prisa por conectar la primera
+   * pasarela. Al ser requerido, un adaptador que no lo rellene no compila.
+   *
+   * `null` solo para eventos que no mueven dinero (cancelaciones, fallos).
+   */
+  amount: PaymentAmount | null;
 }
 
 export interface PaymentProviderConfig {

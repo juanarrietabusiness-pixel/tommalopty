@@ -486,6 +486,11 @@
   font-size: 0.75rem;
   color: #7d8377;
 }
+.footer-legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+}
 .footer-bottom a {
   color: #7d8377;
 }

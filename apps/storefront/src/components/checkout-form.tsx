@@ -371,10 +371,35 @@ export function CheckoutForm({
           >
             {status === 'sending' ? 'Procesando…' : 'Confirmar pedido'}
           </button>
-          <p className="field-hint" style={{ marginTop: 12, textAlign: 'center' }}>
+          {/*
+            `data-testid` porque el test que vigila esta nota es la regresión del
+            bug de "la pantalla dice un total y se cobra otro". Localizarla por
+            posición la rompía en cuanto se añadía cualquier párrafo debajo.
+          */}
+          <p
+            className="field-hint"
+            data-testid="nota-total"
+            style={{ marginTop: 12, textAlign: 'center' }}
+          >
             {resumen
               ? 'Este es el importe exacto que se cobrará.'
               : 'El importe final se confirma en el servidor.'}
+          </p>
+          {/*
+            La aceptación tiene que estar a la vista en el momento de confirmar,
+            no escondida en el pie: es lo que exige la protección al consumidor y
+            lo que revisa una pasarela antes de aprobar el comercio.
+          */}
+          <p className="field-hint" style={{ marginTop: 8, textAlign: 'center' }}>
+            Al confirmar el pedido aceptas los{' '}
+            <a href="/p/terminos" target="_blank" rel="noreferrer">
+              términos y condiciones
+            </a>{' '}
+            y la{' '}
+            <a href="/p/privacidad" target="_blank" rel="noreferrer">
+              política de privacidad
+            </a>
+            .
           </p>
         </aside>
       </div>

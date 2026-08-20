@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Breadcrumbs } from '@nebula/ui';
 import { getProductBySlug, listPublishedProductSlugs } from '@nebula/db';
-import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
+import { getSupabaseAnonClient, isSupabaseConfigured } from '@/lib/supabase';
 import { ProductGallery } from '@/components/product-gallery';
 import { ProductPurchasePanel } from '@/components/product-purchase-panel';
 
@@ -15,7 +15,7 @@ export async function generateStaticParams() {
   if (!isSupabaseConfigured()) return [];
 
   try {
-    const client = await getSupabaseServerClient();
+    const client = getSupabaseAnonClient();
     const slugs = await listPublishedProductSlugs(client);
     return slugs.slice(0, 200).map((entry) => ({ slug: entry.slug }));
   } catch {
@@ -26,7 +26,7 @@ export async function generateStaticParams() {
 
 async function loadProduct(slug: string) {
   if (!isSupabaseConfigured()) return null;
-  const client = await getSupabaseServerClient();
+  const client = getSupabaseAnonClient();
   return getProductBySlug(client, slug);
 }
 
