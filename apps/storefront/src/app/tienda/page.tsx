@@ -2,11 +2,20 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Breadcrumbs, ProductGrid, SectionHead } from '@nebula/ui';
 import { listCategories, listProducts } from '@nebula/db';
-import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
+import { getSupabaseAnonClient, isSupabaseConfigured } from '@/lib/supabase';
 import { getDemoProducts } from '@/lib/demo-data';
 import { toProductCards } from '@/lib/mappers';
 
-export const revalidate = 300;
+/**
+ * El catálogo se renderiza en cada visita, y no por las cookies: lee
+ * `searchParams` —categoría, filtro, orden y página— y eso es dinámico por
+ * definición. Declarar `revalidate` aquí no cachearía nada y daría a entender
+ * lo contrario.
+ *
+ * Si el tráfico lo pide, lo que hace falta es cachear la consulta por
+ * combinación de filtros, no cambiar el modo de la ruta.
+ */
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Tienda',
@@ -57,7 +66,7 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
     );
   }
 
-  const client = await getSupabaseServerClient();
+  const client = getSupabaseAnonClient();
   const [categories, { products, total }] = await Promise.all([
     listCategories(client),
     listProducts(client, {

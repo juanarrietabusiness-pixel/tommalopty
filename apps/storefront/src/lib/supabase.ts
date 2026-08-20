@@ -1,9 +1,32 @@
 import { cookies } from 'next/headers';
-import { createSupabaseServerClient, createSupabaseServiceClient } from '@nebula/db';
+import {
+  createSupabaseAnonClient,
+  createSupabaseServerClient,
+  createSupabaseServiceClient,
+} from '@nebula/db';
+
+/**
+ * Cliente anónimo, sin cookies, para las lecturas que son iguales para todo el
+ * mundo: catálogo, fichas, páginas del CMS, banners, menús y ajustes públicos.
+ *
+ * Úsalo en cualquier página que declare `revalidate`. El cliente de sesión de
+ * abajo lee cookies, y leer cookies fuerza render dinámico: basta una llamada
+ * para que la ISR de esa ruta deje de aplicarse y cada visita acabe pegando a
+ * Postgres.
+ *
+ * No sirve para nada que dependa de quién mira. Para eso, el de abajo.
+ */
+export function getSupabaseAnonClient() {
+  return createSupabaseAnonClient();
+}
 
 /**
  * Cliente Supabase para Server Components, Server Actions y Route Handlers.
  * Respeta la sesión del visitante, así que todo lo que devuelve pasa por RLS.
+ *
+ * OJO: lee cookies, así que la ruta que lo use se renderiza en cada visita.
+ * Correcto para cuenta, pedidos, favoritos y carrito autenticado; para lo
+ * público, `getSupabaseAnonClient`.
  */
 export async function getSupabaseServerClient() {
   const cookieStore = await cookies();

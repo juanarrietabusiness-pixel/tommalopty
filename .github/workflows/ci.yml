@@ -156,7 +156,26 @@ jobs:
         with: { node-version: 22, cache: pnpm }
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build
+
+      # El log se guarda porque el paso siguiente lo audita. `pipefail` está
+      # activo a nivel de workflow, así que un build roto sigue fallando aquí
+      # aunque la salida pase por `tee`.
+      - name: Build
+        run: pnpm build | tee /tmp/build.log
+
+      # Una lectura de cookies en una página pública anula su ISR sin romper el
+      # build: Next lo avisa y sigue. Así se perdió la caché de toda la tienda
+      # sin que nadie se enterara, hasta que alguien leyó estos logs a mano.
+      # El bloque `env` del workflow deja Supabase configurado, que es la
+      # condición en la que el fallo aparece.
+      - name: Ninguna página pública perdió su prerenderizado
+        run: |
+          if grep -q "Dynamic server usage" /tmp/build.log; then
+            echo "::error::Alguna ruta dejó de prerenderizarse por leer cookies. Usa el cliente anónimo (getSupabaseAnonClient) en las lecturas públicas."
+            grep -n "couldn't be rendered statically" /tmp/build.log | sort -u | head -20
+            exit 1
+          fi
+          echo "Sin rutas degradadas a render dinámico."
 
   e2e:
     name: E2E · accesibilidad · SEO

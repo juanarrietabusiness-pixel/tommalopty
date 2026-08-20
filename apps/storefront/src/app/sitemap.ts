@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { listPublishedPageSlugs, listPublishedProductSlugs } from '@nebula/db';
-import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
+import { getSupabaseAnonClient, isSupabaseConfigured } from '@/lib/supabase';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
@@ -13,7 +13,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   if (!isSupabaseConfigured()) return staticRoutes;
 
   try {
-    const client = await getSupabaseServerClient();
+    const client = getSupabaseAnonClient();
     const [products, pages] = await Promise.all([
       listPublishedProductSlugs(client),
       listPublishedPageSlugs(client),

@@ -77,9 +77,15 @@ Sin esto se vende, pero cada pedido cuesta trabajo manual.
 
 Sin esto se opera, pero el crecimiento cuesta más de lo que debería.
 
-9. **Rendimiento del catálogo.** La ISR declarada no se aplica: leer las cookies
-   fuerza render dinámico en cada visita. Para páginas públicas hay que usar un
-   cliente anónimo sin cookies.
+9. ~~**Rendimiento del catálogo.**~~ Hecho, y el alcance era mayor de lo
+   detectado: no eran las cuatro rutas con `revalidate`, era toda la tienda. La
+   capa de datos compartida —marca, menús, banners— la usa el layout, así que
+   `/`, `/carrito`, `/entrar`, `/buscar`, `/sitemap.xml` y hasta el 404 se
+   renderizaban en cada visita. Con el cliente anónimo sin cookies
+   (`getSupabaseAnonClient`), portada y sitemap son estáticos, y ficha de
+   producto y páginas de CMS se prerenderizan. `/tienda` sigue dinámica, pero
+   por leer `searchParams`, que es legítimo. Un paso de CI falla si alguna
+   página vuelve a perder su prerenderizado.
 10. **Consultas que escalen.** El filtro por categoría carga todos los IDs en
     memoria; los buscadores del panel no tienen índice; los informes agregan la
     tabla entera en cada carga. Detallado en la auditoría.
@@ -109,8 +115,8 @@ carga cuesta conversión.
 - ✅ Fuentes servidas localmente, sin salto de tipografía
 - ✅ CSS sin framework: ~25 KB, no 200 KB
 - ✅ Grid de producto renderizado en servidor
-- ⚠️ **La ISR no se está aplicando** (fase C, punto 9). Es la mayor mejora
-  pendiente de rendimiento.
+- ✅ **Portada y sitemap estáticos; ficha de producto y páginas de CMS
+  prerenderizadas.** Antes cada visita llegaba a Postgres, incluido el 404
 - 🔲 Optimización de imágenes al conectar R2
 - 🔲 Presupuesto de rendimiento medido en CI (Lighthouse)
 

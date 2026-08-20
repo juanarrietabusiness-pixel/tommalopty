@@ -6,7 +6,7 @@ import {
   listProducts,
   type CatalogProduct,
 } from '@nebula/db';
-import { getSupabaseServerClient, isSupabaseConfigured } from './supabase';
+import { getSupabaseAnonClient, isSupabaseConfigured } from './supabase';
 import { DEMO_ANNOUNCEMENT, DEMO_CTA_BAND, DEMO_HERO, getDemoProducts } from './demo-data';
 
 /**
@@ -43,7 +43,7 @@ export async function getAnnouncement(): Promise<BannerContent | null> {
   if (!isSupabaseConfigured()) return DEMO_ANNOUNCEMENT;
 
   try {
-    const client = await getSupabaseServerClient();
+    const client = getSupabaseAnonClient();
     const banner = await getBanner(client, 'announcement_bar');
     if (!banner) return null;
     return { eyebrow: banner.eyebrow, title: banner.title, subtitle: banner.subtitle };
@@ -58,7 +58,7 @@ export async function getHero(): Promise<BannerContent> {
   if (!isSupabaseConfigured()) return DEMO_HERO;
 
   try {
-    const client = await getSupabaseServerClient();
+    const client = getSupabaseAnonClient();
     const banner = await getBanner(client, 'hero');
     if (!banner) return DEMO_HERO;
     return {
@@ -81,7 +81,7 @@ export async function getCtaBand(): Promise<BannerContent> {
   if (!isSupabaseConfigured()) return DEMO_CTA_BAND;
 
   try {
-    const client = await getSupabaseServerClient();
+    const client = getSupabaseAnonClient();
     const banner = await getBanner(client, 'cta_band');
     if (!banner) return DEMO_CTA_BAND;
     return { title: banner.title, subtitle: banner.subtitle, ctaLabel: banner.cta_label };
@@ -104,7 +104,7 @@ export async function getFeaturedProducts(limit = 10): Promise<CatalogResult> {
   }
 
   try {
-    const client = await getSupabaseServerClient();
+    const client = getSupabaseAnonClient();
     const { products } = await listProducts(client, { limit });
     return { products, degraded: false };
   } catch (error) {
@@ -148,7 +148,7 @@ export async function getNavigation(): Promise<{
   if (!isSupabaseConfigured()) return fallback;
 
   try {
-    const client = await getSupabaseServerClient();
+    const client = getSupabaseAnonClient();
     const [header, footerShop, footerHelp] = await Promise.all([
       getMenu(client, 'header'),
       getMenu(client, 'footer_shop'),
@@ -186,7 +186,7 @@ export async function getBrand(): Promise<BrandSettings> {
   if (!isSupabaseConfigured()) return DEFAULT_BRAND;
 
   try {
-    const client = await getSupabaseServerClient();
+    const client = getSupabaseAnonClient();
     const settings = await getPublicSettings(client);
     const brand = (settings.brand ?? {}) as Partial<BrandSettings>;
     const store = (settings.store ?? {}) as { free_shipping_threshold?: number };
