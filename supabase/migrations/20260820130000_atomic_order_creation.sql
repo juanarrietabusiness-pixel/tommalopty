@@ -71,6 +71,13 @@ security definer
 set search_path = public, extensions
 as $$
 declare
+  -- Las líneas viajan como jsonb en variables locales, no en una tabla
+  -- temporal: crear y destruir una tabla en cada compra ensucia el catálogo de
+  -- Postgres a volumen, y además deja la función fuera del análisis estático
+  -- (`supabase db lint`), que es donde se detectarían errores reales.
+  v_pedidas       jsonb;   -- lo que pidió el cliente, agrupado por variante
+  v_lineas        jsonb;   -- ya resueltas contra el catálogo y el stock
+  v_sin_stock     uuid;
   v_customer_id   uuid;
   v_order_id      uuid;
   v_order_number  text;
@@ -81,12 +88,7 @@ declare
   v_shipping      numeric(12,2) := 0;
   v_total         numeric(12,2) := 0;
   v_method        record;
-  -- La instantánea del envío se arma dentro del bloque donde el record existe:
-  -- PL/pgSQL necesita conocer la estructura del record al planificar la
-  -- sentencia, aunque la rama del CASE no se ejecute.
   v_shipping_snapshot jsonb := null;
-  v_line          record;
-  v_available     integer;
 begin
   if p_lines is null or jsonb_array_length(p_lines) = 0 then
     raise exception 'El carrito está vacío.' using errcode = 'P0001';
@@ -94,23 +96,18 @@ begin
 
   -- 1. Agrupar por variante ANTES de validar: dos líneas de la misma variante
   --    son una sola petición de stock, no dos independientes.
-  create temporary table if not exists _order_lines (
-    variant_id uuid primary key,
-    quantity   integer not null,
-    unit_price numeric(10,2),
-    product_id uuid,
-    product_title text,
-    variant_title text,
-    sku text
-  ) on commit drop;
-  delete from _order_lines;
+  select jsonb_agg(jsonb_build_object('variant_id', variant_id, 'quantity', quantity))
+  into v_pedidas
+  from (
+    select (line ->> 'variant_id')::uuid as variant_id,
+           sum((line ->> 'quantity')::int) as quantity
+    from jsonb_array_elements(p_lines) as line
+    group by 1
+  ) agrupadas;
 
-  insert into _order_lines (variant_id, quantity)
-  select (line ->> 'variant_id')::uuid, sum((line ->> 'quantity')::int)
-  from jsonb_array_elements(p_lines) as line
-  group by 1;
-
-  if exists (select 1 from _order_lines where quantity <= 0) then
+  if exists (
+    select 1 from jsonb_array_elements(v_pedidas) l where (l ->> 'quantity')::int <= 0
+  ) then
     raise exception 'Las cantidades deben ser mayores que cero.' using errcode = 'P0001';
   end if;
 
@@ -118,51 +115,59 @@ begin
   --    para evitar interbloqueos entre compras simultáneas.
   perform 1
   from public.inventory i
-  join _order_lines l on l.variant_id = i.variant_id
+  where i.variant_id in (
+    select (l ->> 'variant_id')::uuid from jsonb_array_elements(v_pedidas) l
+  )
   order by i.variant_id
-  for update of i;
+  for update;
 
-  -- 3. Validar cada línea contra el catálogo y el stock ya bloqueado.
-  for v_line in select * from _order_lines order by variant_id loop
-    select
-      v.price, v.product_id, p.title, v.title, v.sku,
-      case
-        when coalesce(inv.track_inventory, false) and not coalesce(inv.allow_backorder, false)
-          then greatest(inv.quantity - inv.reserved_quantity, 0)
-        else 2147483647
-      end
-    into
-      v_line.unit_price, v_line.product_id, v_line.product_title, v_line.variant_title,
-      v_line.sku, v_available
-    from public.product_variants v
-    join public.products p on p.id = v.product_id
-    left join public.inventory inv on inv.variant_id = v.id
-    where v.id = v_line.variant_id
-      and v.is_active
-      -- Solo se vende lo publicado: un borrador puede tener precio de prueba.
-      and p.status = 'active';
+  -- 3. Resolver contra el catálogo con el stock ya bloqueado. Los JOIN filtran
+  --    variantes inactivas y productos sin publicar: si alguna línea no
+  --    sobrevive, el conteo no cuadra y se rechaza el pedido entero.
+  select jsonb_agg(jsonb_build_object(
+    'variant_id',    v.id,
+    'quantity',      r.quantity,
+    'unit_price',    v.price,
+    'product_id',    v.product_id,
+    'product_title', p.title,
+    'variant_title', v.title,
+    'sku',           v.sku,
+    'tracked',       coalesce(inv.track_inventory, false),
+    'available',     case
+                       when coalesce(inv.track_inventory, false)
+                            and not coalesce(inv.allow_backorder, false)
+                         then greatest(inv.quantity - inv.reserved_quantity, 0)
+                       else 2147483647
+                     end
+  ))
+  into v_lineas
+  from (
+    select (l ->> 'variant_id')::uuid as variant_id, (l ->> 'quantity')::int as quantity
+    from jsonb_array_elements(v_pedidas) l
+  ) r
+  join public.product_variants v on v.id = r.variant_id and v.is_active
+  join public.products p on p.id = v.product_id and p.status = 'active'
+  left join public.inventory inv on inv.variant_id = v.id;
 
-    if not found then
-      raise exception 'La variante % no está disponible para la venta.', v_line.variant_id
-        using errcode = 'P0002';
-    end if;
+  if v_lineas is null
+     or jsonb_array_length(v_lineas) <> jsonb_array_length(v_pedidas) then
+    raise exception 'Alguno de los productos ya no está disponible para la venta.'
+      using errcode = 'P0002';
+  end if;
 
-    if v_available < v_line.quantity then
-      raise exception 'Stock insuficiente para la variante % (disponible: %).',
-        v_line.variant_id, v_available
-        using errcode = 'P0003';
-    end if;
+  select (l ->> 'variant_id')::uuid into v_sin_stock
+  from jsonb_array_elements(v_lineas) l
+  where (l ->> 'available')::bigint < (l ->> 'quantity')::int
+  limit 1;
 
-    update _order_lines
-    set unit_price = v_line.unit_price,
-        product_id = v_line.product_id,
-        product_title = v_line.product_title,
-        variant_title = v_line.variant_title,
-        sku = v_line.sku
-    where variant_id = v_line.variant_id;
-  end loop;
+  if v_sin_stock is not null then
+    raise exception 'Stock insuficiente para la variante %.', v_sin_stock
+      using errcode = 'P0003';
+  end if;
 
-  select coalesce(sum(round(unit_price * quantity, 2)), 0) into v_subtotal from _order_lines;
+  select coalesce(sum(round((l ->> 'unit_price')::numeric * (l ->> 'quantity')::int, 2)), 0)
+  into v_subtotal
+  from jsonb_array_elements(v_lineas) l;
 
   -- 4. Ficha de cliente: se reutiliza por email o se crea.
   insert into public.customers (email, first_name, last_name, phone)
@@ -218,26 +223,33 @@ begin
   values (
     v_customer_id, p_email, p_phone, v_subtotal, v_discount, v_shipping, v_total,
     nullif(trim(coalesce(p_discount_code, '')), ''), p_shipping_address,
-    v_shipping_snapshot,
-    p_customer_note
+    v_shipping_snapshot, p_customer_note
   )
   returning id, public.orders.order_number, public.orders.confirmation_token
   into v_order_id, v_order_number, v_token;
 
-  -- 8. Líneas, con instantánea del producto.
+  -- 8. Líneas, con instantánea del producto en el momento de la compra.
   insert into public.order_items (
-    order_id, variant_id, product_id, product_title, variant_title, sku, unit_price, quantity, total
+    order_id, variant_id, product_id, product_title, variant_title, sku,
+    unit_price, quantity, total
   )
   select
-    v_order_id, l.variant_id, l.product_id, l.product_title, l.variant_title, l.sku,
-    l.unit_price, l.quantity, round(l.unit_price * l.quantity, 2)
-  from _order_lines l;
+    v_order_id,
+    (l ->> 'variant_id')::uuid,
+    (l ->> 'product_id')::uuid,
+    l ->> 'product_title',
+    l ->> 'variant_title',
+    l ->> 'sku',
+    (l ->> 'unit_price')::numeric,
+    (l ->> 'quantity')::int,
+    round((l ->> 'unit_price')::numeric * (l ->> 'quantity')::int, 2)
+  from jsonb_array_elements(v_lineas) l;
 
   -- 9. Reservar el stock. Esta es la línea que faltaba: sin ella se vende aire.
   update public.inventory i
-  set reserved_quantity = i.reserved_quantity + l.quantity
-  from _order_lines l
-  where i.variant_id = l.variant_id
+  set reserved_quantity = i.reserved_quantity + (l ->> 'quantity')::int
+  from jsonb_array_elements(v_lineas) l
+  where i.variant_id = (l ->> 'variant_id')::uuid
     and i.track_inventory;
 
   -- 10. Registrar el canje para que los límites del cupón signifiquen algo.
