@@ -180,6 +180,7 @@ No es cumplimiento normativo: es mercado. Y el mismo trabajo mejora el SEO.
 | No hay pasarela contratada           | No se puede vender      | Fase A                                                               |
 | Sin backups verificados              | Pérdida total de datos  | Supabase Pro + prueba trimestral de restauración                     |
 | Contenido y catálogo de demostración | No se puede lanzar      | Decisión de la clienta                                               |
+| Páginas legales sin revisar          | La pasarela no aprueba  | Borradores listos; falta completar datos y revisión legal en Panamá  |
 | Un solo entorno                      | Se prueba en producción | Crear staging antes del lanzamiento                                  |
 | Un único proveedor de hosting        | Dependencia             | El código no usa APIs propietarias ([ADR 0002](adr/0002-hosting.md)) |
 

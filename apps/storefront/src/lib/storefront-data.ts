@@ -128,6 +128,9 @@ const DEFAULT_FOOTER_SHOP: MenuItem[] = [
   { label: 'Novedades', url: '/tienda?filtro=novedades' },
 ];
 
+// Términos y privacidad NO van aquí: los pinta `SiteFooter` en su línea
+// inferior, con valores por defecto propios. Duplicarlos daba dos enlaces al
+// mismo sitio en el mismo pie.
 const DEFAULT_FOOTER_HELP: MenuItem[] = [
   { label: 'Contacto', url: '/p/contacto' },
   { label: 'Envíos', url: '/p/envios' },

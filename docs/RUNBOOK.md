@@ -58,6 +58,34 @@ Si la migración fue destructiva y hay que volver atrás: restaurar desde backup
 asumir la pérdida de datos desde ese punto. Es la razón por la que las
 migraciones destructivas van en dos despliegues separados.
 
+## Antes de abrir al público
+
+Checklist que hay que cerrar entero. No es burocracia: los cuatro primeros
+puntos son lo que revisa una pasarela de pago antes de aprobar el comercio, y
+los dos primeros además son obligación legal en Panamá.
+
+- [ ] **Completar las cuatro páginas legales.** Están redactadas como borrador
+      en el seed —envíos, cambios y devoluciones, términos y condiciones,
+      política de privacidad— con los datos de la empresa entre corchetes y un
+      aviso visible al principio de cada una. Hay que rellenar `[RAZÓN SOCIAL]`,
+      `[RUC]`, `[DIRECCIÓN]`, `[CORREO DE CONTACTO]`, `[TELÉFONO]`, plazos y
+      umbrales, y **borrar el bloque de aviso**. Se editan desde el panel, en
+      **Contenido → Páginas**.
+- [ ] **Revisión por un abogado en Panamá.** El borrador cita la Ley 81 de 2019
+      (protección de datos) y la Ley 45 de 2007 (protección al consumidor), pero
+      no es un texto validado. Publicar condiciones inventadas es peor que no
+      tenerlas.
+- [ ] **Comprobar que se ven desde la tienda**: los cinco enlaces del pie y los
+      dos del checkout, encima del botón de confirmar.
+- [ ] **Contratar la pasarela** y probar el flujo completo en sandbox, incluidos
+      reembolsos.
+- [ ] **Agendar la caducidad de reservas** (sección siguiente). Sin esto el
+      catálogo se marca "agotado" solo.
+- [ ] **Configurar `RESEND_API_KEY` y `EMAIL_FROM`.** Sin ellas no sale ningún
+      correo de pedido: la tienda funciona, pero el cliente no recibe nada.
+- [ ] **Sustituir marca, catálogo y textos de demostración.**
+- [ ] **Verificar una restauración de backup**, no solo que el backup existe.
+
 ## Incidentes
 
 ### La tienda no carga
