@@ -52,17 +52,22 @@ Sin esto no hay negocio, solo un catálogo bonito.
    PagueloFacil (tarjetas locales). Stripe no opera en Panamá.
 2. **Implementar el adaptador.** La interfaz y los pasos están documentados en
    cada archivo de `packages/integrations/src/payments/providers/`.
-3. **Verificar el importe en el webhook.** El contrato actual no compara lo
-   cobrado con el total del pedido: hay que añadirlo antes de aceptar dinero real.
+3. ~~**Verificar el importe en el webhook.**~~ Hecho. `WebhookVerification`
+   exige ahora un campo `amount`, y el handler no marca un pedido como pagado si
+   el importe o la divisa no cuadran con `orders.total`: lo registra como
+   anómalo y lo deja pendiente. Al ser un campo requerido del contrato, un
+   adaptador que no lo rellene no compila.
 4. **Probar el flujo completo en sandbox**, incluidos reembolsos.
 
 ### Fase B · Poder operar
 
 Sin esto se vende, pero cada pedido cuesta trabajo manual.
 
-5. **Emails transaccionales.** El proveedor y las plantillas existen; falta
-   engancharlos a los eventos de pedido. Hoy la confirmación promete un correo
-   que no se envía.
+5. ~~**Emails transaccionales.**~~ Hecho. Tres avisos enganchados a los eventos
+   reales: pedido recibido (al crearlo, desde el checkout), pago confirmado
+   (desde el webhook, solo si el importe cuadra) y pedido enviado (al marcarlo
+   desde el panel). Sin `RESEND_API_KEY` no se envía nada y nada falla: el
+   pedido es el hecho, el correo es el aviso.
 6. **Subida de imágenes desde el panel** a R2. Hoy hay que pegar URLs.
 7. **Variantes múltiples desde el panel.** Hoy solo se gestiona la variante por
    defecto.

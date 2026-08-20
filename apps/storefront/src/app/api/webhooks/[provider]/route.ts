@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { payments } from '@nebula/integrations';
+import { after, NextResponse } from 'next/server';
+import { email, payments } from '@nebula/integrations';
 import type { Json } from '@nebula/db';
 import { getSupabaseServiceClient } from '@/lib/supabase';
 
@@ -84,11 +84,53 @@ export async function POST(
   if (verification.paymentStatus && verification.orderReference) {
     const { data: order } = await supabase
       .from('orders')
-      .select('id')
+      .select('id, order_number, email, total, currency, confirmation_token, shipping_address')
       .eq('order_number', verification.orderReference)
       .maybeSingle();
 
     if (order) {
+      // Antes de tocar nada: ¿lo que dice haberse cobrado es lo que vale el
+      // pedido? Un pago parcial, un importe manipulado o una divisa distinta
+      // entran por esta misma puerta y, sin esta comprobación, salen marcados
+      // como pagados.
+      const descuadre =
+        verification.paymentStatus === 'paid'
+          ? payments.descuadreDeImporte(verification.amount, order.total, order.currency)
+          : null;
+
+      if (descuadre) {
+        // El pedido NO se marca pagado. Se deja constancia en los dos sitios
+        // donde alguien va a mirar: el evento y la bitácora del pedido.
+        console.error(
+          `[webhook:${provider}] Importe descuadrado en ${order.order_number}:`,
+          descuadre,
+        );
+
+        await supabase
+          .from('payment_webhook_events')
+          .update({ order_id: order.id, error_message: descuadre })
+          .eq('provider', providerId)
+          .eq('event_id', eventId);
+
+        await supabase.from('order_events').insert({
+          order_id: order.id,
+          type: 'payment_amount_mismatch',
+          message: descuadre,
+          metadata: {
+            provider: providerId,
+            event_id: eventId,
+            esperado: order.total,
+            recibido: verification.amount?.value ?? null,
+          },
+        });
+
+        // 200 a propósito: reintentar el mismo evento da el mismo descuadre, y
+        // dejar que la pasarela reintente en bucle no arregla nada. Esto lo
+        // resuelve una persona (docs/RUNBOOK.md → "Un pedido se cobró pero no
+        // aparece").
+        return NextResponse.json({ ok: true, anomaly: 'amount_mismatch' });
+      }
+
       await supabase
         .from('orders')
         .update({
@@ -111,10 +153,49 @@ export async function POST(
         .update({ order_id: order.id, processed_at: new Date().toISOString() })
         .eq('provider', providerId)
         .eq('event_id', eventId);
+
+      // Aviso al cliente. Va en `after()` porque la pasarela espera un 200
+      // rápido: si el correo tardara, el proveedor daría el envío por fallido y
+      // reintentaría el evento entero.
+      if (verification.paymentStatus === 'paid') {
+        after(async () => {
+          const { data: lineas } = await supabase
+            .from('order_items')
+            .select('product_title, quantity, total')
+            .eq('order_id', order.id);
+
+          const { firstName, lastName } = email.nombreDeDireccion(order.shipping_address);
+
+          const resultado = await email.enviarPagoConfirmado({
+            orderNumber: order.order_number,
+            email: order.email,
+            firstName,
+            lastName,
+            total: Number(order.total),
+            items: (lineas ?? []).map((linea) => ({
+              title: linea.product_title,
+              quantity: linea.quantity,
+              total: Number(linea.total),
+            })),
+            orderUrl: `${siteUrl()}/checkout/confirmacion/${order.confirmation_token}`,
+          });
+
+          if (!resultado.sent && resultado.reason !== 'email_not_configured') {
+            console.error(
+              `[webhook:${provider}] No se pudo avisar del pago de ${order.order_number}:`,
+              resultado.reason,
+            );
+          }
+        });
+      }
     }
   }
 
   return NextResponse.json({ ok: true });
+}
+
+function siteUrl(): string {
+  return process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 }
 
 function safeParse(body: string): Json {

@@ -41,13 +41,14 @@
 - [x] Conversions API en servidor, con deduplicación por `event_id`
 - [x] Captación de leads desde la newsletter
 - [x] Email transaccional: proveedor y plantillas
-- [ ] Enganchar el envío de emails a los eventos de pedido
+- [x] Emails enganchados a los eventos de pedido (recibido, pagado, enviado)
 - [ ] Campañas y segmentación desde el panel (tablas listas)
 - [ ] Google Analytics 4
 
 ## Fase 5 — Escalado 🔲
 
-- [ ] Reserva de stock durante el checkout
+- [x] Caducidad de las reservas de stock (`caducar_reservas_de_pedidos`)
+- [ ] Reserva de stock durante el checkout, antes de crear el pedido
 - [ ] Recuperación de carritos abandonados
 - [ ] Migrar la búsqueda a Meilisearch si el catálogo crece
 - [ ] Tests end-to-end del flujo de compra
