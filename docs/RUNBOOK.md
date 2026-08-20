@@ -103,6 +103,52 @@ where i.track_inventory;
 
 Recalcular solo tras revisar el resultado.
 
+### Caducidad de reservas (activar una vez por entorno)
+
+`create_order` reserva inventario al crear el pedido. Si nadie paga, esa reserva
+se queda ahí y el catálogo se marca "agotado" solo. La función que lo corrige ya
+está en el esquema, pero **no se agenda sola**: `pg_cron` necesita estar
+precargado y eso no se puede garantizar desde una migración.
+
+Una sola vez por entorno, en el SQL Editor de Supabase:
+
+```sql
+create extension if not exists pg_cron;
+
+select cron.schedule(
+  'caducar-reservas',
+  '*/15 * * * *',
+  $cron$select public.caducar_reservas_de_pedidos(2)$cron$
+);
+```
+
+Comprobar que quedó agendada y que corre:
+
+```sql
+select jobname, schedule, active from cron.job;
+select status, start_time, return_message
+from cron.job_run_details
+where jobname = 'caducar-reservas'
+order by start_time desc limit 5;
+```
+
+El `2` son las horas que un pedido puede estar sin pagar antes de liberar su
+stock. Con tarjeta, dos horas sobra. **Si se conecta un método de pago manual
+—transferencia o ACH— hay que subirlo** a 48 o 72, o se cancelarán pedidos que
+el cliente sí iba a pagar. Se cambia el argumento, no la función:
+
+```sql
+select cron.unschedule('caducar-reservas');
+select cron.schedule('caducar-reservas', '*/15 * * * *',
+                     $cron$select public.caducar_reservas_de_pedidos(48)$cron$);
+```
+
+Para liberar de inmediato sin esperar al planificador:
+
+```sql
+select public.caducar_reservas_de_pedidos(2);  -- devuelve cuántos canceló
+```
+
 ### Sospecha de acceso indebido
 
 1. **No borrar nada.** Los logs son la evidencia.
