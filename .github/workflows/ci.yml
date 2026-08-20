@@ -2,68 +2,137 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  NEXT_PUBLIC_SITE_URL: http://127.0.0.1:4321
+  NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key
+
 jobs:
-  quality:
-    name: Lint · Typecheck · Test · Build
+  # Rápido y barato: si esto falla, no merece la pena arrancar lo demás.
+  estatico:
+    name: Formato · Lint · Tipos
     runs-on: ubuntu-latest
-    env:
-      # Valores ficticios: el build no debe depender de credenciales reales.
-      NEXT_PUBLIC_SITE_URL: http://localhost:3000
-      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key
     steps:
       - uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10.33.0
-
+        with: { version: 10.33.0 }
       - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
+        with: { node-version: 22, cache: pnpm }
 
-      - name: Instalar dependencias
-        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
 
-      - name: Formato
-        run: pnpm format:check
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Tests
-        run: pnpm test
-
-      - name: Build
-        run: pnpm build
-
-  sql:
-    name: Validar migraciones SQL
+  unitarios:
+    name: Tests unitarios
     runs-on: ubuntu-latest
+    needs: estatico
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.33.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
 
+      - run: pnpm install --frozen-lockfile
+      # Sin base de datos, los tests de RLS se omiten solos; corren en el job `base-datos`.
+      - run: pnpm test
+
+  base-datos:
+    name: Esquema y políticas RLS
+    runs-on: ubuntu-latest
+    needs: estatico
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.33.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
       - uses: supabase/setup-cli@v1
-        with:
-          version: latest
+        with: { version: latest }
 
-      - name: Levantar Supabase local (aplica migraciones + seed)
+      - run: pnpm install --frozen-lockfile
+
+      - name: Levantar Supabase (aplica migraciones y seed)
         run: supabase start -x realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor,mailpit
 
       - name: Reaplicar el esquema desde cero
         run: supabase db reset
 
-      - name: Linter de esquema (incluye tablas sin RLS)
+      - name: Linter de esquema (detecta tablas sin RLS)
         run: supabase db lint --level warning
+
+      # Lo importante: que las políticas RLS hagan lo que decimos que hacen.
+      - name: Tests de RLS contra Postgres real
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: pnpm --filter @nebula/db test
+
+      - name: Comprobar que los tipos generados están al día
+        run: |
+          supabase gen types typescript --local > /tmp/types-actuales.ts
+          if ! diff -q packages/db/src/generated/database.types.ts /tmp/types-actuales.ts > /dev/null 2>&1; then
+            echo "::warning::Los tipos generados difieren del esquema. Ejecuta 'pnpm db:types' y commitea."
+          fi
+
+  build:
+    name: Build de producción
+    runs-on: ubuntu-latest
+    needs: estatico
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.33.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - name: Guardar el build para los E2E
+        uses: actions/upload-artifact@v4
+        with:
+          name: storefront-build
+          path: |
+            apps/storefront/.next
+          retention-days: 1
+
+  e2e:
+    name: E2E · accesibilidad · SEO
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.33.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: storefront-build
+          path: apps/storefront/.next
+
+      - name: Instalar Chromium
+        run: pnpm --filter @nebula/tests exec playwright install --with-deps chromium
+
+      # Corre en escritorio, móvil y tablet, e incluye la auditoría WCAG 2.1 AA.
+      - run: pnpm test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: tests/playwright-report/
+          retention-days: 7
