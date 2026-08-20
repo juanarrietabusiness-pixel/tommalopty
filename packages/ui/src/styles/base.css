@@ -93,11 +93,12 @@ button {
 }
 
 .btn-accent {
-  background: var(--color-accent);
+  /* Texto blanco sobre naranja: hace falta la variante oscura para llegar a AA. */
+  background: var(--color-accent-dark);
   color: #fff;
 }
 .btn-accent:hover {
-  background: var(--color-accent-dark);
+  background: var(--color-accent-darker);
 }
 
 .btn-dark {
@@ -142,6 +143,7 @@ button {
   flex-wrap: wrap;
 }
 
+.section-head h1,
 .section-head h2 {
   font-family: var(--font-heading);
   font-weight: 800;

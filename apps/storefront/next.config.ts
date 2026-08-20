@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
 
   // Los paquetes del monorepo se publican como TypeScript sin compilar.
-  transpilePackages: ['@nebula/ui', '@nebula/db', '@nebula/integrations'],
+  transpilePackages: ['@nebula/ui', '@nebula/db', '@nebula/integrations', '@nebula/domain'],
 
   images: {
     // Añadir aquí el dominio público de R2 / Supabase Storage cuando se defina.

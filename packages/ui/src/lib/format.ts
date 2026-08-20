@@ -12,6 +12,10 @@ export function money(amount: number | string | null | undefined): string {
   return new Intl.NumberFormat(LOCALE, {
     style: 'currency',
     currency: CURRENCY,
+    // `narrowSymbol` da "$29.98"; el símbolo por defecto en es-PA es "USD 29.98",
+    // que no coincide con el diseño aprobado y se lee peor en una tarjeta de
+    // producto. Panamá usa el dólar, así que "$" no es ambiguo.
+    currencyDisplay: 'narrowSymbol',
     minimumFractionDigits: 2,
   }).format(value);
 }

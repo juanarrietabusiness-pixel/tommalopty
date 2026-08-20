@@ -46,7 +46,7 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
       <div className="container">
         <Breadcrumbs items={[{ label: 'Inicio', href: '/' }, { label: 'Tienda' }]} />
         <section className="section">
-          <SectionHead title="Tienda" />
+          <SectionHead title="Tienda" as="h1" />
           <p className="notice notice-info">
             Mostrando el catálogo de demostración: todavía no hay una instancia de Supabase
             configurada para este entorno.
@@ -95,7 +95,7 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
       />
 
       <section className="section">
-        <SectionHead title={activeCategory?.name ?? 'Todos los productos'} />
+        <SectionHead title={activeCategory?.name ?? 'Todos los productos'} as="h1" />
 
         <div className="catalog-layout">
           <aside className="filters">

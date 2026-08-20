@@ -296,7 +296,8 @@
   top: 10px;
   right: 10px;
   z-index: 2;
-  background: var(--color-accent);
+  /* Texto blanco pequeño: requiere la variante accesible del naranja. */
+  background: var(--color-accent-dark);
   color: #fff;
   font-size: 0.65rem;
   font-weight: 700;
@@ -367,7 +368,7 @@
   background: var(--color-primary-dark);
 }
 .btn-add.added {
-  background: var(--color-accent);
+  background: var(--color-accent-dark);
 }
 .btn-add:disabled {
   background: var(--color-muted);
@@ -523,6 +524,12 @@
 }
 .cart-drawer.is-open {
   transform: translateX(0);
+  visibility: visible;
+}
+/* Cerrado: fuera del árbol de accesibilidad y del orden de tabulación. Sin
+   esto, quien navega con teclado cae dentro de un panel invisible. */
+.cart-drawer:not(.is-open) {
+  visibility: hidden;
 }
 .drawer-header {
   display: flex;
@@ -626,6 +633,10 @@
 }
 .mobile-nav.is-open {
   transform: translateX(0);
+  visibility: visible;
+}
+.mobile-nav:not(.is-open) {
+  visibility: hidden;
 }
 .mobile-nav .close-btn {
   margin-bottom: 24px;

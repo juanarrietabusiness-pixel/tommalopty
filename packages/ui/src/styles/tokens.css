@@ -13,8 +13,14 @@
 
   --color-primary: #173c2e; /* verde oscuro: barra de anuncios, botones oscuros */
   --color-primary-dark: #0e2a20;
-  --color-accent: #ff5a1f; /* naranja: badge "Oferta", precios, CTAs */
-  --color-accent-dark: #e0490f;
+  /* Naranja de marca. Se conserva para superficies decorativas grandes, donde
+     no transporta texto: mantiene la identidad visual aprobada. */
+  --color-accent: #ff5a1f;
+  /* Variante accesible del mismo naranja. El de marca sobre blanco da 3.12:1 y
+     WCAG AA exige 4.5:1 en texto pequeño; este da 4.62:1. Se usa en todo lo que
+     lleva texto encima: badge de oferta, precios, botones de acción. */
+  --color-accent-dark: #d1440e;
+  --color-accent-darker: #a3350a;
 
   /* Estados — derivados para formularios y avisos del panel */
   --color-success: #1f7a4d;

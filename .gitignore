@@ -41,3 +41,8 @@ coverage/
 
 # Next.js
 next-env.d.ts
+
+# Playwright
+tests/test-results/
+tests/playwright-report/
+tests/blob-report/

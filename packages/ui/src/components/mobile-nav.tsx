@@ -14,7 +14,7 @@ export function MobileNav({ items, isOpen, onClose }: MobileNavProps) {
   return (
     <nav
       className={`mobile-nav${isOpen ? ' is-open' : ''}`}
-      aria-hidden={!isOpen}
+      inert={!isOpen}
       aria-label="Navegación móvil"
     >
       <button

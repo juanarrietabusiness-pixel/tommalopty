@@ -114,7 +114,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        // JSON.stringify no escapa `<`: una descripción con `</script>` cerraría
+        // el bloque e inyectaría markup. El escape lo impide.
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c'),
+        }}
       />
     </div>
   );

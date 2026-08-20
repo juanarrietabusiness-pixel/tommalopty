@@ -2,9 +2,10 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { validateOrderTransition } from '@nebula/domain';
 import { getSupabaseServerClient } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/auth';
-import { fromDatabaseError, fromZodError, success, type ActionResult } from './result';
+import { failure, fromDatabaseError, fromZodError, success, type ActionResult } from './result';
 
 /**
  * Gestión de pedidos.
@@ -51,6 +52,31 @@ export async function updateOrderStatus(
 
   const input = parsed.data;
   const supabase = await getSupabaseServerClient();
+
+  // Estado actual, para validar que la transición es legal antes de escribir.
+  const { data: current } = await supabase
+    .from('orders')
+    .select('status, payment_status')
+    .eq('id', input.orderId)
+    .maybeSingle();
+
+  if (!current) return failure('El pedido ya no existe.');
+
+  const transitionErrors = validateOrderTransition({
+    currentStatus: current.status,
+    nextStatus: input.status,
+    currentPaymentStatus: current.payment_status,
+    nextPaymentStatus: input.paymentStatus,
+  });
+
+  if (transitionErrors.length > 0) {
+    return failure(transitionErrors.map((error) => error.message).join(' '), {
+      status: transitionErrors.filter((e) => e.field === 'status').map((e) => e.message),
+      paymentStatus: transitionErrors
+        .filter((e) => e.field === 'payment_status')
+        .map((e) => e.message),
+    });
+  }
 
   const { error } = await supabase
     .from('orders')

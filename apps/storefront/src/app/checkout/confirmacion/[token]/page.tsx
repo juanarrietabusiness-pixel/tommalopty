@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { money, shortDate } from '@nebula/ui';
 import { getSupabaseServiceClient, isSupabaseConfigured } from '@/lib/supabase';
-import { createEventId, sendServerEvent } from '@/lib/tracking';
+import { sendServerEvent } from '@/lib/tracking';
 
 export const metadata: Metadata = {
   title: 'Pedido confirmado',
@@ -12,45 +12,61 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Confirmación de pedido.
+ *
+ * Se autentica con un token opaco, NO con el número de pedido: los números son
+ * secuenciales (NB-001000, NB-001001…), así que usarlos como credencial permitía
+ * recorrer el histórico completo de la tienda y leer datos de otros compradores.
+ * El token va en la URL de retorno de la pasarela y en el email de confirmación.
+ */
 export default async function OrderConfirmationPage({
   params,
 }: {
-  params: Promise<{ orderNumber: string }>;
+  params: Promise<{ token: string }>;
 }) {
-  const { orderNumber } = await params;
+  const { token } = await params;
 
   if (!isSupabaseConfigured()) notFound();
 
-  // Lectura con service-role: la confirmación debe funcionar también para
-  // compras de invitado, que no tienen sesión.
+  // Un token corto o con formato raro no llega a tocar la base de datos.
+  if (!/^[a-f0-9]{48}$/.test(token)) notFound();
+
   const supabase = getSupabaseServiceClient();
   const { data: order } = await supabase
     .from('orders')
-    .select('*, order_items (*)')
-    .eq('order_number', orderNumber)
+    .select(
+      `id, order_number, status, payment_status, currency, subtotal, discount_total,
+       shipping_total, total, created_at, email,
+       order_items (id, product_title, variant_title, sku, quantity, unit_price, total)`,
+    )
+    .eq('confirmation_token', token)
     .maybeSingle();
 
   if (!order) notFound();
 
-  // Evento de compra en servidor (Conversions API). Se emite aquí porque es el
-  // punto en el que el pedido existe con certeza.
-  await sendServerEvent({
-    eventName: 'Purchase',
-    eventId: createEventId(`purchase-${order.order_number}`),
-    user: { email: order.email },
-    customData: {
-      currency: order.currency,
-      value: order.total,
-      orderId: order.order_number,
-      contents: (order.order_items ?? []).map((item) => ({
-        id: item.sku ?? item.variant_id ?? item.id,
-        quantity: item.quantity,
-        itemPrice: item.unit_price,
-      })),
-    },
-  });
-
   const isPaid = order.payment_status === 'paid';
+
+  // El evento de compra solo se emite cuando el dinero entró, y con un
+  // `event_id` derivado del pedido: recargar la página no inventa conversiones
+  // nuevas ni rompe la deduplicación de Meta.
+  if (isPaid) {
+    void sendServerEvent({
+      eventName: 'Purchase',
+      eventId: `purchase-${order.order_number}`,
+      user: { email: order.email },
+      customData: {
+        currency: order.currency,
+        value: order.total,
+        orderId: order.order_number,
+        contents: (order.order_items ?? []).map((item) => ({
+          id: item.sku ?? item.id,
+          quantity: item.quantity,
+          itemPrice: item.unit_price,
+        })),
+      },
+    });
+  }
 
   return (
     <div className="container section">

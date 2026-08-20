@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@nebula/db": "workspace:*",
+    "@nebula/domain": "workspace:*",
     "@nebula/integrations": "workspace:*",
     "@nebula/ui": "workspace:*",
     "@supabase/ssr": "^0.12.4",

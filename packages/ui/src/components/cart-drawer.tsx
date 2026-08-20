@@ -26,7 +26,9 @@ export function CartDrawer() {
   return (
     <aside
       className={`cart-drawer${isOpen ? ' is-open' : ''}`}
-      aria-hidden={!isOpen}
+      // `inert` saca todo el panel del foco y del árbol de accesibilidad cuando
+      // está cerrado. `aria-hidden` por sí solo no impide tabular dentro.
+      inert={!isOpen}
       aria-label="Tu carrito"
     >
       <div className="drawer-header">

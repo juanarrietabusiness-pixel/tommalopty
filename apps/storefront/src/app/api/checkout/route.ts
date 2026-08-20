@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { payments } from '@nebula/integrations';
-import type { Json } from '@nebula/db';
 import { getSupabaseServiceClient } from '@/lib/supabase';
 import { createEventId, sendServerEvent } from '@/lib/tracking';
 
@@ -47,10 +46,6 @@ const checkoutSchema = z.object({
     .min(1, 'El carrito está vacío'),
 });
 
-function round(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
 export async function POST(request: Request) {
   const parsed = checkoutSchema.safeParse(await request.json().catch(() => null));
 
@@ -64,164 +59,75 @@ export async function POST(request: Request) {
   const input = parsed.data;
   const supabase = getSupabaseServiceClient();
 
-  // 1. Precios reales del catálogo (nunca los del cliente).
-  const variantIds = input.lines.map((line) => line.variantId);
-  const { data: variants, error: variantsError } = await supabase
-    .from('product_variants')
-    .select(
-      'id, title, sku, price, product_id, is_active, products (title), inventory (quantity, reserved_quantity, track_inventory)',
-    )
-    .in('id', variantIds);
-
-  if (variantsError) {
-    console.error('[checkout] Error leyendo variantes:', variantsError);
-    return NextResponse.json({ error: 'catalog_unavailable' }, { status: 503 });
-  }
-
-  const items: {
-    variant_id: string;
-    product_id: string;
-    product_title: string;
-    variant_title: string;
-    sku: string | null;
-    unit_price: number;
-    quantity: number;
-    total: number;
-  }[] = [];
-
-  for (const line of input.lines) {
-    const variant = variants?.find((candidate) => candidate.id === line.variantId);
-
-    if (!variant || !variant.is_active) {
-      return NextResponse.json(
-        { error: 'variant_unavailable', variantId: line.variantId },
-        { status: 409 },
-      );
-    }
-
-    const inventory = Array.isArray(variant.inventory) ? variant.inventory[0] : variant.inventory;
-    const available = (inventory?.quantity ?? 0) - (inventory?.reserved_quantity ?? 0);
-
-    if (inventory?.track_inventory && available < line.quantity) {
-      return NextResponse.json(
-        { error: 'insufficient_stock', variantId: line.variantId, available },
-        { status: 409 },
-      );
-    }
-
-    const product = Array.isArray(variant.products) ? variant.products[0] : variant.products;
-
-    items.push({
-      variant_id: variant.id,
-      product_id: variant.product_id,
-      product_title: product?.title ?? 'Producto',
-      variant_title: variant.title,
-      sku: variant.sku,
-      unit_price: variant.price,
+  // Toda la creación del pedido ocurre dentro de `create_order`, una función
+  // transaccional de Postgres. Ahí se validan catálogo y stock, se bloquea el
+  // inventario, se reservan las unidades, se calculan los totales con los
+  // precios reales y se registra el canje del cupón. O se hace todo, o nada:
+  // hacerlo desde aquí con varias llamadas REST dejaba pedidos a medias y
+  // permitía vender la misma unidad dos veces.
+  const { data: created, error: orderError } = await supabase.rpc('create_order', {
+    p_email: input.email,
+    p_lines: input.lines.map((line) => ({
+      variant_id: line.variantId,
       quantity: line.quantity,
-      total: round(variant.price * line.quantity),
-    });
-  }
+    })),
+    p_shipping_address: input.shippingAddress,
+    p_shipping_method_id: input.shippingMethodId ?? null,
+    p_discount_code: input.discountCode ?? null,
+    p_phone: input.phone ?? null,
+    p_customer_note: input.customerNote ?? null,
+    p_first_name: input.shippingAddress.firstName,
+    p_last_name: input.shippingAddress.lastName,
+  });
 
-  const subtotal = round(items.reduce((sum, item) => sum + item.total, 0));
+  if (orderError) {
+    // Los códigos los define `create_order`; se traducen a algo accionable para
+    // quien está comprando, sin filtrar detalles internos.
+    const mensajes: Record<string, { status: number; error: string; message: string }> = {
+      P0001: { status: 400, error: 'empty_cart', message: 'Tu carrito está vacío.' },
+      P0002: {
+        status: 409,
+        error: 'variant_unavailable',
+        message: 'Uno de los productos ya no está disponible.',
+      },
+      P0003: {
+        status: 409,
+        error: 'insufficient_stock',
+        message: 'No queda suficiente stock de uno de los productos.',
+      },
+      P0004: {
+        status: 409,
+        error: 'invalid_discount',
+        message: 'El código de descuento no es válido o ya se usó.',
+      },
+      P0005: {
+        status: 409,
+        error: 'shipping_method_unavailable',
+        message: 'El método de envío elegido ya no está disponible.',
+      },
+    };
 
-  // 2. Descuento validado por la base de datos.
-  let discountTotal = 0;
-  if (input.discountCode) {
-    const { data: validation } = await supabase.rpc('validate_discount', {
-      p_code: input.discountCode,
-      p_subtotal: subtotal,
-    });
-
-    const result = validation?.[0];
-    if (!result?.is_valid) {
+    const conocido = mensajes[orderError.code ?? ''];
+    if (conocido) {
       return NextResponse.json(
-        { error: 'invalid_discount', reason: result?.reason ?? 'Código no válido' },
-        { status: 409 },
+        { error: conocido.error, message: conocido.message },
+        { status: conocido.status },
       );
     }
-    discountTotal = round(result.amount);
-  }
 
-  // 3. Envío.
-  let shippingTotal = 0;
-  let shippingMethodSnapshot: Json | null = null;
-
-  if (input.shippingMethodId) {
-    const { data: method } = await supabase
-      .from('shipping_methods')
-      .select('id, name, price, free_above_subtotal')
-      .eq('id', input.shippingMethodId)
-      .eq('is_active', true)
-      .maybeSingle();
-
-    if (!method) {
-      return NextResponse.json({ error: 'shipping_method_unavailable' }, { status: 409 });
-    }
-
-    const qualifiesForFree =
-      method.free_above_subtotal !== null && subtotal - discountTotal >= method.free_above_subtotal;
-
-    shippingTotal = qualifiesForFree ? 0 : method.price;
-    shippingMethodSnapshot = { id: method.id, name: method.name, price: shippingTotal };
-  }
-
-  const total = round(subtotal - discountTotal + shippingTotal);
-
-  // 4. Ficha de cliente (se crea o se reutiliza por email).
-  const { data: customer } = await supabase
-    .from('customers')
-    .upsert(
-      {
-        email: input.email,
-        first_name: input.shippingAddress.firstName,
-        last_name: input.shippingAddress.lastName,
-        phone: input.phone ?? input.shippingAddress.phone ?? null,
-      },
-      { onConflict: 'email', ignoreDuplicates: false },
-    )
-    .select('id')
-    .single();
-
-  // 5. Pedido + líneas.
-  const { data: order, error: orderError } = await supabase
-    .from('orders')
-    .insert({
-      customer_id: customer?.id ?? null,
-      email: input.email,
-      phone: input.phone ?? null,
-      subtotal,
-      discount_total: discountTotal,
-      shipping_total: shippingTotal,
-      total,
-      discount_code: input.discountCode ?? null,
-      shipping_address: input.shippingAddress,
-      shipping_method: shippingMethodSnapshot,
-      customer_note: input.customerNote ?? null,
-    })
-    .select('id, order_number')
-    .single();
-
-  if (orderError || !order) {
     console.error('[checkout] Error creando el pedido:', orderError);
     return NextResponse.json({ error: 'order_creation_failed' }, { status: 500 });
   }
 
-  const { error: itemsError } = await supabase
-    .from('order_items')
-    .insert(items.map((item) => ({ ...item, order_id: order.id })));
-
-  if (itemsError) {
-    console.error('[checkout] Error creando las líneas del pedido:', itemsError);
-    return NextResponse.json(
-      { error: 'order_items_failed', orderNumber: order.order_number },
-      { status: 500 },
-    );
+  const order = created?.[0];
+  if (!order) {
+    return NextResponse.json({ error: 'order_creation_failed' }, { status: 500 });
   }
 
-  // 6. Señal de inicio de pago para Meta (no bloquea el checkout).
+  // Señal de inicio de pago para Meta. No se espera: el marketing no debe
+  // sumar la latencia de graph.facebook.com a cada compra.
   const eventId = createEventId('checkout');
-  await sendServerEvent({
+  void sendServerEvent({
     eventName: 'InitiateCheckout',
     eventId,
     user: {
@@ -232,17 +138,12 @@ export async function POST(request: Request) {
     },
     customData: {
       currency: 'USD',
-      value: total,
+      value: order.total,
       orderId: order.order_number,
-      contents: items.map((item) => ({
-        id: item.sku ?? item.variant_id,
-        quantity: item.quantity,
-        itemPrice: item.unit_price,
-      })),
     },
   });
 
-  // 7. Arranque del pago en la pasarela elegida.
+  // Arranque del pago en la pasarela elegida.
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 
   try {
@@ -253,35 +154,33 @@ export async function POST(request: Request) {
     }
 
     const payment = await provider.createPayment({
-      orderId: order.id,
+      orderId: order.order_id,
       orderNumber: order.order_number,
-      amount: { value: total, currency: 'USD' },
+      amount: { value: order.total, currency: 'USD' },
       customer: {
         email: input.email,
         firstName: input.shippingAddress.firstName,
         lastName: input.shippingAddress.lastName,
         phone: input.phone,
       },
-      items: items.map((item) => ({
-        name: item.product_title,
-        sku: item.sku,
-        quantity: item.quantity,
-        unitPrice: item.unit_price,
-      })),
-      returnUrl: `${siteUrl}/checkout/confirmacion/${order.order_number}`,
+      items: [],
+      // El token opaco, no el número de pedido: los números son secuenciales y
+      // enumerarlos dejaría leer pedidos ajenos.
+      returnUrl: `${siteUrl}/checkout/confirmacion/${order.confirmation_token}`,
       cancelUrl: `${siteUrl}/carrito`,
     });
 
     await supabase.from('payments').insert({
-      order_id: order.id,
+      order_id: order.order_id,
       provider: input.paymentProvider,
       provider_payment_id: payment.providerPaymentId,
-      amount: total,
+      amount: order.total,
       status: payment.status === 'paid' ? 'paid' : 'pending',
     });
 
     return NextResponse.json({
       orderNumber: order.order_number,
+      confirmationToken: order.confirmation_token,
       redirectUrl: payment.redirectUrl,
       clientPayload: payment.clientPayload,
     });
@@ -292,7 +191,7 @@ export async function POST(request: Request) {
     const isPending = error instanceof payments.NotImplementedError;
 
     await supabase.from('order_events').insert({
-      order_id: order.id,
+      order_id: order.order_id,
       type: isPending ? 'payment_provider_pending' : 'payment_error',
       message: error instanceof Error ? error.message : 'Error desconocido en la pasarela',
       metadata: { provider: input.paymentProvider },
@@ -304,6 +203,7 @@ export async function POST(request: Request) {
       {
         error: isPending ? 'payment_provider_not_ready' : 'payment_failed',
         orderNumber: order.order_number,
+        confirmationToken: order.confirmation_token,
         message: isPending
           ? `El pedido ${order.order_number} quedó registrado, pero la pasarela ` +
             `"${input.paymentProvider}" todavía no está conectada.`

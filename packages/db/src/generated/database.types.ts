@@ -1031,6 +1031,7 @@ export interface Database {
           placed_at: string | null;
           created_at: string;
           updated_at: string;
+          confirmation_token: string;
         };
         Insert: {
           id?: string;
@@ -1058,6 +1059,7 @@ export interface Database {
           placed_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          confirmation_token?: string;
         };
         Update: {
           id?: string;
@@ -1085,6 +1087,7 @@ export interface Database {
           placed_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          confirmation_token?: string;
         };
         Relationships: [
           {
@@ -1790,6 +1793,37 @@ export interface Database {
       is_admin: { Args: Record<string, never>; Returns: boolean };
       is_superadmin: { Args: Record<string, never>; Returns: boolean };
       current_customer_id: { Args: Record<string, never>; Returns: string | null };
+      create_order: {
+        Args: {
+          p_email: string;
+          p_lines: Json;
+          p_shipping_address?: Json | null;
+          p_shipping_method_id?: string | null;
+          p_discount_code?: string | null;
+          p_phone?: string | null;
+          p_customer_note?: string | null;
+          p_first_name?: string | null;
+          p_last_name?: string | null;
+        };
+        Returns: {
+          order_id: string;
+          order_number: string;
+          confirmation_token: string;
+          subtotal: number;
+          discount_total: number;
+          shipping_total: number;
+          total: number;
+        }[];
+      };
+      record_audit: {
+        Args: {
+          p_action: string;
+          p_entity: string;
+          p_entity_id?: string | null;
+          p_changes?: Json;
+        };
+        Returns: undefined;
+      };
     };
     Enums: {
       address_type: 'shipping' | 'billing';

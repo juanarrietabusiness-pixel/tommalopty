@@ -24,7 +24,7 @@ export default async function SearchPage({
 
   return (
     <div className="container section">
-      <SectionHead title={term ? `Resultados para "${term}"` : 'Buscar en la tienda'} />
+      <SectionHead title={term ? `Resultados para "${term}"` : 'Buscar en la tienda'} as="h1" />
 
       <form action="/buscar" method="get" className="toolbar" style={{ marginBottom: 28 }}>
         <label className="visually-hidden" htmlFor="q">

@@ -101,6 +101,7 @@ export function CheckoutForm({
 
       const result = (await response.json()) as {
         orderNumber?: string;
+        confirmationToken?: string;
         redirectUrl?: string;
         message?: string;
         reason?: string;
@@ -113,7 +114,15 @@ export function CheckoutForm({
           window.location.href = result.redirectUrl;
           return;
         }
-        router.push(`/checkout/confirmacion/${result.orderNumber}`);
+        router.push(`/checkout/confirmacion/${result.confirmationToken}`);
+        return;
+      }
+
+      // Un pedido registrado sin pasarela conectada sigue siendo un pedido:
+      // se lleva al cliente a su confirmación en lugar de dejarlo en el aire.
+      if (result.confirmationToken) {
+        clear();
+        router.push(`/checkout/confirmacion/${result.confirmationToken}`);
         return;
       }
 

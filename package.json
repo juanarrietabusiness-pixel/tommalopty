@@ -18,7 +18,9 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,json,css,md}\"",
     "db:types": "supabase gen types typescript --local > packages/db/src/generated/database.types.ts",
     "db:reset": "supabase db reset",
-    "db:start": "supabase start"
+    "db:start": "supabase start",
+    "test:e2e": "pnpm --filter @nebula/tests test:e2e",
+    "test:all": "pnpm test && pnpm test:e2e"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",

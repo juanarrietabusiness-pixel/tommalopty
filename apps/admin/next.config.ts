@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  transpilePackages: ['@nebula/ui', '@nebula/db', '@nebula/integrations'],
+  transpilePackages: ['@nebula/ui', '@nebula/db', '@nebula/integrations', '@nebula/domain'],
 
   async headers() {
     return [
