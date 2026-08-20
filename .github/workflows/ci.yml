@@ -10,6 +10,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Actions usa `bash -e {0}` por defecto, sin `pipefail`: en `cmd | tee fichero` el
+# código de salida es el de `tee`, siempre 0, así que un test roto pasaba en verde.
+# `shell: bash` equivale a `bash --noprofile --norc -eo pipefail {0}`.
+defaults:
+  run:
+    shell: bash
+
 env:
   NEXT_PUBLIC_SITE_URL: http://127.0.0.1:4321
   NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
@@ -19,6 +26,7 @@ jobs:
   # Rápido y barato: si esto falla, no merece la pena arrancar lo demás.
   estatico:
     name: Formato · Lint · Tipos
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,6 +45,7 @@ jobs:
 
   unitarios:
     name: Tests unitarios
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     needs: estatico
     steps:
@@ -61,6 +70,7 @@ jobs:
 
   esquema:
     name: Esquema y políticas RLS
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     needs: estatico
     steps:
@@ -135,6 +145,7 @@ jobs:
 
   build:
     name: Build de producción
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     needs: estatico
     steps:
@@ -149,10 +160,20 @@ jobs:
 
   e2e:
     name: E2E · accesibilidad · SEO
+    timeout-minutes: 25
     runs-on: ubuntu-latest
     # Construye lo suyo en vez de recibirlo de `build`: un traspaso de artefactos
     # es una pieza más que se puede romper, y aquí solo hace falta la tienda.
     needs: estatico
+    # Aquí no se levanta Supabase — eso es cosa del job `esquema`. Heredar las
+    # variables del workflow hacía que `isSupabaseConfigured()` diera true y la
+    # tienda intentara hablar con un 54321 que no escucha: ECONNREFUSED en cada
+    # render. Vacías, entra en modo demostración, que es contra lo que están
+    # escritos estos tests. Van a nivel de job porque `NEXT_PUBLIC_*` se inlinea
+    # en el build, y este job construye la tienda.
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ''
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ''
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -190,6 +211,7 @@ jobs:
 
   resumen:
     name: Resumen en el PR
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     needs: [estatico, unitarios, esquema, build, e2e]
     if: always() && github.event_name == 'pull_request'
