@@ -54,14 +54,15 @@ $$;
 revoke all on function public.dashboard_metrics(integer) from anon;
 grant execute on function public.dashboard_metrics(integer) to authenticated;
 
--- Las vistas de reporte tampoco son para clientes: RLS ya filtra las tablas
--- subyacentes, pero mejor no ofrecerlas siquiera.
-revoke select on public.report_sales_daily, public.report_top_products,
-                 public.report_low_stock, public.report_conversion_funnel
-  from authenticated;
-grant select on public.report_sales_daily, public.report_top_products,
-                public.report_low_stock, public.report_conversion_funnel
-  to authenticated;
+-- Las vistas de reporte se quedan concedidas a `authenticated` a propósito: el
+-- staff entra con ese mismo rol, así que revocárselo a los clientes se lo
+-- revocaría también a quien las necesita. Quien filtra aquí es RLS — las cinco
+-- vistas se declaran `with (security_invoker = on)`, así que se evalúan con los
+-- permisos de quien consulta y un cliente no ve más de lo que ya podía ver en
+-- las tablas subyacentes.
+--
+-- (Aquí hubo un `revoke ... from authenticated` seguido de un `grant` idéntico
+-- al mismo rol: no cambiaba nada y aparentaba una protección que no existía.)
 
 -- --- 2. El coste del producto no es información pública ----------------------
 -- `product_variants` es legible por cualquiera (lo necesita la ficha), y eso

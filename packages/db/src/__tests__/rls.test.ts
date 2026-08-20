@@ -83,6 +83,12 @@ beforeAll(async () => {
     [CLIENTE_A],
   );
 
+  // Una etiqueta de CRM para comprobar quién puede tocarla.
+  await client.query(
+    `insert into public.crm_tags (name, color) values ('rls-etiqueta', '#173c2e')
+     on conflict (name) do nothing`,
+  );
+
   await client.query('commit');
 }, 30_000);
 
@@ -106,6 +112,7 @@ async function cleanup(db: Client): Promise<void> {
   await db.query(`delete from public.products where slug like 'rls-%'`);
   await db.query(`delete from public.discounts where code = 'RLSSECRETO'`);
   await db.query(`delete from public.leads where source = 'rls-test'`);
+  await db.query(`delete from public.crm_tags where name = 'rls-etiqueta'`);
 }
 
 describeIfDb('visitante anónimo', () => {
@@ -291,6 +298,34 @@ describeIfDb('operador (solo lectura del panel)', () => {
         `update public.products set title = 'Cambiado por operador' where slug = 'rls-publicado'`,
       );
       expect(result.rowCount).toBe(0);
+    });
+  });
+
+  it('ve las etiquetas del CRM', async () => {
+    await asRole(client, { role: 'authenticated', userId: OPERADOR }, async (db) => {
+      const { rows } = await db.query(`select 1 from public.crm_tags where name = 'rls-etiqueta'`);
+      expect(rows).toHaveLength(1);
+    });
+  });
+
+  it('NO puede crear etiquetas del CRM', async () => {
+    await asRole(client, { role: 'authenticated', userId: OPERADOR }, async (db) => {
+      const blocked = await isWriteBlocked(
+        db,
+        `insert into public.crm_tags (name) values ('rls-etiqueta-operador')`,
+      );
+      expect(blocked).toBe(true);
+    });
+  });
+
+  it('NO puede borrar etiquetas del CRM', async () => {
+    // RLS no lanza error al borrar una fila que la política oculta: simplemente
+    // no borra nada. Por eso se comprueba que la etiqueta sigue viva, no que la
+    // consulta falle.
+    await asRole(client, { role: 'authenticated', userId: OPERADOR }, async (db) => {
+      await db.query(`delete from public.crm_tags where name = 'rls-etiqueta'`);
+      const { rows } = await db.query(`select 1 from public.crm_tags where name = 'rls-etiqueta'`);
+      expect(rows).toHaveLength(1);
     });
   });
 
