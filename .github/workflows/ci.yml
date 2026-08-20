@@ -80,8 +80,36 @@ jobs:
       - name: Reaplicar el esquema desde cero
         run: supabase db reset
 
-      - name: Linter de esquema (detecta tablas sin RLS)
-        run: supabase db lint --level warning
+      # `supabase db lint` imprime sus hallazgos y sale con código 0, así que por
+      # sí solo no bloquea nada. Aquí se leen y se falla ante errores reales.
+      - name: Linter de esquema
+        run: |
+          supabase db lint --level warning > /tmp/lint.raw 2>&1 || true
+          cat /tmp/lint.raw
+
+          # La salida lleva líneas de progreso antes del array JSON.
+          sed -n '/^\[/,$p' /tmp/lint.raw > /tmp/lint.json
+
+          if [ ! -s /tmp/lint.json ]; then
+            echo "Sin hallazgos."
+            exit 0
+          fi
+
+          errores=$(jq '[.[] | .issues[] | select(.level == "error")] | length' /tmp/lint.json)
+          avisos=$(jq '[.[] | .issues[] | select(.level == "warning")] | length' /tmp/lint.json)
+
+          {
+            echo "### Linter de esquema"
+            echo "- Errores: ${errores}"
+            echo "- Avisos: ${avisos}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${errores}" -gt 0 ]; then
+            jq -r '.[] | .function as $f | .issues[] | select(.level=="error") | "::error::\($f): \(.message)"' /tmp/lint.json
+            exit 1
+          fi
+
+          jq -r '.[] | .function as $f | .issues[] | select(.level=="warning") | "::warning::\($f): \(.message)"' /tmp/lint.json
 
       # Lo importante: que las políticas RLS hagan lo que decimos que hacen.
       - name: Tests de RLS contra Postgres real
