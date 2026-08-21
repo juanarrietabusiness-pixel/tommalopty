@@ -204,30 +204,50 @@ jobs:
 
       # `versions upload` sube una versión SIN promoverla a producción, y el
       # alias mantiene el mismo enlace mientras se añaden commits al PR.
-      - name: Subir versión de previsualización
+      - name: Publicar en Cloudflare
         id: subir
         working-directory: apps/${{ matrix.app }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          alias="pr-${{ github.event.pull_request.number || 'demo' }}"
+          # Dos modos, porque son dos cosas distintas:
+          #
+          #  * Desde un PR se sube una VERSIÓN con alias. No toca producción: el
+          #    enlace sirve para revisar el cambio antes de mergear.
+          #  * A mano (workflow_dispatch) se DESPLIEGA. Es la acción de publicar
+          #    la demostración, y publicarla significa que el enlace estable
+          #    —el que se le pasa a alguien— sirva el código de `main`. Con
+          #    `versions upload` la URL de producción se quedaba congelada en el
+          #    primer despliegue y cada arreglo posterior parecía no aplicarse.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            pnpm exec wrangler deploy | tee salida.txt
+          else
+            alias="pr-${{ github.event.pull_request.number || 'demo' }}"
 
-          # `versions upload` sube una versión de un Worker QUE YA EXISTE. En una
-          # cuenta recién creada no existe ninguno, así que la primera ejecución
-          # fallaría con "workers.api.error.not_found" y nadie sabría por qué.
-          # Un `deploy` inicial lo crea; a partir de ahí, todo son versiones.
-          if ! pnpm exec wrangler versions upload --preview-alias "$alias" | tee salida.txt; then
-            echo "::notice::El Worker no existía todavía. Se crea con un despliegue inicial."
-            pnpm exec wrangler deploy
-            pnpm exec wrangler versions upload --preview-alias "$alias" | tee salida.txt
+            # `versions upload` sube una versión de un Worker QUE YA EXISTE. En una
+            # cuenta recién creada no existe ninguno, así que la primera ejecución
+            # fallaría con "workers.api.error.not_found" y nadie sabría por qué.
+            # Un `deploy` inicial lo crea; a partir de ahí, todo son versiones.
+            if ! pnpm exec wrangler versions upload --preview-alias "$alias" | tee salida.txt; then
+              echo "::notice::El Worker no existía todavía. Se crea con un despliegue inicial."
+              pnpm exec wrangler deploy
+              pnpm exec wrangler versions upload --preview-alias "$alias" | tee salida.txt
+            fi
           fi
 
+          # El alias es el enlace que no cambia mientras se añaden commits al PR,
+          # así que se prefiere sobre la URL de la versión concreta. En un
+          # `deploy` no hay alias y queda la de producción, que es la que toca.
           # Sin URL, el paso siguiente avisa y sigue: eso es a propósito, así que
           # aquí no se aborta (con `pipefail`, un grep sin coincidencias lo haría).
-          url=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' salida.txt | head -1 || true)
+          url=$(grep -oE 'Alias URL: https://[a-zA-Z0-9.-]+\.workers\.dev' salida.txt |
+            grep -oE 'https://.*' | head -1 || true)
+          if [ -z "$url" ]; then
+            url=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' salida.txt | head -1 || true)
+          fi
           echo "url=${url}" >> "$GITHUB_OUTPUT"
-          echo "alias=${alias}" >> "$GITHUB_OUTPUT"
+          echo "alias=${alias:-}" >> "$GITHUB_OUTPUT"
 
           {
             echo "### ${{ matrix.app }}"
