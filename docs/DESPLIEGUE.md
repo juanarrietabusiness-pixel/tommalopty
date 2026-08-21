@@ -105,50 +105,78 @@ Storage. Una vez definido el dominio público:
    quiere pasar a `next/image`. Hoy se usa `<img>` a propósito, porque el
    dominio varía por entorno.
 
-## Previsualizar un PR antes de mergear
+## Enseñar la plataforma: previsualización
 
-Cada pull request genera dos cosas automáticamente.
+Dos niveles, y conviene tener clara la diferencia porque una de las dos cosas
+**no la puede dar GitHub Actions**.
 
-### 1. Capturas — funciona hoy, sin credenciales
+### 1. Capturas — funciona hoy, sin ninguna cuenta
 
-El trabajo `capturas` de [`preview.yml`](../.github/workflows/preview.yml) construye
-la tienda, la levanta y fotografía portada, catálogo, carrito y checkout en
-escritorio, tablet y móvil. Deja las imágenes adjuntas al PR y comenta el enlace
-de descarga.
+El trabajo `capturas` de [`preview.yml`](../.github/workflows/preview.yml)
+levanta la tienda **y el panel** en modo demostración y fotografía todo:
+portada, catálogo, carrito y checkout en tres tamaños, y las dieciocho pantallas
+del panel en escritorio y móvil. Las deja adjuntas al PR.
 
-No necesita ninguna cuenta: la tienda arranca en modo demostración.
+Son imágenes. Sirven para revisar diseño y para una presentación, pero no se
+navegan.
 
-### 2. Enlace en vivo — necesita cuenta de Cloudflare
+### 2. Enlace en vivo — necesita una cuenta de Cloudflare
 
-El trabajo `enlace` sube una **versión** del Worker con
-`wrangler versions upload --preview-alias pr-<número>` y comenta la URL en el PR.
+**GitHub Actions no puede alojar la aplicación.** Sus runners son efímeros: se
+apagan al terminar el trabajo. Lo único que deja es un artefacto descargable.
+Para que exista una URL que alguien pueda abrir y recorrer, hace falta un sitio
+donde el Worker se quede corriendo, y eso es Cloudflare.
 
-Dos detalles que importan:
+El trabajo `enlace` ya está escrito y **solo está dormido por falta de
+credenciales**. Cuando existan, cada PR —y cada ejecución manual— publica dos
+URLs: tienda y panel.
 
-- **Es una versión subida, no desplegada.** Producción no se toca hasta que se
-  ejecuta `wrangler deploy` o se promueve la versión.
+#### Qué configurar, exactamente
+
+En **Settings → Secrets and variables → Actions** del repositorio, dos secretos.
+Solo dos:
+
+| Secreto                 | De dónde sale                                                             |
+| ----------------------- | ------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | Cloudflare → My Profile → API Tokens, plantilla _Edit Cloudflare Workers_ |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare → Workers & Pages, en la barra lateral derecha                 |
+
+**No hacen falta los de Supabase**, y es deliberado: la previsualización se
+construye en modo demostración. Con base de datos conectada, el panel exigiría
+iniciar sesión y quien abriera el enlace vería la pantalla de acceso y nada más
+— justo lo contrario de lo que una previsualización tiene que enseñar. Además,
+un enlace público apuntando a la base de staging es superficie de ataque sin
+motivo; en modo demostración no hay base que atacar.
+
+#### Publicar la demostración sin abrir un PR
+
+El workflow acepta disparo manual. En **Actions → Previsualización del PR → Run
+workflow**, eligiendo la rama. Las URLs salen en el resumen de la ejecución.
+
+Es la vía para tener un enlace estable que enseñar, sin depender de que haya un
+pull request abierto.
+
+#### La primera ejecución crea los Workers
+
+`wrangler versions upload` sube una versión de un Worker **que ya existe**. En
+una cuenta recién creada no existe ninguno, así que el trabajo detecta el fallo,
+lanza un `wrangler deploy` que lo crea, y reintenta. Solo ocurre la primera vez.
+
+Consecuencia que conviene saber: ese despliegue inicial deja los Workers
+publicados en sus URLs de producción (`nebula-storefront.<subdominio>.workers.dev`
+y `nebula-admin.<subdominio>.workers.dev`), en modo demostración. Para enseñar la
+propuesta es justo lo que hace falta; si no se quiere, se borran desde el panel
+de Cloudflare tras la primera ejecución.
+
+#### Detalles del enlace de PR
+
+- **Es una versión subida, no promovida.** Producción no se toca al añadir
+  commits.
 - **El enlace no cambia** mientras se añadan commits al mismo PR, porque el
   alias se deriva del número de pull request.
 
 Mientras no existan los secretos, el trabajo **se salta con un aviso** en lugar
 de dejar el PR en rojo.
-
-#### Qué configurar para activarlo
-
-En **Settings → Secrets and variables → Actions** del repositorio:
-
-| Secreto                     | De dónde sale                                                               |
-| --------------------------- | --------------------------------------------------------------------------- |
-| `CLOUDFLARE_API_TOKEN`      | Cloudflare → My Profile → API Tokens, con permiso _Edit Cloudflare Workers_ |
-| `CLOUDFLARE_ACCOUNT_ID`     | Cloudflare → Workers & Pages, en la barra lateral derecha                   |
-| `STAGING_SUPABASE_URL`      | Proyecto Supabase de staging                                                |
-| `STAGING_SUPABASE_ANON_KEY` | Proyecto Supabase de staging                                                |
-
-Y como _variable_ (no secreto): `PREVIEW_SITE_URL`, con el dominio de
-previsualización.
-
-Apunta la previsualización a **staging, nunca a producción**: un PR con una
-migración a medias no puede tocar datos reales.
 
 #### Alternativa sin GitHub Actions
 
