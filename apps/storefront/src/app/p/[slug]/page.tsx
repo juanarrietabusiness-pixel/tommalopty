@@ -3,12 +3,15 @@ import { notFound } from 'next/navigation';
 import { Breadcrumbs } from '@nebula/ui';
 import { getPage, listPublishedPageSlugs, type Json } from '@nebula/db';
 import { getSupabaseAnonClient, isSupabaseConfigured } from '@/lib/supabase';
+import { getDemoPageBySlug, getDemoPageSlugs } from '@/lib/demo-data';
 
 export const revalidate = 900;
 export const dynamicParams = true;
 
 export async function generateStaticParams() {
-  if (!isSupabaseConfigured()) return [];
+  // Sin base de datos se prerenderizan las de demostración, que son justo las
+  // que enlaza el pie: devolver [] dejaba las cinco sin generar.
+  if (!isSupabaseConfigured()) return getDemoPageSlugs().map((slug) => ({ slug }));
   try {
     const client = getSupabaseAnonClient();
     const pages = await listPublishedPageSlugs(client);
@@ -19,7 +22,13 @@ export async function generateStaticParams() {
 }
 
 async function loadPage(slug: string) {
-  if (!isSupabaseConfigured()) return null;
+  // Mismo caso que la ficha de producto: sin Supabase esto devolvía null y la
+  // página llamaba a notFound(), así que términos, privacidad, devoluciones,
+  // envíos y contacto —los cinco enlaces del pie, y dos de ellos enlazados
+  // también desde el checkout— daban 404 en la única modalidad en la que hoy
+  // se puede enseñar la tienda.
+  if (!isSupabaseConfigured()) return getDemoPageBySlug(slug);
+
   const client = getSupabaseAnonClient();
   return getPage(client, slug);
 }

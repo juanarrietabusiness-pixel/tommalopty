@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { AuthForm } from '@/components/auth-form';
+import { AuthFormFallback } from '@/components/auth-form-fallback';
+import { AuthDemoNotice } from '@/components/auth-demo-notice';
 
 export const metadata: Metadata = {
   title: 'Iniciar sesión',
@@ -10,7 +12,8 @@ export const metadata: Metadata = {
 export default function LoginPage() {
   return (
     <div className="container">
-      <Suspense fallback={null}>
+      <AuthDemoNotice />
+      <Suspense fallback={<AuthFormFallback mode="login" />}>
         <AuthForm mode="login" />
       </Suspense>
     </div>

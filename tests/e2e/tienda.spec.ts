@@ -199,6 +199,51 @@ test.describe('ficha de producto', () => {
   });
 });
 
+test.describe('área de cliente en modo demostración', () => {
+  // Las cuatro pantallas se quedaban en una sola frase técnica —"El área de
+  // cliente necesita una instancia de Supabase configurada"— sin título
+  // siquiera. Ningún test lo veía porque ninguno entraba en /cuenta.
+  const PANTALLAS = [
+    { ruta: '/cuenta', titulo: /hola/i },
+    { ruta: '/cuenta/pedidos', titulo: /mis pedidos/i },
+    { ruta: '/cuenta/direcciones', titulo: /mis direcciones/i },
+    { ruta: '/cuenta/favoritos', titulo: /favoritos/i },
+  ];
+
+  for (const { ruta, titulo } of PANTALLAS) {
+    test(`${ruta} se recorre sin iniciar sesión y no sale en blanco`, async ({ page }) => {
+      const respuesta = await page.goto(ruta);
+      expect(respuesta?.status()).toBe(200);
+
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(titulo);
+
+      // El umbral es deliberadamente bajo: lo que se quiere impedir es la
+      // pantalla de una línea, no fijar la redacción exacta.
+      const texto = (await page.locator('.account-layout').innerText()).trim();
+      expect(texto.length).toBeGreaterThan(300);
+    });
+  }
+
+  test('avisa de que los datos son de ejemplo', async ({ page }) => {
+    await page.goto('/cuenta');
+    await expect(page.getByText(/recorrido de demostración/i)).toBeVisible();
+  });
+});
+
+test.describe('acceso y registro', () => {
+  // Iban dentro de <Suspense fallback={null}>, así que el HTML del servidor no
+  // traía nada: la página estaba vacía hasta que llegaba el JavaScript.
+  for (const ruta of ['/entrar', '/registro']) {
+    test(`${ruta} trae título ya en el HTML del servidor`, async ({ request }) => {
+      const respuesta = await request.get(ruta);
+      expect(respuesta.status()).toBe(200);
+
+      const html = await respuesta.text();
+      expect(html).toMatch(/<h1[^>]*>(Iniciar sesión|Crear cuenta)</);
+    });
+  }
+});
+
 test.describe('páginas legales', () => {
   // No son enlaces decorativos: la Ley 81 de 2019 obliga a informar del
   // tratamiento de datos, y ninguna pasarela aprueba un comercio sin términos,
@@ -219,6 +264,25 @@ test.describe('páginas legales', () => {
     await expect(
       page.locator('footer').getByRole('link', { name: /cambios y devoluciones/i }),
     ).toBeVisible();
+  });
+
+  // Comprobar el href no basta: eso ya se hacía y las cinco páginas devolvían
+  // 404 igualmente, porque el enlace era correcto y el destino no existía. Este
+  // test entra en cada una, que es lo que lo habría detectado.
+  test('las páginas del pie abren de verdad, no dan 404', async ({ page }) => {
+    await page.goto('/');
+
+    const enlaces = page.locator('footer a[href^="/p/"]');
+    const destinos = await enlaces.evaluateAll((nodos) =>
+      Array.from(new Set(nodos.map((nodo) => nodo.getAttribute('href')!))),
+    );
+    expect(destinos.length).toBeGreaterThan(0);
+
+    for (const destino of destinos) {
+      const respuesta = await page.goto(destino);
+      expect(respuesta?.status(), `${destino} debería responder 200`).toBe(200);
+      await expect(page.locator('h1.page-title')).toBeVisible();
+    }
   });
 
   test('el checkout muestra la aceptación antes de confirmar', async ({ page }) => {

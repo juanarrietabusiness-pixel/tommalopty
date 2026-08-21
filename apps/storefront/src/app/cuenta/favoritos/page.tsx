@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ProductGrid } from '@nebula/ui';
-import { getSupabaseServerClient } from '@/lib/supabase';
+import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
+import { getDemoFavoritos } from '@/lib/demo-data';
 import { toProductCards } from '@/lib/mappers';
 import type { CatalogProduct } from '@nebula/db';
 
@@ -13,6 +14,8 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function WishlistPage() {
+  if (!isSupabaseConfigured()) return <FavoritosDemo />;
+
   const supabase = await getSupabaseServerClient();
 
   // RLS limita `wishlists` al cliente autenticado, así que no hace falta filtrar.
@@ -46,6 +49,19 @@ export default async function WishlistPage() {
       ) : (
         <ProductGrid products={toProductCards(products)} columns={4} />
       )}
+    </>
+  );
+}
+
+function FavoritosDemo() {
+  return (
+    <>
+      <h1 className="page-title">Favoritos</h1>
+      <p className="page-subtitle">Los productos que has guardado para más adelante.</p>
+      <ProductGrid products={toProductCards(getDemoFavoritos())} columns={4} />
+      <p className="field-hint" style={{ marginTop: 24 }}>
+        ¿Buscas algo más? <Link href="/tienda">Explora la tienda</Link>.
+      </p>
     </>
   );
 }

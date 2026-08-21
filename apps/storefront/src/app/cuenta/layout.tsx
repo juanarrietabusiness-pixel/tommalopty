@@ -11,11 +11,29 @@ const ACCOUNT_LINKS = [
 ];
 
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
+  // En modo demostración se pinta el mismo armazón que con base de datos —la
+  // navegación lateral y las cuatro pantallas— con datos de ejemplo. Antes esto
+  // devolvía una sola frase técnica y el área de cliente entera, que es la
+  // mitad de lo que se le enseña a quien va a comprar, quedaba en blanco.
   if (!isSupabaseConfigured()) {
     return (
-      <div className="container section">
-        <div className="notice notice-info">
-          El área de cliente necesita una instancia de Supabase configurada.
+      <div className="container">
+        <div className="notice notice-info" style={{ marginBottom: 24 }}>
+          <strong>Recorrido de demostración.</strong> El área de cliente se muestra con pedidos,
+          direcciones y favoritos de ejemplo, sin base de datos ni inicio de sesión. Con Supabase
+          conectado, cada persona ve aquí sus propios datos.
+        </div>
+        <div className="account-layout">
+          <aside>
+            <nav className="account-nav" aria-label="Mi cuenta">
+              {ACCOUNT_LINKS.map((link) => (
+                <Link key={link.href} href={link.href}>
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+          </aside>
+          <div>{children}</div>
         </div>
       </div>
     );

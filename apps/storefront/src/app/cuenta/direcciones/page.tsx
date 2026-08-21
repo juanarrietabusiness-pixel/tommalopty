@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { listMyAddresses } from '@nebula/db';
-import { getSupabaseServerClient } from '@/lib/supabase';
+import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
+import { getDemoDirecciones } from '@/lib/demo-data';
 
 export const metadata: Metadata = {
   title: 'Mis direcciones',
@@ -10,6 +11,8 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function AddressesPage() {
+  if (!isSupabaseConfigured()) return <DireccionesDemo />;
+
   const supabase = await getSupabaseServerClient();
   const addresses = await listMyAddresses(supabase);
 
@@ -47,6 +50,32 @@ export default async function AddressesPage() {
           </article>
         ))
       )}
+    </>
+  );
+}
+
+function DireccionesDemo() {
+  return (
+    <>
+      <h1 className="page-title">Mis direcciones</h1>
+      <p className="page-subtitle">Direcciones guardadas para agilizar tus compras.</p>
+
+      {getDemoDirecciones().map((direccion) => (
+        <article className="order-card" key={direccion.linea1}>
+          <div className="order-card-head">
+            <strong>{direccion.nombre}</strong>
+            {direccion.predeterminada ? <span className="tag tag-dark">Predeterminada</span> : null}
+          </div>
+          <p style={{ margin: 0, fontSize: '0.85rem', lineHeight: 1.6 }}>
+            {direccion.linea1}
+            {direccion.linea2 ? `, ${direccion.linea2}` : ''}
+            <br />
+            {direccion.ciudad}, {direccion.provincia} · {direccion.pais}
+            <br />
+            {direccion.telefono}
+          </p>
+        </article>
+      ))}
     </>
   );
 }
