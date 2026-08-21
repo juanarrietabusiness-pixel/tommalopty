@@ -1,9 +1,8 @@
 import Link from 'next/link';
 import { money, number, shortDate } from '@nebula/ui';
 import { DataTable } from '@nebula/ui/admin';
-import { listCustomers } from '@nebula/db';
 import { PanelPage } from '@/components/panel-page';
-import { getSupabaseServerClient } from '@/lib/supabase';
+import { cargarClientes } from '@/lib/panel-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,12 +12,10 @@ export default async function CustomersPage({
   searchParams: Promise<{ q?: string; etiqueta?: string }>;
 }) {
   const params = await searchParams;
-  const supabase = await getSupabaseServerClient();
-
-  const [{ customers, total }, { data: tags }] = await Promise.all([
-    listCustomers(supabase, { search: params.q, tag: params.etiqueta, limit: 50 }),
-    supabase.from('crm_tags').select('id, name'),
-  ]);
+  const { customers, total, tags } = await cargarClientes({
+    search: params.q,
+    tag: params.etiqueta,
+  });
 
   return (
     <PanelPage

@@ -110,6 +110,28 @@
   flex-direction: column;
   min-width: 0;
 }
+/*
+ * Franja del recorrido de demostración.
+ *
+ * Sticky y por encima de la barra superior a propósito: tiene que seguir a la
+ * vista al bajar por una tabla larga. Contraste alto y deliberadamente distinto
+ * del resto del panel — la que no se nota es la que deja de cumplir su función.
+ */
+.admin-demo-banner {
+  background: #4a2c00;
+  color: #ffe9c7;
+  padding: 10px 28px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  border-bottom: 2px solid #ff9d2e;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.admin-demo-banner strong {
+  color: #ffb85c;
+}
+
 .admin-topbar {
   background: var(--color-bg);
   border-bottom: 1px solid var(--color-border);
@@ -119,8 +141,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  position: sticky;
-  top: 0;
   z-index: 40;
 }
 .admin-topbar h1 {
@@ -436,6 +456,15 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
+  /* Altura definida: es contra esto contra lo que resuelve el % de la barra. */
+  height: 100%;
+}
+.bar-chart-track {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  min-height: 0;
 }
 .bar-chart-bar {
   width: 100%;

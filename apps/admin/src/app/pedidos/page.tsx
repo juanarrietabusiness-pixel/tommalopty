@@ -1,10 +1,9 @@
 import Link from 'next/link';
 import { money, shortDate } from '@nebula/ui';
 import { DataTable, StatusBadge } from '@nebula/ui/admin';
-import { listOrders } from '@nebula/db';
 import { PanelPage } from '@/components/panel-page';
-import { getSupabaseServerClient } from '@/lib/supabase';
 import { ORDER_STATUSES, PAYMENT_STATUSES, parseEnumParam } from '@/lib/query-params';
+import { cargarPedidos } from '@/lib/panel-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,13 +13,10 @@ export default async function OrdersPage({
   searchParams: Promise<{ q?: string; estado?: string; pago?: string }>;
 }) {
   const params = await searchParams;
-  const supabase = await getSupabaseServerClient();
-
-  const { orders, total } = await listOrders(supabase, {
+  const { orders, total } = await cargarPedidos({
     search: params.q,
     status: parseEnumParam(params.estado, ORDER_STATUSES),
     paymentStatus: parseEnumParam(params.pago, PAYMENT_STATUSES),
-    limit: 50,
   });
 
   return (

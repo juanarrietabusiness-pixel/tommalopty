@@ -182,7 +182,7 @@ jobs:
     timeout-minutes: 25
     runs-on: ubuntu-latest
     # Construye lo suyo en vez de recibirlo de `build`: un traspaso de artefactos
-    # es una pieza más que se puede romper, y aquí solo hace falta la tienda.
+    # es una pieza más que se puede romper.
     needs: estatico
     # Aquí no se levanta Supabase — eso es cosa del job `esquema`. Heredar las
     # variables del workflow hacía que `isSupabaseConfigured()` diera true y la
@@ -202,8 +202,14 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Construir la tienda
-        run: pnpm --filter @nebula/storefront build
+      # Las dos apps, no solo la tienda: `playwright.config.ts` levanta también el
+      # panel para recorrer sus dieciocho pantallas, y `next start` sin build
+      # previo aborta con "Could not find a production build in the '.next'
+      # directory", tumbando la suite entera antes del primer test.
+      - name: Construir la tienda y el panel
+        run: |
+          pnpm --filter @nebula/storefront build
+          pnpm --filter @nebula/admin build
 
       - name: Instalar Chromium
         run: pnpm --filter @nebula/tests exec playwright install --with-deps chromium

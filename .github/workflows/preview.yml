@@ -5,11 +5,14 @@ name: Previsualización del PR
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  # Publicar la demostración a demanda, sin PR de por medio. Es lo que hace
+  # falta para enseñar la plataforma: un enlace estable desde `main`.
+  workflow_dispatch:
 
 # Un PR nuevo cancela la previsualización anterior: no tiene sentido gastar
 # minutos publicando un commit que ya quedó atrás.
 concurrency:
-  group: preview-${{ github.event.pull_request.number }}
+  group: preview-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -68,19 +71,42 @@ jobs:
           done
           echo "::error::La tienda no respondió en 60 segundos"; exit 1
 
-      - name: Capturar las pantallas
+      - name: Capturar la tienda
         env:
           E2E_BASE_URL: http://127.0.0.1:4321
         run: pnpm --filter @nebula/tests capturas
 
+      # El panel es la mitad de la propuesta y hasta ahora no salía en ninguna
+      # captura: sin base de datos devolvía 500 en todas sus pantallas. Con el
+      # recorrido de demostración ya se puede retratar entero.
+      - name: Construir y levantar el panel
+        env:
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:4321
+        run: |
+          pnpm --filter @nebula/admin build
+          nohup pnpm --filter @nebula/admin exec next start --port 4400 > /tmp/panel.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf -o /dev/null http://127.0.0.1:4400/entrar; then
+              echo "Panel arriba"; exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::El panel no respondió en 60 segundos"; cat /tmp/panel.log; exit 1
+
+      - name: Capturar el panel
+        env:
+          PANEL_BASE_URL: http://127.0.0.1:4400
+        run: pnpm --filter @nebula/tests capturas:panel
+
       - uses: actions/upload-artifact@v4
         id: subida
         with:
-          name: capturas-pr-${{ github.event.pull_request.number }}
-          path: docs/previsualizacion/*.png
+          name: capturas-${{ github.event.pull_request.number || github.run_id }}
+          path: docs/previsualizacion/**/*.png
           retention-days: 14
 
       - name: Comentar en el PR
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
@@ -157,11 +183,23 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Construir para Workers
+      # Se construye SIN las variables de Supabase, y no por falta de ellas:
+      #
+      #  * Con base de datos, el panel exige iniciar sesión. Quien abra el
+      #    enlace vería la pantalla de acceso y nada más — justo lo contrario
+      #    de lo que una previsualización tiene que enseñar.
+      #  * Un enlace público contra la base de staging es una superficie de
+      #    ataque sin motivo. En modo demostración no hay base que atacar.
+      #  * Y así la previsualización necesita DOS secretos, no cuatro.
+      #
+      # El bloque `env` del workflow ya las deja vacías; se repiten aquí porque
+      # `NEXT_PUBLIC_*` se incrusta en tiempo de build y este es el paso que
+      # construye.
+      - name: Construir para Workers (modo demostración)
         env:
           NEXT_PUBLIC_SITE_URL: ${{ vars.PREVIEW_SITE_URL || 'https://preview.example.com' }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ''
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ''
         run: pnpm --filter @nebula/${{ matrix.app }} cf:build
 
       # `versions upload` sube una versión SIN promoverla a producción, y el
@@ -173,15 +211,32 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          alias="pr-${{ github.event.pull_request.number }}"
-          pnpm exec wrangler versions upload --preview-alias "$alias" | tee salida.txt
+          alias="pr-${{ github.event.pull_request.number || 'demo' }}"
+
+          # `versions upload` sube una versión de un Worker QUE YA EXISTE. En una
+          # cuenta recién creada no existe ninguno, así que la primera ejecución
+          # fallaría con "workers.api.error.not_found" y nadie sabría por qué.
+          # Un `deploy` inicial lo crea; a partir de ahí, todo son versiones.
+          if ! pnpm exec wrangler versions upload --preview-alias "$alias" | tee salida.txt; then
+            echo "::notice::El Worker no existía todavía. Se crea con un despliegue inicial."
+            pnpm exec wrangler deploy
+            pnpm exec wrangler versions upload --preview-alias "$alias" | tee salida.txt
+          fi
+
           # Sin URL, el paso siguiente avisa y sigue: eso es a propósito, así que
           # aquí no se aborta (con `pipefail`, un grep sin coincidencias lo haría).
           url=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' salida.txt | head -1 || true)
           echo "url=${url}" >> "$GITHUB_OUTPUT"
           echo "alias=${alias}" >> "$GITHUB_OUTPUT"
 
+          {
+            echo "### ${{ matrix.app }}"
+            echo ""
+            echo "${url:-sin URL: revisa la salida de wrangler}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Comentar el enlace en el PR
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         env:
           APP: ${{ matrix.app }}

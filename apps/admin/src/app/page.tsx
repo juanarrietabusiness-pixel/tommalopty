@@ -1,31 +1,13 @@
 import Link from 'next/link';
 import { money, number, shortDate } from '@nebula/ui';
 import { BarChart, DataTable, StatCard, StatGrid, StatusBadge } from '@nebula/ui/admin';
-import { getDashboardMetrics, getLowStock, getSalesDaily, listOrders } from '@nebula/db';
 import { PanelPage } from '@/components/panel-page';
-import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
+import { cargarDashboard } from '@/lib/panel-data';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
-  if (!isSupabaseConfigured()) {
-    return (
-      <PanelPage title="Dashboard">
-        <div className="notice notice-error">
-          Falta configurar Supabase para este entorno. Copia <code>.env.example</code> a
-          <code> .env.local</code> y añade las credenciales del proyecto.
-        </div>
-      </PanelPage>
-    );
-  }
-
-  const supabase = await getSupabaseServerClient();
-  const [metrics, sales, lowStock, recentOrders] = await Promise.all([
-    getDashboardMetrics(supabase, 30),
-    getSalesDaily(supabase, 14),
-    getLowStock(supabase, 5),
-    listOrders(supabase, { limit: 8 }),
-  ]);
+  const { metrics, sales, lowStock, recentOrders } = await cargarDashboard();
 
   return (
     <PanelPage title="Dashboard" description="Resumen de los últimos 30 días.">

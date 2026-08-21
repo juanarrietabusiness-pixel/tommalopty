@@ -9,6 +9,15 @@ export interface AdminShellProps {
   title: string;
   description?: string;
   actions?: ReactNode;
+  /**
+   * Franja permanente de "esto es un recorrido de demostración".
+   *
+   * Va en el armazón y no en cada pantalla porque tiene que salir en todas sin
+   * excepción: un panel con cifras inventadas que no se anuncia como tal es
+   * exactamente cómo alguien acaba tomando una decisión sobre datos que no
+   * existen.
+   */
+  demoNotice?: ReactNode;
   children: ReactNode;
 }
 
@@ -20,6 +29,7 @@ export function AdminShell({
   title,
   description,
   actions,
+  demoNotice,
   children,
 }: AdminShellProps) {
   return (
@@ -31,6 +41,11 @@ export function AdminShell({
         user={user}
       />
       <div className="admin-main">
+        {demoNotice ? (
+          <div className="admin-demo-banner" role="status">
+            {demoNotice}
+          </div>
+        ) : null}
         <header className="admin-topbar">
           <h1>{title}</h1>
           {actions ? <div className="admin-topbar-actions">{actions}</div> : null}

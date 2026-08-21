@@ -12,6 +12,7 @@ import {
   fromZodError,
   success,
   type ActionResult,
+  bloqueadoEnDemostracion,
 } from './result';
 
 /**
@@ -72,6 +73,9 @@ export async function createProduct(
   formData: FormData,
 ): Promise<ActionResult> {
   await requireAdmin();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
 
   const parsed = parseForm(formData);
   if (!parsed.success) return fromZodError(parsed.error);
@@ -144,6 +148,9 @@ export async function updateProduct(
   formData: FormData,
 ): Promise<ActionResult> {
   await requireAdmin();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
 
   const parsed = parseForm(formData);
   if (!parsed.success) return fromZodError(parsed.error);
@@ -225,6 +232,9 @@ export async function updateProduct(
 
 export async function archiveProduct(productId: string): Promise<ActionResult> {
   await requireAdmin();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
 
   const supabase = await getSupabaseServerClient();
   // Archivar en lugar de borrar: los pedidos históricos referencian el producto.

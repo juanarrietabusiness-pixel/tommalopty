@@ -1,14 +1,7 @@
 import { money, number, percent, shortDate } from '@nebula/ui';
 import { BarChart, DataTable, StatCard, StatGrid } from '@nebula/ui/admin';
-import {
-  getConversionFunnel,
-  getDashboardMetrics,
-  getLowStock,
-  getSalesDaily,
-  getTopProducts,
-} from '@nebula/db';
 import { PanelPage } from '@/components/panel-page';
-import { getSupabaseServerClient } from '@/lib/supabase';
+import { cargarReportes } from '@/lib/panel-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,14 +13,7 @@ export default async function ReportsPage({
   const { dias } = await searchParams;
   const days = Math.min(Math.max(Number(dias ?? '30') || 30, 7), 365);
 
-  const supabase = await getSupabaseServerClient();
-  const [metrics, sales, topProducts, lowStock, funnel] = await Promise.all([
-    getDashboardMetrics(supabase, days),
-    getSalesDaily(supabase, days),
-    getTopProducts(supabase, 10),
-    getLowStock(supabase, 20),
-    getConversionFunnel(supabase, 14),
-  ]);
+  const { metrics, sales, topProducts, lowStock, funnel } = await cargarReportes(days);
 
   // Conversión = carritos convertidos / carritos con artículos.
   const funnelTotals = funnel.reduce(

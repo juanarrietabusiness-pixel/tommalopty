@@ -5,7 +5,14 @@ import { z } from 'zod';
 import { getSupabaseServerClient } from '@/lib/supabase';
 import { toBlocks } from '@/lib/cms-blocks';
 import { requireAdmin } from '@/lib/auth';
-import { checkWrite, fromDatabaseError, fromZodError, success, type ActionResult } from './result';
+import {
+  bloqueadoEnDemostracion,
+  checkWrite,
+  fromDatabaseError,
+  fromZodError,
+  success,
+  type ActionResult,
+} from './result';
 
 /**
  * CMS propio: banners y páginas se editan aquí y la tienda los lee por ISR,
@@ -46,6 +53,9 @@ export async function saveBanner(
 ): Promise<ActionResult> {
   await requireAdmin();
 
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
+
   const parsed = parseBanner(formData);
   if (!parsed.success) return fromZodError(parsed.error);
 
@@ -82,6 +92,9 @@ export async function saveBanner(
 export async function deleteBanner(bannerId: string): Promise<ActionResult> {
   await requireAdmin();
 
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
+
   const supabase = await getSupabaseServerClient();
   const problema = checkWrite(
     await supabase.from('cms_banners').delete().eq('id', bannerId).select('id'),
@@ -111,6 +124,9 @@ const pageSchema = z.object({
 
 export async function savePage(_previous: ActionResult, formData: FormData): Promise<ActionResult> {
   await requireAdmin();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
 
   const parsed = pageSchema.safeParse({
     id: formData.get('id') || undefined,

@@ -2,15 +2,13 @@ import { notFound } from 'next/navigation';
 import { PanelPage } from '@/components/panel-page';
 import { PageForm, type PageValues } from '@/components/cms-forms';
 import { fromBlocks } from '@/lib/cms-blocks';
-import { getSupabaseServerClient } from '@/lib/supabase';
+import { cargarPagina } from '@/lib/panel-data';
 
 export const dynamic = 'force-dynamic';
 
 export default async function EditCmsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await getSupabaseServerClient();
-
-  const { data: page } = await supabase.from('cms_pages').select('*').eq('id', id).maybeSingle();
+  const page = await cargarPagina(id);
 
   if (!page) notFound();
 

@@ -3,17 +3,12 @@ import { shortDate } from '@nebula/ui';
 import { DataTable, StatusBadge } from '@nebula/ui/admin';
 import { PanelPage } from '@/components/panel-page';
 import { PageForm } from '@/components/cms-forms';
-import { getSupabaseServerClient } from '@/lib/supabase';
+import { cargarPaginas } from '@/lib/panel-data';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CmsPagesPage() {
-  const supabase = await getSupabaseServerClient();
-
-  const { data: pages } = await supabase
-    .from('cms_pages')
-    .select('id, title, slug, status, updated_at')
-    .order('updated_at', { ascending: false });
+  const pages = await cargarPaginas();
 
   const storefrontUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 

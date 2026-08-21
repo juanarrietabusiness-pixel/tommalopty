@@ -2,6 +2,7 @@ import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import type { Enums } from '@nebula/db';
 import { getSupabaseServerClient } from './supabase';
+import { esModoDemostracion } from './demo-mode';
 
 export interface StaffSession {
   userId: string;
@@ -28,7 +29,27 @@ export function roleLabel(role: Enums<'user_role'>): string {
  * interfaz, y en RLS para que ninguna consulta devuelva datos aunque alguien
  * saltase esta guardia.
  */
+/**
+ * Sesión ficticia del modo demostración.
+ *
+ * Rol `admin` y no `superadmin` a propósito: así el recorrido enseña el panel
+ * tal y como lo ve quien lo va a usar a diario, con las secciones de
+ * superadministrador fuera. Nadie se lleva la impresión de que el panel tiene
+ * menos secciones de las que tiene, ni más permisos de los que da.
+ */
+const SESION_DEMO: StaffSession = {
+  userId: '00000000-0000-0000-0000-0000000000de',
+  email: 'demostracion@nebula.local',
+  fullName: 'Recorrido de demostración',
+  role: 'admin',
+};
+
 export const requireStaff = cache(async (): Promise<StaffSession> => {
+  // Sin Supabase configurado el panel no puede autenticar a nadie. Antes esto
+  // reventaba con un 500 en las 17 pantallas y solo se veía la de acceso; ahora
+  // se recorre entero en solo lectura. Ver `esModoDemostracion`.
+  if (esModoDemostracion()) return SESION_DEMO;
+
   const supabase = await getSupabaseServerClient();
 
   const {
@@ -69,3 +90,5 @@ export function canWrite(role: Enums<'user_role'>): boolean {
 export function isSuperadmin(role: Enums<'user_role'>): boolean {
   return role === 'superadmin';
 }
+
+export { esModoDemostracion };

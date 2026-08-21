@@ -2,10 +2,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { dateTime, money } from '@nebula/ui';
 import { DataTable, StatusBadge, Timeline } from '@nebula/ui/admin';
-import { getOrder, listOrderEvents, listPayments } from '@nebula/db';
 import { PanelPage } from '@/components/panel-page';
 import { OrderNoteForm, OrderStatusForm } from '@/components/order-forms';
-import { getSupabaseServerClient } from '@/lib/supabase';
+import { cargarPedido } from '@/lib/panel-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,15 +21,10 @@ interface AddressSnapshot {
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await getSupabaseServerClient();
+  const datos = await cargarPedido(id);
+  if (!datos) notFound();
 
-  const order = await getOrder(supabase, id);
-  if (!order) notFound();
-
-  const [events, orderPayments] = await Promise.all([
-    listOrderEvents(supabase, id),
-    listPayments(supabase, id),
-  ]);
+  const { order, events, payments: orderPayments } = datos;
 
   const address = (order.shipping_address ?? {}) as AddressSnapshot;
 

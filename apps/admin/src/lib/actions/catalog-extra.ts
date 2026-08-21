@@ -4,7 +4,14 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getSupabaseServerClient } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/auth';
-import { checkWrite, fromDatabaseError, fromZodError, success, type ActionResult } from './result';
+import {
+  bloqueadoEnDemostracion,
+  checkWrite,
+  fromDatabaseError,
+  fromZodError,
+  success,
+  type ActionResult,
+} from './result';
 
 /* --- Categorías ----------------------------------------------------------- */
 
@@ -23,6 +30,9 @@ export async function createCategory(
   formData: FormData,
 ): Promise<ActionResult> {
   await requireAdmin();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
 
   const parsed = categorySchema.safeParse({
     name: formData.get('name'),
@@ -49,6 +59,9 @@ export async function createCategory(
 
 export async function toggleCategory(categoryId: string, isActive: boolean): Promise<ActionResult> {
   await requireAdmin();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
 
   const supabase = await getSupabaseServerClient();
   const problema = checkWrite(
@@ -78,6 +91,9 @@ export async function updateInventory(
   formData: FormData,
 ): Promise<ActionResult> {
   await requireAdmin();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
 
   const parsed = inventorySchema.safeParse({
     variantId: formData.get('variantId'),
@@ -122,6 +138,9 @@ export async function createDiscount(
   formData: FormData,
 ): Promise<ActionResult> {
   await requireAdmin();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
 
   const parsed = discountSchema.safeParse({
     code: formData.get('code'),
@@ -169,6 +188,9 @@ export async function createDiscount(
 
 export async function toggleDiscount(discountId: string, isActive: boolean): Promise<ActionResult> {
   await requireAdmin();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
 
   const supabase = await getSupabaseServerClient();
   const problema = checkWrite(

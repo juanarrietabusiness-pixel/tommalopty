@@ -11,6 +11,12 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = Number(process.env.E2E_PORT ?? 4321);
 const BASE_URL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`;
 
+// El panel se levanta aparte: los tests del recorrido de demostración
+// comprueban que sus dieciocho pantallas responden SIN base de datos, que es
+// justo la condición en la que todas devolvían 500.
+const PANEL_PORT = Number(process.env.PANEL_PORT ?? 4400);
+export const PANEL_URL = process.env.PANEL_BASE_URL ?? `http://127.0.0.1:${PANEL_PORT}`;
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -52,11 +58,23 @@ export default defineConfig({
 
   webServer: process.env.E2E_BASE_URL
     ? undefined
-    : {
-        command: `pnpm --filter @nebula/storefront exec next start --port ${PORT}`,
-        url: BASE_URL,
-        reuseExistingServer: !process.env.CI,
-        timeout: 120_000,
-        cwd: '..',
-      },
+    : [
+        {
+          command: `pnpm --filter @nebula/storefront exec next start --port ${PORT}`,
+          url: BASE_URL,
+          reuseExistingServer: !process.env.CI,
+          timeout: 120_000,
+          cwd: '..',
+        },
+        {
+          command: `pnpm --filter @nebula/admin exec next start --port ${PANEL_PORT}`,
+          url: `${PANEL_URL}/entrar`,
+          reuseExistingServer: !process.env.CI,
+          timeout: 120_000,
+          cwd: '..',
+          // Vacías a propósito: sin ellas el panel no entra en modo
+          // demostración y no hay nada que comprobar.
+          env: { NEXT_PUBLIC_SUPABASE_URL: '', NEXT_PUBLIC_SUPABASE_ANON_KEY: '' },
+        },
+      ],
 });

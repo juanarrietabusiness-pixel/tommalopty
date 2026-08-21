@@ -2,24 +2,18 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { dateTime, money, number, shortDate } from '@nebula/ui';
 import { DataTable, StatCard, StatGrid, StatusBadge, Timeline } from '@nebula/ui/admin';
-import { getCustomer, getCustomerOrders, listCustomerNotes } from '@nebula/db';
 import { PanelPage } from '@/components/panel-page';
 import { CustomerNoteForm, CustomerTagsForm } from '@/components/crm-forms';
-import { getSupabaseServerClient } from '@/lib/supabase';
+import { cargarCliente } from '@/lib/panel-data';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await getSupabaseServerClient();
+  const datos = await cargarCliente(id);
+  if (!datos) notFound();
 
-  const customer = await getCustomer(supabase, id);
-  if (!customer) notFound();
-
-  const [orders, notes] = await Promise.all([
-    getCustomerOrders(supabase, id),
-    listCustomerNotes(supabase, id),
-  ]);
+  const { customer, orders, notes } = datos;
 
   const fullName =
     [customer.first_name, customer.last_name].filter(Boolean).join(' ') || customer.email;
