@@ -168,6 +168,37 @@ test.describe('checkout', () => {
   });
 });
 
+test.describe('ficha de producto', () => {
+  // Regresión: sin base de datos, `loadProduct` devolvía null y la ficha
+  // respondía 404 — aunque la portada y el catálogo enlazaran a ella. Lo
+  // primero que hace cualquiera al abrir una tienda es pinchar un producto.
+  test('se llega desde la portada y carga', async ({ page }) => {
+    await page.goto('/');
+
+    const enlace = page.locator('.product-card a[href^="/producto/"]').first();
+    const href = await enlace.getAttribute('href');
+    expect(href).toBeTruthy();
+
+    const respuesta = await page.goto(href!);
+    expect(respuesta?.status(), `${href} no debería devolver 404`).toBe(200);
+
+    await expect(page.locator('h1')).toBeVisible();
+    await expect(page.getByRole('button', { name: /añadir/i }).first()).toBeVisible();
+  });
+
+  test('se puede añadir al carrito desde la ficha', async ({ page }) => {
+    await page.goto('/');
+    const enlace = page.locator('.product-card a[href^="/producto/"]').first();
+    await page.goto((await enlace.getAttribute('href'))!);
+
+    await page
+      .getByRole('button', { name: /añadir/i })
+      .first()
+      .click();
+    await expect(page.locator('.cart-count, [data-cart-count]').first()).toContainText('1');
+  });
+});
+
 test.describe('páginas legales', () => {
   // No son enlaces decorativos: la Ley 81 de 2019 obliga a informar del
   // tratamiento de datos, y ninguna pasarela aprueba un comercio sin términos,

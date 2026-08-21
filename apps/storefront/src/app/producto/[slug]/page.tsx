@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { Breadcrumbs } from '@nebula/ui';
 import { getProductBySlug, listPublishedProductSlugs } from '@nebula/db';
 import { getSupabaseAnonClient, isSupabaseConfigured } from '@/lib/supabase';
+import { getDemoProductBySlug } from '@/lib/demo-data';
 import { ProductGallery } from '@/components/product-gallery';
 import { ProductPurchasePanel } from '@/components/product-purchase-panel';
 
@@ -25,7 +26,11 @@ export async function generateStaticParams() {
 }
 
 async function loadProduct(slug: string) {
-  if (!isSupabaseConfigured()) return null;
+  // Sin base de datos, la ficha sale del contenido de demostración. Devolver
+  // null aquí era un 404 en la página que más pesa de la tienda, enlazada
+  // desde la portada y desde el catálogo.
+  if (!isSupabaseConfigured()) return getDemoProductBySlug(slug);
+
   const client = getSupabaseAnonClient();
   return getProductBySlug(client, slug);
 }

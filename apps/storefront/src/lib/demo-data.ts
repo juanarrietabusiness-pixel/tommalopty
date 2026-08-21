@@ -1,4 +1,4 @@
-import type { CatalogProduct } from '@nebula/db';
+import type { CatalogProduct, ProductDetail } from '@nebula/db';
 
 /**
  * Contenido de respaldo idéntico al del esqueleto original.
@@ -80,3 +80,49 @@ export const DEMO_CTA_BAND = {
   subtitle: 'Suscríbete para enterarte de nuevos lanzamientos y ofertas exclusivas.',
   ctaLabel: 'Suscribirme',
 };
+
+/**
+ * Ficha completa de un producto de demostración.
+ *
+ * Sin esto, la portada y el catálogo enlazaban a fichas que devolvían 404: la
+ * página más importante de una tienda se rompía en mitad del recorrido, justo
+ * al hacer lo primero que hace cualquiera que abre una tienda, que es pinchar
+ * un producto.
+ */
+export function getDemoProductBySlug(slug: string): ProductDetail | null {
+  const indice = DEMO_PRODUCTS.findIndex((producto) => slugFor(producto.title) === slug);
+  if (indice === -1) return null;
+
+  const producto = DEMO_PRODUCTS[indice]!;
+
+  return {
+    id: `demo-${indice + 1}`,
+    slug,
+    title: producto.title,
+    subtitle: 'Contenido de marcador de posición',
+    description:
+      'Descripción de demostración. Al conectar el catálogo real, este texto sale de la ficha ' +
+      'que se edita desde el panel, con su formato y sus imágenes.',
+    brand: null,
+    tags: ['demo'],
+    seo_title: null,
+    seo_description: null,
+    rating_average: 0,
+    rating_count: 0,
+    images: [],
+    options: [],
+    variants: [
+      {
+        id: `demo-variant-${indice + 1}`,
+        title: 'Estándar',
+        sku: `DEMO-${String(indice + 1).padStart(3, '0')}`,
+        price: producto.price,
+        compare_at_price: producto.compareAt,
+        option_values: {},
+        is_default: true,
+        available_quantity: 25,
+        track_inventory: true,
+      },
+    ],
+  };
+}
