@@ -2,7 +2,7 @@ import { money, number, shortDate } from '@nebula/ui';
 import { DataTable } from '@nebula/ui/admin';
 import { PanelPage } from '@/components/panel-page';
 import { DiscountForm } from '@/components/discount-form';
-import { getSupabaseServerClient } from '@/lib/supabase';
+import { cargarDescuentos } from '@/lib/panel-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,13 +13,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export default async function DiscountsPage() {
-  const supabase = await getSupabaseServerClient();
-
-  const { data: discounts } = await supabase
-    .from('discounts')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(100);
+  const discounts = await cargarDescuentos();
 
   return (
     <PanelPage

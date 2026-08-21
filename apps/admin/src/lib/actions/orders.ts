@@ -14,6 +14,7 @@ import {
   fromZodError,
   success,
   type ActionResult,
+  bloqueadoEnDemostracion,
 } from './result';
 
 /**
@@ -49,6 +50,9 @@ export async function updateOrderStatus(
   formData: FormData,
 ): Promise<ActionResult> {
   await requireAdmin();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
 
   const parsed = statusSchema.safeParse({
     orderId: formData.get('orderId'),
@@ -140,6 +144,9 @@ export async function addOrderNote(
   formData: FormData,
 ): Promise<ActionResult> {
   await requireAdmin();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
 
   const parsed = noteSchema.safeParse({
     orderId: formData.get('orderId'),

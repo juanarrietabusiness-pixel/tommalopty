@@ -4,7 +4,14 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getSupabaseServerClient } from '@/lib/supabase';
 import { requireStaff } from '@/lib/auth';
-import { checkWrite, fromDatabaseError, fromZodError, success, type ActionResult } from './result';
+import {
+  bloqueadoEnDemostracion,
+  checkWrite,
+  fromDatabaseError,
+  fromZodError,
+  success,
+  type ActionResult,
+} from './result';
 
 /**
  * CRM: notas y etiquetas sobre la ficha del cliente.
@@ -22,6 +29,9 @@ export async function addCustomerNote(
   formData: FormData,
 ): Promise<ActionResult> {
   const session = await requireStaff();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
 
   const parsed = noteSchema.safeParse({
     customerId: formData.get('customerId'),
@@ -55,6 +65,9 @@ export async function updateCustomerTags(
   formData: FormData,
 ): Promise<ActionResult> {
   await requireStaff();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
 
   const parsed = tagsSchema.safeParse({
     customerId: formData.get('customerId'),

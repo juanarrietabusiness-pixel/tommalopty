@@ -4,7 +4,14 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getSupabaseServerClient } from '@/lib/supabase';
 import { requireAdmin, requireStaff } from '@/lib/auth';
-import { checkWrite, failure, fromZodError, success, type ActionResult } from './result';
+import {
+  bloqueadoEnDemostracion,
+  checkWrite,
+  failure,
+  fromZodError,
+  success,
+  type ActionResult,
+} from './result';
 
 /**
  * Integraciones y roles.
@@ -24,6 +31,9 @@ export async function updateIntegration(
   formData: FormData,
 ): Promise<ActionResult> {
   const session = await requireAdmin();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
 
   if (session.role !== 'superadmin') {
     return failure('Solo un superadministrador puede cambiar las integraciones.');
@@ -66,6 +76,9 @@ export async function updateUserRole(
   formData: FormData,
 ): Promise<ActionResult> {
   const session = await requireStaff();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
 
   // La política RLS `profiles_superadmin_all` ya lo impide; comprobarlo aquí
   // evita mostrar un error de base de datos por algo que es una regla de negocio.

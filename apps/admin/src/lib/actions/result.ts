@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { esModoDemostracion } from '@/lib/demo-mode';
 
 /** Estado devuelto por las Server Actions a los formularios (useActionState). */
 export interface ActionResult {
@@ -8,6 +9,23 @@ export interface ActionResult {
 }
 
 export const IDLE: ActionResult = { status: 'idle' };
+
+/**
+ * Corta cualquier escritura cuando el panel corre en modo demostración.
+ *
+ * Va explícita en cada acción, y no escondida dentro de `requireAdmin`, por dos
+ * motivos: quien lee una acción ve la guarda sin salir del fichero, y `grep`
+ * encuentra al instante si alguna acción nueva se olvidó de ponerla.
+ *
+ * Devuelve `null` cuando hay Supabase configurado, que es siempre en
+ * producción: allí esto no hace nada.
+ */
+export function bloqueadoEnDemostracion(): ActionResult | null {
+  if (!esModoDemostracion()) return null;
+  return failure(
+    'Esto es un recorrido de demostración: se puede navegar todo el panel, pero no se guarda nada.',
+  );
+}
 
 export function success(message: string): ActionResult {
   return { status: 'success', message };

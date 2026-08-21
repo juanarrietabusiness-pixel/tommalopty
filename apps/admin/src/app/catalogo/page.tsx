@@ -2,21 +2,12 @@ import Link from 'next/link';
 import { money, number } from '@nebula/ui';
 import { DataTable, StatusBadge } from '@nebula/ui/admin';
 import { PanelPage } from '@/components/panel-page';
-import { getSupabaseServerClient } from '@/lib/supabase';
+import { cargarCatalogo, type FilaCatalogo } from '@/lib/panel-data';
 import { PRODUCT_STATUSES, parseEnumParam } from '@/lib/query-params';
 
 export const dynamic = 'force-dynamic';
 
-interface CatalogRow {
-  id: string;
-  title: string;
-  slug: string;
-  status: string;
-  is_featured: boolean;
-  price: number | null;
-  sku: string | null;
-  stock: number;
-}
+type CatalogRow = FilaCatalogo;
 
 export default async function CatalogPage({
   searchParams,
@@ -24,40 +15,10 @@ export default async function CatalogPage({
   searchParams: Promise<{ q?: string; estado?: string }>;
 }) {
   const { q, estado } = await searchParams;
-  const supabase = await getSupabaseServerClient();
 
-  let query = supabase
-    .from('products')
-    .select(
-      'id, title, slug, status, is_featured, product_variants (price, sku, is_default, inventory (quantity, reserved_quantity))',
-    )
-    .order('created_at', { ascending: false })
-    .limit(100);
-
-  if (q) query = query.ilike('title', `%${q}%`);
-  const statusFilter = parseEnumParam(estado, PRODUCT_STATUSES);
-  if (statusFilter) query = query.eq('status', statusFilter);
-
-  const { data } = await query;
-
-  const rows: CatalogRow[] = (data ?? []).map((product) => {
-    const variant =
-      product.product_variants?.find((candidate) => candidate.is_default) ??
-      product.product_variants?.[0];
-    const inventory = Array.isArray(variant?.inventory)
-      ? variant?.inventory[0]
-      : variant?.inventory;
-
-    return {
-      id: product.id,
-      title: product.title,
-      slug: product.slug,
-      status: product.status,
-      is_featured: product.is_featured,
-      price: variant?.price ?? null,
-      sku: variant?.sku ?? null,
-      stock: Math.max((inventory?.quantity ?? 0) - (inventory?.reserved_quantity ?? 0), 0),
-    };
+  const rows: CatalogRow[] = await cargarCatalogo({
+    search: q,
+    status: parseEnumParam(estado, PRODUCT_STATUSES),
   });
 
   return (

@@ -2,21 +2,14 @@ import { shortDate } from '@nebula/ui';
 import { DataTable } from '@nebula/ui/admin';
 import { PanelPage } from '@/components/panel-page';
 import { UserRoleForm } from '@/components/settings-forms';
-import { getSupabaseServerClient } from '@/lib/supabase';
 import { requireAdmin, roleLabel } from '@/lib/auth';
+import { cargarUsuarios } from '@/lib/panel-data';
 
 export const dynamic = 'force-dynamic';
 
 export default async function UsersPage() {
   const session = await requireAdmin();
-  const supabase = await getSupabaseServerClient();
-
-  // RLS solo deja ver la lista completa a un superadmin; un admin verá su perfil.
-  const { data: profiles } = await supabase
-    .from('profiles')
-    .select('id, email, full_name, role, is_active, created_at')
-    .order('role')
-    .order('created_at', { ascending: false });
+  const profiles = await cargarUsuarios();
 
   return (
     <PanelPage

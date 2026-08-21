@@ -2,31 +2,14 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { PanelPage } from '@/components/panel-page';
 import { ProductForm, type ProductFormValues } from '@/components/product-form';
-import { getSupabaseServerClient } from '@/lib/supabase';
+import { cargarProducto } from '@/lib/panel-data';
 
 export const dynamic = 'force-dynamic';
 
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await getSupabaseServerClient();
-
-  const { data: product } = await supabase
-    .from('products')
-    .select(
-      `id, title, slug, subtitle, description, brand, status, is_featured, tags,
-       seo_title, seo_description,
-       product_variants (id, price, compare_at_price, sku, is_default,
-         inventory (quantity))`,
-    )
-    .eq('id', id)
-    .maybeSingle();
-
+  const product = await cargarProducto(id);
   if (!product) notFound();
-
-  const variant =
-    product.product_variants?.find((candidate) => candidate.is_default) ??
-    product.product_variants?.[0];
-  const inventory = Array.isArray(variant?.inventory) ? variant?.inventory[0] : variant?.inventory;
 
   const initial: ProductFormValues = {
     id: product.id,
@@ -36,14 +19,14 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
     description: product.description ?? '',
     brand: product.brand ?? '',
     status: product.status,
-    isFeatured: product.is_featured,
+    isFeatured: product.isFeatured,
     tags: product.tags.join(', '),
-    price: variant?.price ?? 0,
-    compareAtPrice: variant?.compare_at_price ?? null,
-    sku: variant?.sku ?? '',
-    quantity: inventory?.quantity ?? 0,
-    seoTitle: product.seo_title ?? '',
-    seoDescription: product.seo_description ?? '',
+    price: product.price ?? 0,
+    compareAtPrice: product.compareAtPrice,
+    sku: product.sku ?? '',
+    quantity: product.quantity ?? 0,
+    seoTitle: product.seoTitle ?? '',
+    seoDescription: product.seoDescription ?? '',
   };
 
   const storefrontUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';

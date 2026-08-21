@@ -1,6 +1,6 @@
 import { PanelPage } from '@/components/panel-page';
 import { BannerForm, type BannerValues } from '@/components/cms-forms';
-import { getSupabaseServerClient } from '@/lib/supabase';
+import { cargarBanners } from '@/lib/panel-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,13 +11,7 @@ const PLACEMENTS: BannerValues['placement'][] = ['announcement_bar', 'hero', 'ct
  * un bloque del diseño aprobado, así que la clienta edita textos sin tocar código.
  */
 export default async function BannersPage() {
-  const supabase = await getSupabaseServerClient();
-
-  const { data: banners } = await supabase
-    .from('cms_banners')
-    .select('*')
-    .in('placement', PLACEMENTS)
-    .order('position');
+  const banners = await cargarBanners(PLACEMENTS);
 
   const byPlacement = new Map(
     (banners ?? []).map((banner) => [banner.placement as BannerValues['placement'], banner]),

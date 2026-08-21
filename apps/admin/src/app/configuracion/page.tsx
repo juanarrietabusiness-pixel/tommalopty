@@ -1,7 +1,7 @@
 import { PanelPage } from '@/components/panel-page';
 import { IntegrationForm } from '@/components/settings-forms';
-import { getSupabaseServerClient } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/auth';
+import { cargarIntegraciones } from '@/lib/panel-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,9 +26,7 @@ function hasCredentials(provider: string): boolean {
 
 export default async function IntegrationsPage() {
   const session = await requireAdmin();
-  const supabase = await getSupabaseServerClient();
-
-  const { data: integrations } = await supabase.from('integrations').select('*').order('provider');
+  const integrations = await cargarIntegraciones();
 
   return (
     <PanelPage

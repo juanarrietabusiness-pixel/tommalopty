@@ -15,6 +15,7 @@ export function PanelShell({
   title,
   description,
   actions,
+  demoNotice,
   children,
 }: {
   brandName: string;
@@ -23,6 +24,7 @@ export function PanelShell({
   title: string;
   description?: string;
   actions?: ReactNode;
+  demoNotice?: ReactNode;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -36,6 +38,7 @@ export function PanelShell({
       title={title}
       description={description}
       actions={actions}
+      demoNotice={demoNotice}
     >
       {children}
     </AdminShell>
