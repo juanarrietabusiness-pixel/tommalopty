@@ -221,6 +221,25 @@ test.describe('páginas legales', () => {
     ).toBeVisible();
   });
 
+  // Comprobar el href no basta: eso ya se hacía y las cinco páginas devolvían
+  // 404 igualmente, porque el enlace era correcto y el destino no existía. Este
+  // test entra en cada una, que es lo que lo habría detectado.
+  test('las páginas del pie abren de verdad, no dan 404', async ({ page }) => {
+    await page.goto('/');
+
+    const enlaces = page.locator('footer a[href^="/p/"]');
+    const destinos = await enlaces.evaluateAll((nodos) =>
+      Array.from(new Set(nodos.map((nodo) => nodo.getAttribute('href')!))),
+    );
+    expect(destinos.length).toBeGreaterThan(0);
+
+    for (const destino of destinos) {
+      const respuesta = await page.goto(destino);
+      expect(respuesta?.status(), `${destino} debería responder 200`).toBe(200);
+      await expect(page.locator('h1.page-title')).toBeVisible();
+    }
+  });
+
   test('el checkout muestra la aceptación antes de confirmar', async ({ page }) => {
     await page.goto('/');
     await page

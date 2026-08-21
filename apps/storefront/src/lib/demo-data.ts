@@ -1,4 +1,4 @@
-import type { CatalogProduct, ProductDetail } from '@nebula/db';
+import type { CatalogProduct, CmsPage, ProductDetail } from '@nebula/db';
 
 /**
  * Contenido de respaldo idéntico al del esqueleto original.
@@ -124,5 +124,91 @@ export function getDemoProductBySlug(slug: string): ProductDetail | null {
         track_inventory: true,
       },
     ],
+  };
+}
+
+/**
+ * Páginas del CMS de demostración.
+ *
+ * El pie enlaza cinco: términos, privacidad, contacto, envíos y devoluciones, y
+ * el checkout enlaza dos de ellas antes de confirmar. Sin base de datos las
+ * cinco devolvían 404, así que el recorrido terminaba en una pantalla de error
+ * justo donde una pasarela comprueba que el comercio informa de sus
+ * condiciones.
+ *
+ * El texto es deliberadamente un marcador de posición y lo dice: son páginas
+ * legales, y publicar una redacción inventada que parezca definitiva es peor
+ * que no tener ninguna. El contenido real se redacta y se carga desde el panel.
+ */
+const DEMO_PAGES: { slug: string; title: string; intro: string }[] = [
+  {
+    slug: 'terminos',
+    title: 'Términos y condiciones',
+    intro:
+      'Aquí van las condiciones de venta: formación del contrato, precios, impuestos, plazos y ' +
+      'resolución de disputas.',
+  },
+  {
+    slug: 'privacidad',
+    title: 'Política de privacidad',
+    intro:
+      'Aquí va el tratamiento de datos personales que exige la Ley 81 de 2019: qué se recoge, ' +
+      'con qué finalidad, cuánto se conserva y cómo se ejercen los derechos.',
+  },
+  {
+    slug: 'devoluciones',
+    title: 'Cambios y devoluciones',
+    intro:
+      'Aquí van los plazos para devolver, el estado en que debe llegar el producto, quién paga ' +
+      'el envío de vuelta y en cuánto tiempo se reembolsa.',
+  },
+  {
+    slug: 'envios',
+    title: 'Envíos',
+    intro:
+      'Aquí van las zonas de cobertura, los tiempos de entrega, el costo por zona y el umbral a ' +
+      'partir del cual el envío es gratis.',
+  },
+  {
+    slug: 'contacto',
+    title: 'Contacto',
+    intro:
+      'Aquí van los canales de atención, el horario y el plazo de respuesta, además de la ' +
+      'dirección fiscal del comercio.',
+  },
+];
+
+const AVISO_DEMO =
+  'Esta página es una demostración de la plataforma: el texto es un marcador de posición, no un ' +
+  'documento legal. Al conectar la base de datos, este contenido se redacta y se edita desde el ' +
+  'panel, en Contenido → Páginas, sin tocar código.';
+
+export function getDemoPageSlugs(): string[] {
+  return DEMO_PAGES.map((pagina) => pagina.slug);
+}
+
+export function getDemoPageBySlug(slug: string): CmsPage | null {
+  const indice = DEMO_PAGES.findIndex((pagina) => pagina.slug === slug);
+  if (indice === -1) return null;
+
+  const pagina = DEMO_PAGES[indice]!;
+  const fecha = '2026-01-01T00:00:00.000Z';
+
+  return {
+    id: `demo-pagina-${indice + 1}`,
+    slug: pagina.slug,
+    title: pagina.title,
+    status: 'published',
+    content: [
+      { type: 'richtext', value: AVISO_DEMO },
+      { type: 'heading', value: 'Qué irá en esta página' },
+      { type: 'richtext', value: pagina.intro },
+    ],
+    seo_title: null,
+    seo_description: null,
+    published_at: fecha,
+    created_by: null,
+    created_at: fecha,
+    updated_at: fecha,
   };
 }
