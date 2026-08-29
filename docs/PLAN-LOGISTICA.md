@@ -137,19 +137,39 @@ documentada en [ADR 0002](adr/0002-hosting.md); aquí va el porqué en corto.
 No son alternativas entre sí: Supabase es la base de datos, Cloudflare es donde
 corre la aplicación. Netlify sería el sustituto de Cloudflare, y se descartó.
 
-| Pieza                           | Proveedor          | Qué hace                                         |
-| ------------------------------- | ------------------ | ------------------------------------------------ |
-| Tienda (`storefront`)           | Cloudflare Workers | Dominio principal                                |
-| Panel (`admin`)                 | Cloudflare Workers | Subdominio propio, cerrado con Cloudflare Access |
-| Base de datos, auth, storage    | Supabase           | 34 tablas con RLS, sesiones, archivos            |
-| Imágenes y adjuntos             | Cloudflare R2      | Egress $0                                        |
-| CDN, WAF, anti-bots, rate limit | Cloudflare         | Mismo proveedor, una sola configuración          |
-| Email transaccional             | Resend             | Avisos de pedido                                 |
+| Pieza                           | Proveedor                     | Qué hace                                         |
+| ------------------------------- | ----------------------------- | ------------------------------------------------ |
+| Tienda (`storefront`)           | Cloudflare Workers            | Dominio principal                                |
+| Panel (`admin`)                 | Cloudflare Workers            | Subdominio propio, cerrado con Cloudflare Access |
+| Base de datos y cuentas         | Supabase                      | 34 tablas con RLS, sesiones                      |
+| Imágenes de catálogo y CMS      | Cloudflare R2                 | Egress $0                                        |
+| Transformaciones de imagen      | Cloudflare Images             | Variantes y recortes                             |
+| Video                           | Cloudflare Stream             | Transcodificado y bitrate adaptativo             |
+| Fotos de prueba de entrega      | Cloudflare R2, bucket privado | URL firmada, no enlace público                   |
+| CDN, WAF, anti-bots, rate limit | Cloudflare                    | Mismo proveedor, una sola configuración          |
+| Email transaccional             | Resend                        | Avisos de pedido                                 |
 
 **Por qué Cloudflare y no Netlify:** el ancho de banda es el costo que crece con
 el éxito, y Workers no cobra transferencia mientras Netlify cobra por GB pasado
 el plan. Una campaña que multiplique el tráfico por diez no mueve la factura de
 Cloudflare. Además, WAF y Access —para blindar el panel— vienen del mismo sitio.
+
+**Todo el media va a Cloudflare, no a Supabase Storage.** Es la decisión del
+[ADR 0007](adr/0007-media-en-cloudflare.md), tomada a raíz de esta misma
+pregunta: había una contradicción sin resolver entre el ADR 0002 (que decía R2)
+y `supabase/config.toml` (que declaraba buckets de Supabase Storage). Gana R2,
+por el mismo motivo que ganó Workers: la salida de datos no se cobra. Para video
+se usa Stream, que transcodifica y adapta la calidad a la conexión — cosa que
+Supabase Storage no hace.
+
+**Lo único que se queda en Supabase es la base de datos y las cuentas**, y ahí
+sí conviene no moverlo: la seguridad de la plataforma vive en políticas RLS de
+Postgres ([ADR 0003](adr/0003-seguridad-en-la-base-de-datos.md)) y el pedido se
+crea en una función transaccional de plpgsql
+([ADR 0004](adr/0004-pedidos-transaccionales.md)). D1 es SQLite: no tiene ni RLS
+ni plpgsql. Mudarse sería reescribir a mano justo lo que la auditoría obligó a
+corregir. El razonamiento completo, en el
+[ADR 0007](adr/0007-media-en-cloudflare.md).
 
 **Lo que no se acepta a cambio:** el código no usa APIs propietarias de
 Cloudflare. Si algún día conviene mudarse, se muda.
@@ -163,7 +183,7 @@ Cloudflare. Si algún día conviene mudarse, se muda.
 | Producción  | `main`    | Proyecto Supabase de producción | La tienda real                                                  |
 
 Que hoy solo haya un entorno es un riesgo abierto: significa probar en
-producción. Crear staging es el paso 0.2 del cronograma.
+producción. Crear staging es el paso 0.3 del cronograma.
 
 > Nota operativa: en esta sesión el conector de Netlify no logró conectarse
 > (error 502 de su servidor). No cambia nada de la recomendación —está tomada
@@ -186,15 +206,22 @@ medias — es la misma regla que ya rige el proyecto.
 puede tocar con las manos. Todo lo demás se construye encima de esto, y probar
 en el aire es distinto a probar en local.
 
-| Paso | Qué se hace                                                                                         | Depende de |
-| ---- | --------------------------------------------------------------------------------------------------- | ---------- |
-| 0.1  | Cuenta de Cloudflare, dominio y los dos secretos en GitHub                                          | **D1**     |
-| 0.2  | Proyecto Supabase de staging, migraciones aplicadas, historial reconciliado                         | 0.1        |
-| 0.3  | Primer despliegue de los dos Workers, cada uno en su dominio                                        | 0.1        |
-| 0.4  | Cloudflare Access sobre el panel                                                                    | 0.3        |
-| 0.5  | Backups automáticos de Supabase con retención definida                                              | 0.2        |
-| 0.6  | Cerrar los pendientes del panel: menús, subida de imágenes, variantes, datos personales del cliente | —          |
-| 0.7  | Páginas legales completadas y revisadas                                                             | —          |
+> **Corrección de estado, agosto 2026.** La cuenta de Cloudflare ya está
+> conectada y **los dos Workers ya existen**: `nebula-storefront` y
+> `nebula-admin`, creados el 21 de agosto y actualizados el 22. Lo que falta no
+> es la cuenta, es el dominio propio y apuntarlos a una base de datos real en
+> vez de al modo demostración.
+
+| Paso | Qué se hace                                                                                                  | Depende de |
+| ---- | ------------------------------------------------------------------------------------------------------------ | ---------- |
+| 0.1  | Dominio propio, y los dos Workers apuntados a él                                                             | **D1**     |
+| 0.2  | **Habilitar R2 en la cuenta** — hoy la API responde «enable R2 through the Dashboard»                        | —          |
+| 0.3  | Proyecto Supabase de staging, migraciones aplicadas, historial reconciliado                                  | —          |
+| 0.4  | Los Workers dejan el modo demostración y reciben los secretos de Supabase                                    | 0.3        |
+| 0.5  | Cloudflare Access sobre el panel                                                                             | 0.1        |
+| 0.6  | Backups automáticos de Supabase con retención definida                                                       | 0.3        |
+| 0.7  | Cerrar los pendientes del panel: menús, **subida de imágenes a R2**, variantes, datos personales del cliente | 0.2        |
+| 0.8  | Páginas legales completadas y revisadas                                                                      | —          |
 
 **Criterio de aceptación:** la clienta abre una URL desde su teléfono, navega la
 tienda, entra al panel con su usuario y ve un pedido de prueba de punta a punta.
@@ -512,15 +539,16 @@ paso que falla si aparece una tabla sin RLS.
 Sobre la base actual (~$25–30/mes en la escala de lanzamiento, según
 [`COSTOS.md`](COSTOS.md)):
 
-| Servicio                             | Cuándo                      | Costo estimado                                                                             |
-| ------------------------------------ | --------------------------- | ------------------------------------------------------------------------------------------ |
-| Google Maps Platform                 | L1, si se elige (D2)        | Hay capa gratuita mensual; **confirmar tarifas vigentes antes de comprometer presupuesto** |
-| MapLibre + OpenStreetMap             | L1, alternativa             | $0                                                                                         |
-| WhatsApp Business API                | L2, si se elige (D3)        | Costo por conversación; depende del volumen                                                |
-| Generación de PDF y QR               | L2                          | $0 — se genera en el propio Worker                                                         |
-| Almacenamiento de pruebas de entrega | L4                          | R2, unos centavos al mes en el arranque                                                    |
-| Optimización de rutas                | L4.2, si el volumen lo pide | $0 con el algoritmo propio; de pago solo si se sustituye                                   |
-| Couriers externos                    | L5                          | Lo que cobre cada uno por envío, no por integración                                        |
+| Servicio                                          | Cuándo                      | Costo estimado                                                                             |
+| ------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------ |
+| Google Maps Platform                              | L1, si se elige (D2)        | Hay capa gratuita mensual; **confirmar tarifas vigentes antes de comprometer presupuesto** |
+| MapLibre + OpenStreetMap                          | L1, alternativa             | $0                                                                                         |
+| WhatsApp Business API                             | L2, si se elige (D3)        | Costo por conversación; depende del volumen                                                |
+| Generación de PDF y QR                            | L2                          | $0 — se genera en el propio Worker                                                         |
+| Cloudflare R2 (imágenes, PDF, pruebas de entrega) | 0.2 y L4                    | 10 GB-mes gratis; después $0,015/GB-mes, con salida de datos a $0                          |
+| Cloudflare Stream                                 | Si se sube video            | Se cobra por minuto almacenado y entregado; confirmar tarifa según el volumen previsto     |
+| Optimización de rutas                             | L4.2, si el volumen lo pide | $0 con el algoritmo propio; de pago solo si se sustituye                                   |
+| Couriers externos                                 | L5                          | Lo que cobre cada uno por envío, no por integración                                        |
 
 **Lo importante:** ninguna de estas piezas tiene costo fijo alto. Todas escalan
 con el uso, y las dos que sí cobran (mapas y WhatsApp) tienen alternativa gratuita
