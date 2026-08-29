@@ -1,8 +1,15 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { slugify } from '@nebula/ui';
-import { savePage, saveBanner } from '@/lib/actions/cms';
+import {
+  MAX_MENU_ITEMS,
+  MAX_MENU_LABEL_LENGTH,
+  MENU_LOCATION_LABELS,
+  type MenuItem,
+  type MenuLocation,
+} from '@nebula/domain';
+import { savePage, saveBanner, saveMenu } from '@/lib/actions/cms';
 import { IDLE } from '@/lib/actions/result';
 import { FieldError, FormFeedback, SubmitButton } from './form';
 
@@ -208,6 +215,139 @@ export function PageForm({ initial }: { initial?: PageValues }) {
       </div>
 
       <SubmitButton />
+    </form>
+  );
+}
+
+export interface MenuValues {
+  location: MenuLocation;
+  items: MenuItem[];
+}
+
+/**
+ * Editor de una zona de navegación.
+ *
+ * Las filas se mandan como `label`/`url` repetidos y el servidor las empareja
+ * por posición, así que reordenar es mover la fila: no hay identificadores que
+ * mantener para algo que en la base de datos es un único JSON.
+ */
+export function MenuForm({ initial }: { initial: MenuValues }) {
+  const [state, formAction] = useActionState(saveMenu, IDLE);
+  const [rows, setRows] = useState<MenuItem[]>(
+    initial.items.length > 0 ? initial.items : [{ label: '', url: '' }],
+  );
+
+  const zona = initial.location;
+
+  function update(index: number, field: keyof MenuItem, value: string) {
+    setRows((current) => current.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+  }
+
+  function move(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= rows.length) return;
+
+    setRows((current) => {
+      const next = [...current];
+      const movida = next[index];
+      const desplazada = next[target];
+      if (!movida || !desplazada) return current;
+
+      next[index] = desplazada;
+      next[target] = movida;
+      return next;
+    });
+  }
+
+  return (
+    <form action={formAction} className="card">
+      <div className="card-head">
+        <h3>{MENU_LOCATION_LABELS[zona]}</h3>
+        <span className="tag">
+          {rows.length} de {MAX_MENU_ITEMS}
+        </span>
+      </div>
+
+      <FormFeedback state={state} />
+
+      <input type="hidden" name="location" value={zona} />
+
+      <ul className="menu-rows">
+        {rows.map((row, index) => (
+          <li key={`${zona}-${index}`} className="menu-row">
+            <div className="field">
+              <label htmlFor={`label-${zona}-${index}`}>Texto</label>
+              <input
+                id={`label-${zona}-${index}`}
+                name="label"
+                value={row.label}
+                maxLength={MAX_MENU_LABEL_LENGTH}
+                onChange={(event) => update(index, 'label', event.target.value)}
+                placeholder="Tienda"
+              />
+              <FieldError state={state} field={`label-${index}`} />
+            </div>
+
+            <div className="field">
+              <label htmlFor={`url-${zona}-${index}`}>Destino</label>
+              <input
+                id={`url-${zona}-${index}`}
+                name="url"
+                value={row.url}
+                onChange={(event) => update(index, 'url', event.target.value)}
+                placeholder="/tienda"
+              />
+              <FieldError state={state} field={`url-${index}`} />
+            </div>
+
+            <div className="menu-row-actions">
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => move(index, -1)}
+                disabled={index === 0}
+                aria-label={`Subir ${row.label || `el enlace ${index + 1}`}`}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => move(index, 1)}
+                disabled={index === rows.length - 1}
+                aria-label={`Bajar ${row.label || `el enlace ${index + 1}`}`}
+              >
+                ↓
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => setRows((current) => current.filter((_, i) => i !== index))}
+                aria-label={`Quitar ${row.label || `el enlace ${index + 1}`}`}
+              >
+                Quitar
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <div className="menu-foot">
+        <button
+          type="button"
+          className="btn btn-outline btn-sm"
+          onClick={() => setRows((current) => [...current, { label: '', url: '' }])}
+          disabled={rows.length >= MAX_MENU_ITEMS}
+        >
+          Añadir enlace
+        </button>
+        <SubmitButton />
+      </div>
+
+      <span className="field-hint">
+        Una ruta interna empieza por «/» (por ejemplo <code>/tienda</code>). También valen
+        direcciones http(s), <code>mailto:</code> y <code>tel:</code>.
+      </span>
     </form>
   );
 }

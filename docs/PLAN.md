@@ -74,8 +74,12 @@ pasarela, catálogo real ni contenido definitivo.
 
 **Panel y CMS, lo que falta por construir:**
 
-0.1 **Editor de menús.** `cms_menus` se carga por seed y no se puede tocar desde
-el panel. Cambiar un enlace del pie exige SQL.
+0.1 ~~**Editor de menús.**~~ Hecho. Las tres zonas —cabecera, pie/tienda y
+pie/ayuda— se editan en `/contenido/menus`: añadir, reordenar y borrar enlaces
+sin tocar SQL. La validación de las URL vive en `@nebula/domain` porque es de
+seguridad, no de formulario: lo que se guarda aquí acaba en un `href` de la
+tienda, así que un `javascript:` se ejecutaría en el navegador de cada
+visitante. Se aceptan rutas internas, http(s), `mailto:` y `tel:`, y nada más.
 0.2 **Subida de imágenes.** Los buckets `product-images` y `cms-media` ya están
 declarados en `supabase/config.toml`; falta la interfaz. Hoy se pegan URLs.
 0.3 **Variantes múltiples.** Hoy solo se gestiona la variante por defecto, así

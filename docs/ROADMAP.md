@@ -37,7 +37,7 @@
 - [x] Usuarios y roles
 - [x] Configuración de integraciones
 - [x] Recorrido de demostración: el panel se navega entero sin base de datos
-- [ ] **Editor de menús** (`cms_menus` solo se puede cambiar por SQL)
+- [x] **Editor de menús** — las tres zonas se editan en `/contenido/menus`
 - [ ] **Gestión de variantes múltiples** desde el panel (hoy: variante por defecto)
 - [ ] **Subida de imágenes** a R2 / Supabase Storage desde el panel
 - [ ] **Blog** (`cms_posts` existe, falta la interfaz)

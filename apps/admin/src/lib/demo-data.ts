@@ -577,6 +577,39 @@ export const BANNERS_DEMO: Tables<'cms_banners'>[] = [
   },
 ];
 
+export const MENUS_DEMO: Tables<'cms_menus'>[] = [
+  {
+    id: uuid('m1'),
+    location: 'header',
+    items: [
+      { label: 'Inicio', url: '/' },
+      { label: 'Tienda', url: '/tienda' },
+      { label: 'Contacto', url: '/p/contacto' },
+    ],
+    updated_at: haceDias(12),
+  },
+  {
+    id: uuid('m2'),
+    location: 'footer_shop',
+    items: [
+      { label: 'Todos los productos', url: '/tienda' },
+      { label: 'Ofertas', url: '/tienda?filtro=ofertas' },
+      { label: 'Novedades', url: '/tienda?filtro=novedades' },
+    ],
+    updated_at: haceDias(12),
+  },
+  {
+    id: uuid('m3'),
+    location: 'footer_help',
+    items: [
+      { label: 'Contacto', url: '/p/contacto' },
+      { label: 'Envíos', url: '/p/envios' },
+      { label: 'Cambios y devoluciones', url: '/p/devoluciones' },
+    ],
+    updated_at: haceDias(12),
+  },
+];
+
 export const PAGINAS_DEMO: Tables<'cms_pages'>[] = [
   {
     id: uuid('g1'),

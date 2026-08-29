@@ -526,6 +526,15 @@ export async function cargarBanners(placements: readonly string[]) {
   return data ?? [];
 }
 
+export async function cargarMenus(): Promise<Tables<'cms_menus'>[]> {
+  if (esModoDemostracion()) return demo.MENUS_DEMO;
+
+  const supabase = await getSupabaseServerClient();
+  const { data } = await supabase.from('cms_menus').select('*');
+
+  return data ?? [];
+}
+
 export interface ResumenPagina {
   id: string;
   title: string;
