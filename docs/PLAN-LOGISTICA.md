@@ -212,16 +212,16 @@ en el aire es distinto a probar en local.
 > es la cuenta, es el dominio propio y apuntarlos a una base de datos real en
 > vez de al modo demostración.
 
-| Paso | Qué se hace                                                                                                      | Depende de |
-| ---- | ---------------------------------------------------------------------------------------------------------------- | ---------- |
-| 0.1  | Dominio propio, y los dos Workers apuntados a él                                                                 | **D1**     |
-| 0.2  | ~~Habilitar R2~~ (hecho) y **publicar el bucket**: sin dominio público las imágenes se suben pero no se ven      | —          |
-| 0.3  | Proyecto Supabase de staging, migraciones aplicadas, historial reconciliado                                      | —          |
-| 0.4  | Los Workers dejan el modo demostración y reciben los secretos de Supabase                                        | 0.3        |
-| 0.5  | Cloudflare Access sobre el panel                                                                                 | 0.1        |
-| 0.6  | Backups automáticos de Supabase con retención definida                                                           | 0.3        |
-| 0.7  | ~~Cerrar los pendientes del panel~~ (hecho): menús, subida de imágenes, variantes y datos personales del cliente | 0.2        |
-| 0.8  | Páginas legales completadas y revisadas                                                                          | —          |
+| Paso | Qué se hace                                                                                                            | Depende de |
+| ---- | ---------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 0.1  | Dominio propio, y los dos Workers apuntados a él                                                                       | **D1**     |
+| 0.2  | ~~Habilitar R2 y publicar el bucket~~ (hecho). Queda cambiar la URL `r2.dev` por un dominio propio antes de producción | —          |
+| 0.3  | Proyecto Supabase de staging, migraciones aplicadas, historial reconciliado                                            | —          |
+| 0.4  | Los Workers dejan el modo demostración y reciben los secretos de Supabase                                              | 0.3        |
+| 0.5  | Cloudflare Access sobre el panel                                                                                       | 0.1        |
+| 0.6  | Backups automáticos de Supabase con retención definida                                                                 | 0.3        |
+| 0.7  | ~~Cerrar los pendientes del panel~~ (hecho): menús, subida de imágenes, variantes y datos personales del cliente       | 0.2        |
+| 0.8  | Páginas legales completadas y revisadas                                                                                | —          |
 
 **Criterio de aceptación:** la clienta abre una URL desde su teléfono, navega la
 tienda, entra al panel con su usuario y ve un pedido de prueba de punta a punta.

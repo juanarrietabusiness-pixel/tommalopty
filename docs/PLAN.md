@@ -86,9 +86,9 @@ Storage: había dos opciones escritas a la vez y las cerró el
 y desde la galería de producto —que antes no existía: `product_images` estaba
 sin ninguna pantalla que escribiera en ella—. Se usa el _binding_ de R2, así que
 no hay credenciales que guardar. La validación no se fía del `Content-Type` que
-manda el navegador: lee los primeros bytes del fichero. Falta configurar
-`NEXT_PUBLIC_R2_PUBLIC_URL` en cada entorno; sin él, el panel se niega a subir en
-vez de guardar una imagen que nadie podría ver.
+manda el navegador: lee los primeros bytes del fichero. El bucket `nebula-media` ya existe y tiene URL pública, así que la
+subida funciona de punta a punta. Queda cambiar esa URL `r2.dev` —limitada por
+tasa— por un dominio propio antes de abrir la tienda.
 0.3 ~~**Variantes múltiples.**~~ Hecho. La ficha de producto tiene su sección de
 variantes: alta, edición, cuál es la de por defecto y borrado, con el stock a la
 vista. La tienda ya sabía pintar el selector cuando hay más de una, así que talla

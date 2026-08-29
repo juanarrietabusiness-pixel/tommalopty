@@ -97,13 +97,65 @@ wrangler secret put PAYPAL_CLIENT_SECRET
 
 ## Almacenamiento de imágenes
 
-El catálogo sirve las imágenes desde Cloudflare R2 (egress $0) o Supabase
-Storage. Una vez definido el dominio público:
+Las imágenes viven en **Cloudflare R2**, no en Supabase Storage
+([ADR 0007](adr/0007-media-en-cloudflare.md)). Hay dos caminos y no se deben
+confundir:
 
-1. Añádelo a `NEXT_PUBLIC_R2_PUBLIC_URL`.
-2. Añádelo a `images.remotePatterns` en el `next.config.ts` de la tienda si se
-   quiere pasar a `next/image`. Hoy se usa `<img>` a propósito, porque el
-   dominio varía por entorno.
+|              | Subir                                          | Servir                          |
+| ------------ | ---------------------------------------------- | ------------------------------- |
+| Quién        | El Worker del panel                            | Cualquier navegador             |
+| Cómo         | Binding `MEDIA` de `apps/admin/wrangler.jsonc` | El dominio público del bucket   |
+| Credenciales | **Ninguna.** El binding no usa claves          | No aplica: es contenido público |
+
+### El bucket
+
+`nebula-media`, creado en agosto de 2026. La subida funciona por el binding y no
+necesita ninguna variable. Lo que sí hace falta es decirle a las aplicaciones
+**desde qué dominio se sirve lo ya subido**, en `NEXT_PUBLIC_R2_PUBLIC_URL`.
+
+Sin esa variable el panel **se niega a subir**, a propósito: guardaría un objeto
+cuya URL nadie puede componer, y la imagen se vería rota sin que nadie supiera
+por qué.
+
+| Entorno                   | Valor                                                                       |
+| ------------------------- | --------------------------------------------------------------------------- |
+| Desarrollo y demostración | `https://pub-524ecdb67a9a4230b194ae8a7de615e3.r2.dev`                       |
+| Producción                | Un dominio propio conectado al bucket, p. ej. `https://media.tudominio.com` |
+
+**La URL `r2.dev` no es para producción.** Cloudflare la limita por tasa y lo
+dice en su documentación: existe para desarrollo y para enseñar la plataforma.
+Antes de abrir la tienda hay que conectar un dominio propio al bucket, desde
+R2 → `nebula-media` → Settings → Custom Domains.
+
+**Cambiar de dominio no mueve nada.** Las claves de los objetos son las mismas;
+solo cambia quién las sirve. Lo que sí hay que hacer es reescribir las URL ya
+guardadas en `product_images.url` y en `cms_banners.media_url`, que llevan el
+dominio dentro. Un `update` con `replace()` sobre esas dos columnas basta.
+
+### Lo que este bucket es y lo que no
+
+`nebula-media` es **público**: cualquiera con la URL de un objeto lo ve, sin
+sesión. Es lo correcto para fotos de catálogo y del CMS, que existen para ser
+vistas.
+
+**No vale para las pruebas de entrega de la fase L4.** Esas fotos llevan la
+puerta de la casa de un cliente, y en un bucket público bastaría con adivinar
+una clave. Van en un bucket aparte, privado, servidas con URL firmada de
+caducidad corta. Está en el [plan de logística](PLAN-LOGISTICA.md); se menciona
+aquí para que a nadie le tiente reutilizar este bucket por comodidad.
+
+### Si algún día se pasa a `next/image`
+
+Habría que añadir el dominio a `images.remotePatterns` en el `next.config.ts` de
+la tienda. Hoy se usa `<img>` a propósito, porque el dominio varía por entorno.
+
+### Variable de repositorio para la previsualización
+
+El enlace de previsualización de cada PR construye en modo demostración, donde
+no se puede subir nada, pero sí se ven las imágenes que ya estén en el bucket.
+Para que las vea, en **Settings → Secrets and variables → Actions → Variables**
+del repositorio: `R2_PUBLIC_URL` con el valor de la tabla de arriba. Es una
+variable, no un secreto: la URL es pública por definición.
 
 ## Enseñar la plataforma: previsualización
 
@@ -216,6 +268,8 @@ nuevo cada vez.
 - [ ] Webhooks apuntando al dominio de producción y con firma verificada
 - [ ] Backups automáticos de Supabase activos, con retención definida
 - [ ] Panel protegido con Cloudflare Access
+- [ ] Dominio propio conectado al bucket R2, y `NEXT_PUBLIC_R2_PUBLIC_URL`
+      apuntando a él en vez de a `r2.dev` (limitada por tasa)
 - [ ] Al menos un `superadmin` creado y los roles del equipo asignados
 - [ ] Contenido real: catálogo, banners, páginas legales
 - [ ] Meta Pixel y Conversions API verificados en el Events Manager

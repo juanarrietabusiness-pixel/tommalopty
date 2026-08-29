@@ -105,10 +105,11 @@ conviene decirlo con claridad en vez de venderlo. Lo que sí se cumple es que
 Cloudflare sirve el 100 % de lo que llega al navegador, y Supabase queda como
 una dependencia de datos que ningún visitante toca directamente.
 
-**Hay que habilitar R2 en la cuenta.** Hoy no lo está: la API responde
-`Please enable R2 through the Cloudflare Dashboard`. Es una activación en el
-panel, sin coste hasta pasar el nivel gratuito, pero bloquea el paso 0.2 hasta
-que se haga.
+~~**Hay que habilitar R2 en la cuenta.**~~ Hecho en agosto de 2026. El bucket
+`nebula-media` existe y tiene URL pública. Queda una cosa pendiente para
+producción: esa URL es la `r2.dev`, que Cloudflare limita por tasa y no
+recomienda para tráfico real. Antes de abrir la tienda hay que conectar un
+dominio propio al bucket — ver [`DESPLIEGUE.md`](../DESPLIEGUE.md).
 
 **Las fotos de prueba de entrega no pueden ser públicas.** Llevan la puerta de
 la casa de un cliente. Van en bucket privado y se sirven con URL firmada de
