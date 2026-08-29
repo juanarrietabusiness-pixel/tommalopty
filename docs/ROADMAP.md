@@ -66,6 +66,19 @@
 
 ---
 
+## Fase 6 — Logística y trazabilidad 🔲
+
+Planificada en detalle en [`PLAN-LOGISTICA.md`](PLAN-LOGISTICA.md), a partir de
+las preguntas de la clienta. Nada de esto existe todavía.
+
+- [ ] Direcciones con mapa y coordenadas (el pin, no el texto, manda)
+- [ ] Envíos como entidad propia, con guía y línea de tiempo
+- [ ] Guía de despacho en PDF con QR que abre Waze y Google Maps
+- [ ] Página pública de seguimiento del pedido
+- [ ] Abonos: pagos parciales y despacho condicionado al saldo
+- [ ] Motorizados: rol, app PWA, asignación, rutas y liquidaciones
+- [ ] Couriers externos (Servientrega, Droppy) como adaptadores
+
 ## Lo primero que hay que decidir
 
 1. **Dominio y cuenta de Cloudflare**, para desplegar. Es lo único que bloquea
