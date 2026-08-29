@@ -565,3 +565,24 @@
   gap: 12px;
   margin-bottom: 10px;
 }
+
+/* --- Subida de imágenes ----------------------------------------------------- */
+.image-upload-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.image-upload-preview img {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+.image-upload-preview-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

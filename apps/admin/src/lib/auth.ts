@@ -44,7 +44,14 @@ const SESION_DEMO: StaffSession = {
   role: 'admin',
 };
 
-export const requireStaff = cache(async (): Promise<StaffSession> => {
+/**
+ * Lee la sesión de staff sin decidir qué hacer si no la hay.
+ *
+ * Existe separada de `requireStaff` porque redirigir solo vale en una pantalla.
+ * Una ruta de API que redirige devuelve un 307 con HTML, y quien la llamó desde
+ * `fetch` recibe algo que no puede leer en lugar de un error entendible.
+ */
+export const readStaffSession = cache(async (): Promise<StaffSession | null> => {
   // Sin Supabase configurado el panel no puede autenticar a nadie. Antes esto
   // reventaba con un 500 en las 17 pantallas y solo se veía la de acceso; ahora
   // se recorre entero en solo lectura. Ver `esModoDemostracion`.
@@ -56,7 +63,7 @@ export const requireStaff = cache(async (): Promise<StaffSession> => {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect('/entrar');
+  if (!user) return null;
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -64,9 +71,7 @@ export const requireStaff = cache(async (): Promise<StaffSession> => {
     .eq('id', user.id)
     .maybeSingle();
 
-  if (!profile || !profile.is_active || profile.role === 'customer') {
-    redirect('/entrar?error=sin_permisos');
-  }
+  if (!profile || !profile.is_active || profile.role === 'customer') return null;
 
   return {
     userId: profile.id,
@@ -76,10 +81,26 @@ export const requireStaff = cache(async (): Promise<StaffSession> => {
   };
 });
 
+export const requireStaff = cache(async (): Promise<StaffSession> => {
+  const session = await readStaffSession();
+  if (!session) redirect('/entrar?error=sin_permisos');
+  return session;
+});
+
 /** Exige rol admin o superadmin (escritura). */
 export async function requireAdmin(): Promise<StaffSession> {
   const session = await requireStaff();
   if (session.role === 'operator') redirect('/?error=sin_permisos');
+  return session;
+}
+
+/**
+ * Como `requireAdmin`, pero para rutas de API: devuelve `null` en vez de
+ * redirigir, para que quien llame pueda responder con el estado correcto.
+ */
+export async function readWriteSession(): Promise<StaffSession | null> {
+  const session = await readStaffSession();
+  if (!session || !canWrite(session.role)) return null;
   return session;
 }
 

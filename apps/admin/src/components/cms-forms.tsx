@@ -12,6 +12,7 @@ import {
 import { savePage, saveBanner, saveMenu } from '@/lib/actions/cms';
 import { IDLE } from '@/lib/actions/result';
 import { FieldError, FormFeedback, SubmitButton } from './form';
+import { ImageUpload } from './image-upload';
 
 export interface BannerValues {
   id?: string;
@@ -98,11 +99,13 @@ export function BannerForm({ initial }: { initial: BannerValues }) {
       ) : null}
 
       {initial.placement === 'hero' ? (
-        <div className="field">
-          <label htmlFor="mediaUrl">Imagen de campaña (URL)</label>
-          <input id="mediaUrl" name="mediaUrl" defaultValue={initial.mediaUrl} />
-          <span className="field-hint">Sin imagen se usa el degradado del diseño original.</span>
-        </div>
+        <ImageUpload
+          name="mediaUrl"
+          kind="cms"
+          initialUrl={initial.mediaUrl}
+          label="Imagen de campaña"
+          hint="Sin imagen se usa el degradado del diseño original."
+        />
       ) : null}
 
       <label

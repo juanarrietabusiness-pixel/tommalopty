@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import { initOpenNextCloudflareForDev } from '@opennextjs/cloudflare';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -19,5 +20,10 @@ const nextConfig: NextConfig = {
     ];
   },
 };
+
+// Da acceso a los bindings de Cloudflare (el bucket MEDIA) durante `next dev`,
+// sirviéndolos con el emulador local de wrangler. Sin esto, subir una imagen
+// solo funcionaría una vez desplegado.
+void initOpenNextCloudflareForDev();
 
 export default nextConfig;
