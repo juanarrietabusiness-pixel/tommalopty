@@ -498,6 +498,13 @@ que la línea de tiempo que ve el cliente sea idéntica venga de donde venga.
 cubierta; el courier externo para el resto del país. Configurable por zona desde
 el panel.
 
+> **Investigación hecha.** Qué proveedor tiene API, cuál no, y por dónde
+> conviene empezar, en
+> [`INVESTIGACION-COURIERS-PANAMA.md`](INVESTIGACION-COURIERS-PANAMA.md). El
+> resumen: **Dropi PA primero** —un adaptador da cuatro couriers panameños y el
+> pago contra entrega—, DHL Express después, y Servientrega y Shippea solo
+> cuando haya contrato.
+
 **Aviso honesto sobre las credenciales.** Las APIs de estos proveedores
 regionales no siempre están documentadas públicamente y a veces exigen contrato
 firmado antes de dar acceso a sandbox. **Hasta no tener credenciales y
