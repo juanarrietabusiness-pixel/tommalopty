@@ -89,8 +89,17 @@ no hay credenciales que guardar. La validación no se fía del `Content-Type` qu
 manda el navegador: lee los primeros bytes del fichero. Falta configurar
 `NEXT_PUBLIC_R2_PUBLIC_URL` en cada entorno; sin él, el panel se niega a subir en
 vez de guardar una imagen que nadie podría ver.
-0.3 **Variantes múltiples.** Hoy solo se gestiona la variante por defecto, así
-que talla y color no son vendibles.
+0.3 ~~**Variantes múltiples.**~~ Hecho. La ficha de producto tiene su sección de
+variantes: alta, edición, cuál es la de por defecto y borrado, con el stock a la
+vista. La tienda ya sabía pintar el selector cuando hay más de una, así que talla
+y color eran vendibles en teoría y no en la práctica.
+
+De paso se cierra una divergencia que esto habría creado: el formulario de
+producto escribía precio, SKU y stock en la variante por defecto, con un esquema
+que no comprobaba que el precio tachado fuera mayor que el de venta. Eran dos
+formularios sobre la misma fila validando distinto. Ahora esos campos solo
+aparecen al dar de alta —la primera variante hay que crearla con algo— y a partir
+de ahí los gobierna la sección de variantes.
 0.4 **Blog.** `cms_posts` existe sin ninguna pantalla.
 0.5 **Reseñas.** `reviews` existe con estados de moderación y sin moderador.
 0.6 **Campañas.** `campaigns` existe sin interfaz.

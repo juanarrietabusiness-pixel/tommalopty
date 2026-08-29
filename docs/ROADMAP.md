@@ -38,7 +38,7 @@
 - [x] Configuración de integraciones
 - [x] Recorrido de demostración: el panel se navega entero sin base de datos
 - [x] **Editor de menús** — las tres zonas se editan en `/contenido/menus`
-- [ ] **Gestión de variantes múltiples** desde el panel (hoy: variante por defecto)
+- [x] **Gestión de variantes múltiples** desde el panel (talla y color ya son vendibles)
 - [x] **Subida de imágenes** a Cloudflare R2 desde el panel (banner y galería de producto)
 - [ ] **Blog** (`cms_posts` existe, falta la interfaz)
 - [ ] **Reseñas** (`reviews` existe con moderación, falta la interfaz)

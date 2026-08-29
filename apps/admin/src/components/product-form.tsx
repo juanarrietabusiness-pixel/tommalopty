@@ -111,57 +111,62 @@ export function ProductForm({ initial }: { initial?: ProductFormValues }) {
             </div>
           </section>
 
-          <section className="card">
-            <div className="card-head">
-              <h2>Precio e inventario</h2>
-            </div>
+          {/* Solo al dar de alta: la primera variante hay que crearla con algo.
+              Al editar, precio, SKU y stock los gobierna la sección de
+              Variantes, que es la única que sabe que puede haber más de una. */}
+          {!isEdit ? (
+            <section className="card">
+              <div className="card-head">
+                <h2>Precio e inventario</h2>
+              </div>
 
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="price">Precio (USD)</label>
-                <input
-                  id="price"
-                  name="price"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  defaultValue={values.price}
-                  required
-                />
-                <FieldError state={state} field="price" />
+              <div className="field-row">
+                <div className="field">
+                  <label htmlFor="price">Precio (USD)</label>
+                  <input
+                    id="price"
+                    name="price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    defaultValue={values.price}
+                    required
+                  />
+                  <FieldError state={state} field="price" />
+                </div>
+                <div className="field">
+                  <label htmlFor="compareAtPrice">Precio antes de oferta</label>
+                  <input
+                    id="compareAtPrice"
+                    name="compareAtPrice"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    defaultValue={values.compareAtPrice ?? ''}
+                  />
+                  <span className="field-hint">Déjalo vacío si no está en oferta.</span>
+                </div>
               </div>
-              <div className="field">
-                <label htmlFor="compareAtPrice">Precio antes de oferta</label>
-                <input
-                  id="compareAtPrice"
-                  name="compareAtPrice"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  defaultValue={values.compareAtPrice ?? ''}
-                />
-                <span className="field-hint">Déjalo vacío si no está en oferta.</span>
-              </div>
-            </div>
 
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="sku">SKU</label>
-                <input id="sku" name="sku" defaultValue={values.sku} />
+              <div className="field-row">
+                <div className="field">
+                  <label htmlFor="sku">SKU</label>
+                  <input id="sku" name="sku" defaultValue={values.sku} />
+                </div>
+                <div className="field">
+                  <label htmlFor="quantity">Stock</label>
+                  <input
+                    id="quantity"
+                    name="quantity"
+                    type="number"
+                    min="0"
+                    defaultValue={values.quantity}
+                  />
+                  <FieldError state={state} field="quantity" />
+                </div>
               </div>
-              <div className="field">
-                <label htmlFor="quantity">Stock</label>
-                <input
-                  id="quantity"
-                  name="quantity"
-                  type="number"
-                  min="0"
-                  defaultValue={values.quantity}
-                />
-                <FieldError state={state} field="quantity" />
-              </div>
-            </div>
-          </section>
+            </section>
+          ) : null}
 
           <section className="card">
             <div className="card-head">

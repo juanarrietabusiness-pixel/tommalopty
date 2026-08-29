@@ -333,6 +333,20 @@ export interface ProductoEditable {
   sku: string | null;
   quantity: number | null;
   images: ImagenProducto[];
+  variants: VarianteEditable[];
+}
+
+export interface VarianteEditable {
+  id: string;
+  title: string;
+  sku: string | null;
+  price: number;
+  compareAtPrice: number | null;
+  isDefault: boolean;
+  isActive: boolean;
+  position: number;
+  quantity: number;
+  reservedQuantity: number;
 }
 
 export interface ImagenProducto {
@@ -368,6 +382,21 @@ export async function cargarProducto(id: string): Promise<ProductoEditable | nul
       sku: variante?.sku ?? null,
       quantity: inv?.quantity ?? null,
       images: [],
+      variants: demo.VARIANTES_DEMO.filter((v) => v.product_id === p.id).map((v) => {
+        const stock = demo.INVENTARIO_DEMO.find((i) => i.variant_id === v.id);
+        return {
+          id: v.id,
+          title: v.title,
+          sku: v.sku,
+          price: v.price,
+          compareAtPrice: v.compare_at_price,
+          isDefault: v.is_default,
+          isActive: v.is_active,
+          position: v.position,
+          quantity: stock?.quantity ?? 0,
+          reservedQuantity: stock?.reserved_quantity ?? 0,
+        };
+      }),
     };
   }
 
@@ -378,8 +407,9 @@ export async function cargarProducto(id: string): Promise<ProductoEditable | nul
       `id, title, slug, subtitle, description, brand, status, is_featured, tags,
        seo_title, seo_description,
        product_images (id, url, alt, position, is_primary),
-       product_variants (id, price, compare_at_price, sku, is_default,
-         inventory (quantity))`,
+       product_variants (id, title, price, compare_at_price, sku, is_default,
+         is_active, position,
+         inventory (quantity, reserved_quantity))`,
     )
     .eq('id', id)
     .maybeSingle();
@@ -415,6 +445,26 @@ export async function cargarProducto(id: string): Promise<ProductoEditable | nul
         position: image.position,
         isPrimary: image.is_primary,
       }))
+      .sort((a, b) => a.position - b.position),
+    variants: (product.product_variants ?? [])
+      .map((candidate) => {
+        const stock = Array.isArray(candidate.inventory)
+          ? candidate.inventory[0]
+          : candidate.inventory;
+
+        return {
+          id: candidate.id,
+          title: candidate.title,
+          sku: candidate.sku,
+          price: candidate.price,
+          compareAtPrice: candidate.compare_at_price,
+          isDefault: candidate.is_default,
+          isActive: candidate.is_active,
+          position: candidate.position,
+          quantity: stock?.quantity ?? 0,
+          reservedQuantity: stock?.reserved_quantity ?? 0,
+        };
+      })
       .sort((a, b) => a.position - b.position),
   };
 }
