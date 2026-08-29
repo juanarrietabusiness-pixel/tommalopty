@@ -103,8 +103,19 @@ de ahí los gobierna la sección de variantes.
 0.4 **Blog.** `cms_posts` existe sin ninguna pantalla.
 0.5 **Reseñas.** `reviews` existe con estados de moderación y sin moderador.
 0.6 **Campañas.** `campaigns` existe sin interfaz.
-0.7 **Datos personales del cliente.** El panel de cliente muestra pedidos,
-direcciones y favoritos, pero no deja editar nombre ni teléfono.
+0.7 ~~**Datos personales del cliente.**~~ Hecho. `/cuenta/datos` deja corregir
+nombre, apellido, teléfono y el consentimiento de marketing. El teléfono no es un
+adorno: es lo que resuelve una entrega cuando quien la lleva no encuentra la
+dirección.
+
+Abrir `customers` a un formulario público obligó a terminar el trabajo de la
+migración 0013. RLS es por fila, no por columna, así que `customers_update_own`
+autorizaba la fila entera; 0013 tapó email, `profile_id` y las métricas de
+compra, pero dejaba fuera `tags` —un cliente podía etiquetarse «mayorista» y
+colarse en la segmentación del CRM—, `notes_count` y `last_order_at`. La
+migración 0019 los cierra, y de paso hace que la fecha de consentimiento de
+marketing la selle el disparador en vez de aceptarla del formulario: si la
+escribe quien quiera, no sirve como prueba de nada.
 
 **Despliegue:**
 

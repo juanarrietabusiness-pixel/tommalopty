@@ -7,6 +7,7 @@ const ACCOUNT_LINKS = [
   { label: 'Resumen', href: '/cuenta' },
   { label: 'Mis pedidos', href: '/cuenta/pedidos' },
   { label: 'Direcciones', href: '/cuenta/direcciones' },
+  { label: 'Mis datos', href: '/cuenta/datos' },
   { label: 'Favoritos', href: '/cuenta/favoritos' },
 ];
 

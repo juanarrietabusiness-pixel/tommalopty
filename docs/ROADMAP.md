@@ -22,7 +22,7 @@
 - [x] Historial y detalle de pedidos
 - [x] Direcciones guardadas
 - [x] Wishlist / favoritos
-- [ ] Edición de datos personales desde el panel de cliente
+- [x] Edición de datos personales desde el panel de cliente (`/cuenta/datos`)
 
 ## Fase 3 — Panel administrativo ✅
 

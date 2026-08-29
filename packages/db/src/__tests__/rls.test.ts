@@ -271,6 +271,92 @@ describeIfDb('cliente autenticado', () => {
     });
   });
 
+  // El panel de cliente edita `customers`, así que estas columnas están
+  // expuestas a un formulario público. RLS autoriza la fila entera; quien
+  // distingue qué columna es suya es `guard_customer_identity`.
+  it('sí puede corregir su nombre y su teléfono', async () => {
+    await asRole(client, { role: 'authenticated', userId: CLIENTE_A }, async (db) => {
+      const result = await db.query(
+        `update public.customers set first_name = 'Corregido', phone = '6000-0000'
+         where profile_id = $1`,
+        [CLIENTE_A],
+      );
+      expect(result.rowCount).toBe(1);
+    });
+  });
+
+  it('no puede etiquetarse a sí mismo en el CRM', async () => {
+    // Las etiquetas guían a quien atiende y segmentarán las campañas.
+    await asRole(client, { role: 'authenticated', userId: CLIENTE_A }, async (db) => {
+      const blocked = await isWriteBlocked(
+        db,
+        `update public.customers set tags = array['mayorista'] where profile_id = $1`,
+        [CLIENTE_A],
+      );
+      expect(blocked).toBe(true);
+    });
+  });
+
+  it('no puede inflar sus métricas de compra', async () => {
+    await asRole(client, { role: 'authenticated', userId: CLIENTE_A }, async (db) => {
+      const blocked = await isWriteBlocked(
+        db,
+        `update public.customers set total_spent = 999999, orders_count = 500
+         where profile_id = $1`,
+        [CLIENTE_A],
+      );
+      expect(blocked).toBe(true);
+    });
+  });
+
+  it('no puede falsear la fecha de su último pedido', async () => {
+    await asRole(client, { role: 'authenticated', userId: CLIENTE_A }, async (db) => {
+      const blocked = await isWriteBlocked(
+        db,
+        `update public.customers set last_order_at = now() where profile_id = $1`,
+        [CLIENTE_A],
+      );
+      expect(blocked).toBe(true);
+    });
+  });
+
+  it('no puede robar la ficha de otro cambiando el correo', async () => {
+    await asRole(client, { role: 'authenticated', userId: CLIENTE_A }, async (db) => {
+      const blocked = await isWriteBlocked(
+        db,
+        `update public.customers set email = 'otro@test.local' where profile_id = $1`,
+        [CLIENTE_A],
+      );
+      expect(blocked).toBe(true);
+    });
+  });
+
+  // El consentimiento de marketing sí es suyo, pero su fecha es rastro de
+  // auditoría: la sella el disparador, no quien rellena el formulario.
+  it('al aceptar marketing, la fecha la pone la base de datos', async () => {
+    await asRole(client, { role: 'authenticated', userId: CLIENTE_A }, async (db) => {
+      await db.query(
+        `update public.customers set accepts_marketing = false where profile_id = $1`,
+        [CLIENTE_A],
+      );
+
+      await db.query(
+        `update public.customers
+         set accepts_marketing = true, marketing_opt_in_at = '2001-01-01'
+         where profile_id = $1`,
+        [CLIENTE_A],
+      );
+
+      const { rows } = await db.query<{ opt_in: Date | null }>(
+        `select marketing_opt_in_at as opt_in from public.customers where profile_id = $1`,
+        [CLIENTE_A],
+      );
+
+      expect(rows[0]?.opt_in).not.toBeNull();
+      expect(rows[0]?.opt_in?.getFullYear()).toBeGreaterThan(2001);
+    });
+  });
+
   it('no puede modificar precios del catálogo', async () => {
     await asRole(client, { role: 'authenticated', userId: CLIENTE_A }, async (db) => {
       const result = await db.query(

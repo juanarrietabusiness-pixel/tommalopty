@@ -366,6 +366,10 @@ export type DemoDireccion = {
 
 export const DEMO_CLIENTE = {
   nombre: 'Ana',
+  apellido: 'Quintero',
+  telefono: '6123-4567',
+  correo: 'ana@ejemplo.com',
+  aceptaMarketing: true,
   pedidos: 3,
   totalGastado: 187.32,
 };
