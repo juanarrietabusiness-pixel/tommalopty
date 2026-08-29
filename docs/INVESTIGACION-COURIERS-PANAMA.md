@@ -16,7 +16,7 @@ de lo de aquí sale de documentación de terceros, no de un portal oficial.
 | **Dropi PA**              | 4 couriers panameños + pago contra entrega, con una sola integración | Sí, documentada                  | **Sí — es por donde hay que empezar**                 |
 | **DHL Express**           | Internacional, la mejor documentación de todas                       | Sí, portal oficial autoservicio  | Sí, con cuenta DHL activa                             |
 | **Shippea / Uno Express** | La mayor red de couriers de Panamá                                   | No publicada                     | No: hay que hablar con ellos                          |
-| **Servientrega**          | Cobertura nacional, la marca que pidió la clienta                    | Sí, pero anticuada y fragmentada | No: exige cuenta corporativa                          |
+| **Servientrega Panamá**   | Cobertura nacional, la marca que pidió la clienta                    | Sí, y con librería de referencia | **Sí** — hay sandbox y hay código que leer            |
 | **EasyPost / Shippo**     | Agregadores internacionales                                          | Sí                               | **No sirve**: en Panamá solo llegan vía DHL/FedEx/UPS |
 
 ---
@@ -60,41 +60,80 @@ puede romperse sin aviso.
 
 ---
 
-## 2. Servientrega — la marca que pidió la clienta, y la más enredada
+## 2. Servientrega Panamá — corregido: es más accesible de lo que parecía
 
-Hay que separar dos cosas que se confunden:
+> **Esta sección estaba mal en la primera versión de este documento.** La
+> escribí con la documentación de Servientrega **Colombia**, que es la que sale
+> al buscar. Servientrega Panamá funciona de otra manera, y mejor. Lo que sigue
+> sale de leer el código de una librería específica de Panamá
+> ([`saulmoralespa/servientrega-webservice-panama-php`](https://github.com/saulmoralespa/servientrega-webservice-panama-php),
+> MIT, PHP 8.1, última actualización enero de 2025).
 
-**Servientrega Panamá ([servientrega.com.pa](https://servientrega.com.pa)) es una
-entidad distinta de Servientrega Colombia.** Tiene su propio sitio y su propio
-cotizador. Casi toda la documentación e integraciones que se encuentran en
-internet son **de Colombia**, y no hay garantía de que sirvan aquí. Asumir que sí
-es el error más caro que se puede cometer en esta fase.
+**No usa `web.servientrega.com:8081`.** Eso es Colombia. Panamá está operado por
+un tercero, `appsiscore.com`, **todo sobre HTTPS en el puerto 443**:
 
-**Conviven dos generaciones de API:**
+| Operación    | Endpoint                                                             | Protocolo              |
+| ------------ | -------------------------------------------------------------------- | ---------------------- |
+| Cotizar      | `https://ws-servientrega.appsiscore.com/cotizador/ws_cotizador.php`  | **POST con JSON**      |
+| Generar guía | `https://ws-servientrega.appsiscore.com/generar_guia_carta.php?wsdl` | SOAP (método `getXML`) |
+| Rastrear     | `https://ws-servientrega.appsiscore.com/server_wst.php?wsdl`         | SOAP (método `getXML`) |
+| **Sandbox**  | `https://ws-servientrega.appsiscore.com/test/`                       | Igual, contra pruebas  |
 
-|           | Antigua                                               | Nueva                                                 |
-| --------- | ----------------------------------------------------- | ----------------------------------------------------- |
-| Protocolo | SOAP                                                  | REST, JSON                                            |
-| Endpoint  | `web.servientrega.com:8081/GeneracionGuias.asmx?wsdl` | `mobile.servientrega.com/ApiIngresoCLientes` (v1.0.2) |
-| Cubre     | Generación de guías                                   | Cotización                                            |
+**Sí hay entorno de pruebas.** Es lo que en el plan faltaba para poder estimar la
+fase con seriedad.
 
-**Dos detalles técnicos que importan para este proyecto:**
+**Autenticación:** usuario y contraseña, dentro del cuerpo de la petición
+(`usuingreso`/`contrasenha` en la cotización, `usu`/`pwd` en SOAP). No hay OAuth
+ni cabeceras: son credenciales de larga vida, así que van al secret store del
+Worker y nunca al repositorio.
 
-- **El puerto 8081 no es un problema.** Lo parecía: los Workers de Cloudflare
-  restringían los puertos de salida. Pero la bandera `allow_custom_ports` es el
-  comportamiento por defecto desde la fecha de compatibilidad 2024-09-02, y este
-  proyecto está en 2026-08-01. Hacia un destino que no esté detrás de Cloudflare,
-  se puede usar cualquier puerto.
-- **Lo que sí es un problema es que sea `http://` y no `https://`.** Mandar
-  credenciales por HTTP plano no es aceptable, y no lo arregla ninguna
-  configuración nuestra. Si el endpoint de Panamá tiene el mismo defecto, hay que
-  exigirles HTTPS o meter un proxy propio delante.
-- **SOAP desde un Worker significa construir el XML a mano.** Las librerías SOAP
-  de Node no corren en el runtime de Workers. Es viable, pero es trabajo real y
-  hay que contarlo en la estimación.
+### Lo que esto cambia para nosotros
 
-**Para obtener credenciales hace falta cuenta corporativa aprobada**, así que no
-es autoservicio: es una conversación comercial primero.
+- **La cotización es JSON sobre HTTPS.** Se llama desde un Worker con un `fetch`
+  normal. Cero fricción.
+- **Guía y rastreo son SOAP, pero sobre HTTPS/443.** Hay que construir el sobre
+  XML a mano, porque las librerías SOAP de Node no corren en Workers. Es trabajo
+  acotado —dos operaciones, un solo método `getXML`— pero hay que contarlo.
+- **Mis dos advertencias anteriores no aplican a Panamá.** Ni el puerto 8081 ni
+  el `http://` en claro: aquí es HTTPS estándar. Quedan como aviso solo para
+  quien intente usar la documentación colombiana.
+
+### Tres hallazgos del contrato que afectan al plan entero
+
+**1. La guía acepta `latitud` y `longitud`.** Esto es lo más importante del
+documento. Significa que **el courier nacional consume coordenadas**, no solo los
+motorizados propios. La [Fase L1](PLAN-LOGISTICA.md) —poner la dirección en un
+mapa— deja de ser una mejora de la experiencia de compra y pasa a ser un
+requisito de la integración: sin coordenadas se le entrega a Servientrega una
+guía peor de lo que su propia API admite.
+
+**2. La guía acepta `valor_recaudar`.** Servientrega Panamá hace **contra entrega
+de forma nativa**, en el mismo campo de la guía. Enlaza directo con los abonos de
+la [Fase L3](PLAN-LOGISTICA.md): un pedido con saldo pendiente puede despacharse
+poniendo el saldo en ese campo y que el courier lo cobre.
+
+**3. No hay código postal.** El destino se indica con `provincia_destinatario` y
+`distrito_destinatario`, **por nombre y en texto** (`"PANAMA"`, `"CHIRIQUI"`).
+Confirma lo que ya suponía el plan sobre las direcciones panameñas, y añade un
+trabajo concreto: hay que mantener la lista de provincias y distritos tal y como
+Servientrega los escribe, porque un nombre que no coincida es una guía rechazada.
+
+Otros campos del contrato: `nombre_producto` / `servicio` con valores como
+`PREMIER-RESIDENCIAL` o `PREMIER-CDS A CDS`; `transporte` (`TERRESTRE`); peso y
+dimensiones; `valor_declarado`; `mail_destinatario`, con lo que el courier avisa
+por su cuenta; y `fecha_programacion`.
+
+**Un detalle práctico que solo se ve leyendo el código:** la librería limpia los
+bytes de control de la respuesta antes de parsear el JSON
+(`preg_replace('/[\x00-\x1F\x80-\xFF]/', ...)`). Es decir, **la API devuelve
+JSON sucio**. Nuestro adaptador tendrá que hacer lo mismo o fallará a parsear sin
+motivo aparente.
+
+**Lo que no pude comprobar:** el proxy de salida de este entorno deniega por
+política las conexiones a `ws-servientrega.appsiscore.com`, así que no verifiqué
+que los endpoints respondan hoy. El dominio sí resuelve por DNS. Es una
+limitación de mi entorno, no una señal sobre el servicio: hay que probarlo desde
+fuera.
 
 ---
 
@@ -145,25 +184,30 @@ nada que no dé DHL directamente, y añaden un intermediario y su comisión.
 
 ---
 
-## 6. Qué hay en GitHub: prácticamente nada reutilizable
+## 6. Qué hay en GitHub: poco, pero lo que hay es justo lo que hacía falta
 
-Se buscaron clientes de API, plugins y librerías para estos proveedores. El
-resultado es escaso y conviene saberlo antes de estimar:
+> **También corregido.** La primera versión decía «prácticamente nada
+> reutilizable». Es falso: existe una librería específica de Servientrega
+> **Panamá**, y es la mejor fuente técnica de todo este documento.
 
-| Lo que hay                                                                                            | Qué es                                             | ¿Sirve?                                                                                                    |
-| ----------------------------------------------------------------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| [`saulmoralespa/shipping-servientrega-wc`](https://github.com/saulmoralespa/shipping-servientrega-wc) | Plugin de WooCommerce, PHP, SOAP contra el `:8081` | **Como referencia, sí; como código, no.** Es PHP, y su propio README dice «actualmente solamente Colombia» |
-| App de Servientrega para Shopify                                                                      | Cotización y etiquetas                             | Solo dentro de Shopify                                                                                     |
-| App de Shippea para Shopify                                                                           | Uno Express                                        | Solo dentro de Shopify                                                                                     |
-| Clientes Node/TypeScript de cualquiera de estos couriers                                              | —                                                  | **No existen**                                                                                             |
+| Lo que hay                                                                                                                | Qué es                                                  | ¿Sirve?                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`saulmoralespa/servientrega-webservice-panama-php`](https://github.com/saulmoralespa/servientrega-webservice-panama-php) | Librería PHP **de Panamá**. MIT, PHP 8.1, enero de 2025 | **Sí, y mucho.** Es el contrato completo: endpoints, sandbox, autenticación y todos los campos de la guía. 164 líneas, se lee en diez minutos |
+| [`saulmoralespa/shipping-servientrega-wc`](https://github.com/saulmoralespa/shipping-servientrega-wc)                     | Plugin de WooCommerce, SOAP contra el `:8081`           | Solo como referencia, y **de Colombia**: su README lo dice                                                                                    |
+| App de Servientrega para Shopify                                                                                          | Cotización y etiquetas                                  | Solo dentro de Shopify                                                                                                                        |
+| App de Shippea para Shopify                                                                                               | Uno Express                                             | Solo dentro de Shopify                                                                                                                        |
+| Clientes Node/TypeScript de couriers panameños                                                                            | —                                                       | **No existen**                                                                                                                                |
 
-**Lo que esto significa para el plan:** no hay atajo. La Fase L5 es escribir los
-adaptadores, no instalar una dependencia. El plugin de WooCommerce vale para leer
-cómo se llama a Servientrega y qué campos espera, y ahí se acaba su utilidad.
+**Lo que esto significa para el plan:** sigue sin haber una dependencia que
+instalar —es PHP, no TypeScript, y no corre en un Worker— pero **ya no hay que
+adivinar el contrato**. La librería de Panamá documenta, leyendo su código y sus
+tests, exactamente qué enviar y qué se recibe. Eso convierte la Fase L5 de
+«no estimable sin credenciales» a «estimable hoy»: la parte de descubrimiento ya
+está hecha, y queda portar unas 200 líneas a TypeScript.
 
-La parte buena es que el diseño de la Fase L5 no cambia: la interfaz de cuatro
-operaciones —cotizar, crear guía, rastrear, recibir webhook— es exactamente la
-forma correcta, y es la que hace que dé igual quién esté detrás.
+Y el diseño de la Fase L5 aguanta sin un cambio: la interfaz de cuatro
+operaciones —cotizar, crear guía, rastrear, recibir webhook— encaja exactamente
+con lo que expone Servientrega Panamá.
 
 ---
 
@@ -176,12 +220,15 @@ forma correcta, y es la que hace que dé igual quién esté detrás.
    negocio de una sola vez.
 2. **DHL Express después**, si vende fuera de Panamá. Documentación pública,
    autoservicio, la más rápida de las cinco.
-3. **Shippea y Servientrega directo, solo si la conversación comercial va bien.**
-   Ninguno de los dos se puede empezar sin contrato, y Servientrega además obliga
-   a escribir SOAP a mano. Mientras tanto, el campo de guía manual de la Fase L2
-   cubre el caso «lo mandamos por Servientrega y pegamos el número» sin
-   integración ninguna.
-4. **Los agregadores americanos, descartados** para el reparto local.
+3. **Servientrega Panamá sube de puesto.** Antes la ponía la última por opaca;
+   con la librería de referencia delante es la mejor documentada después de DHL.
+   Hay sandbox, hay contrato conocido y hay contra entrega nativo. Sigue
+   necesitando cuenta corporativa, pero el trabajo técnico ya se puede estimar:
+   portar unas 200 líneas de PHP a TypeScript, con el SOAP construido a mano.
+4. **Shippea, solo si la conversación comercial va bien.** Es la única que sigue
+   sin API conocida. Mientras tanto, el campo de guía manual de la Fase L2 cubre
+   el caso «lo mandamos por ellos y pegamos el número» sin integración ninguna.
+5. **Los agregadores americanos, descartados** para el reparto local.
 
 **Lo que hay que preguntar, y a quién:**
 
@@ -189,7 +236,7 @@ forma correcta, y es la que hace que dé igual quién esté detrás.
 | --------------------- | --------------------------------------------------------------------------------------------------------------- |
 | Dropi PA              | ¿La API aplica a Panamá? ¿Qué sustituye a `cod_dane`? ¿Hay webhooks? ¿Cómo y cuándo liquidan el contra entrega? |
 | Shippea / Uno Express | ¿Existe API para integradores fuera de Shopify?                                                                 |
-| Servientrega Panamá   | ¿Qué API dan: la SOAP o la REST? ¿Está en HTTPS? ¿Hay entorno de pruebas?                                       |
+| Servientrega Panamá   | Solo credenciales de sandbox y producción. Lo técnico ya está resuelto: endpoints, campos y pruebas se conocen  |
 | DHL Express           | Nada: la documentación está publicada. Solo hace falta cuenta.                                                  |
 
 **Una consecuencia de negocio que conviene ver ahora, no en la Fase L5.** Si se
@@ -207,7 +254,8 @@ más meterlo.
 - [Dropi Panamá](https://dropi.pa) · [Integraciones (Dropi Colombia)](https://dropi.co/integraciones/)
 - [Documentación API de Integraciones Dropi](https://es.scribd.com/document/804372978/Integrations-Core-Dropi-2) (no oficial)
 - [Servientrega Panamá](https://servientrega.com.pa/Cotizador) · [Soluciones eCommerce](https://www.servientrega.com/wps/portal/soluciones-ecommerce) · [API de cotización](https://mobile.servientrega.com/ApiIngresoCLientes/Help)
-- [`saulmoralespa/shipping-servientrega-wc`](https://github.com/saulmoralespa/shipping-servientrega-wc)
+- **[`saulmoralespa/servientrega-webservice-panama-php`](https://github.com/saulmoralespa/servientrega-webservice-panama-php)** — la fuente técnica principal de este documento
+- [`saulmoralespa/shipping-servientrega-wc`](https://github.com/saulmoralespa/shipping-servientrega-wc) (Colombia)
 - [Integración con Servientrega (Simla)](https://docs.simla.com/es/Users/Integration/DeliveryServices/ServiEntrega/IntegracionConServientrega)
 - [Shippea](https://www.shippea.io/) · [Uno Express Panamá](https://unoexpresspanama.com/)
 - [MyDHL API](https://developer.dhl.com/api-reference/dhl-express-mydhl-api) · [Catálogo de APIs de DHL](https://developer.dhl.com/api-catalog)

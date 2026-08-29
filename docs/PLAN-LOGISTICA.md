@@ -273,6 +273,15 @@ de seguridad — así, aun cuando la búsqueda falle, el punto exacto siempre se
 puede fijar a mano. El componente se escribe con el proveedor detrás de una
 interfaz, para poder cambiarlo sin tocar el checkout.
 
+> **Confirmado por la API del courier, no solo por criterio propio.** La guía de
+> Servientrega Panamá acepta campos `latitud` y `longitud`
+> ([investigación](INVESTIGACION-COURIERS-PANAMA.md)). Es decir: el courier
+> nacional **consume coordenadas**, no solo los motorizados propios. Sin esta
+> fase se le entregaría una guía peor de lo que su propia API admite. Y el
+> destino se indica por **provincia y distrito en texto, sin código postal**, tal
+> y como Servientrega los escribe — así que además hay que mantener esa lista de
+> nombres, porque uno que no coincida es una guía rechazada.
+
 **Criterio de aceptación:** un pedido nuevo llega al panel con coordenadas, y
 abrirlas en el móvil cae sobre la puerta correcta.
 
@@ -392,8 +401,11 @@ quemado:
 
 - **Estricta:** no se despacha hasta saldo cero.
 - **Con umbral:** se despacha al alcanzar un % del total (por ejemplo, 50 %).
-- **Contra entrega:** se despacha con saldo, y el motorizado cobra el resto — lo
-  que enlaza directo con la liquidación de la Fase L4.
+- **Contra entrega:** se despacha con saldo, y quien entrega cobra el resto — lo
+  que enlaza directo con la liquidación de la Fase L4. **Y no solo con
+  motorizados propios:** la guía de Servientrega Panamá tiene un campo
+  `valor_recaudar`, así que el courier nacional también puede cobrar el saldo
+  pendiente en la puerta.
 
 Sea cual sea, **el panel no deja marcar «despachado» si la regla no se cumple**,
 igual que hoy no deja saltarse un estado de pedido.
@@ -502,8 +514,14 @@ el panel.
 > conviene empezar, en
 > [`INVESTIGACION-COURIERS-PANAMA.md`](INVESTIGACION-COURIERS-PANAMA.md). El
 > resumen: **Dropi PA primero** —un adaptador da cuatro couriers panameños y el
-> pago contra entrega—, DHL Express después, y Servientrega y Shippea solo
-> cuando haya contrato.
+> pago contra entrega—, y **Servientrega Panamá en paralelo**, que resultó ser la
+> mejor documentada después de DHL: hay sandbox, y una librería PHP con licencia
+> MIT que deja el contrato completo a la vista. Solo Shippea sigue sin API
+> conocida.
+>
+> Esa investigación **desbloquea la estimación de esta fase**: para Servientrega
+> Panamá ya no hay descubrimiento pendiente, solo portar unas 200 líneas a
+> TypeScript.
 
 **Aviso honesto sobre las credenciales.** Las APIs de estos proveedores
 regionales no siempre están documentadas públicamente y a veces exigen contrato
