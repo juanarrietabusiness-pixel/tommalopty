@@ -332,6 +332,15 @@ export interface ProductoEditable {
   compareAtPrice: number | null;
   sku: string | null;
   quantity: number | null;
+  images: ImagenProducto[];
+}
+
+export interface ImagenProducto {
+  id: string;
+  url: string;
+  alt: string | null;
+  position: number;
+  isPrimary: boolean;
 }
 
 export async function cargarProducto(id: string): Promise<ProductoEditable | null> {
@@ -358,6 +367,7 @@ export async function cargarProducto(id: string): Promise<ProductoEditable | nul
       compareAtPrice: variante?.compare_at_price ?? null,
       sku: variante?.sku ?? null,
       quantity: inv?.quantity ?? null,
+      images: [],
     };
   }
 
@@ -367,6 +377,7 @@ export async function cargarProducto(id: string): Promise<ProductoEditable | nul
     .select(
       `id, title, slug, subtitle, description, brand, status, is_featured, tags,
        seo_title, seo_description,
+       product_images (id, url, alt, position, is_primary),
        product_variants (id, price, compare_at_price, sku, is_default,
          inventory (quantity))`,
     )
@@ -396,6 +407,15 @@ export async function cargarProducto(id: string): Promise<ProductoEditable | nul
     compareAtPrice: variant?.compare_at_price ?? null,
     sku: variant?.sku ?? null,
     quantity: inventory?.quantity ?? null,
+    images: (product.product_images ?? [])
+      .map((image) => ({
+        id: image.id,
+        url: image.url,
+        alt: image.alt,
+        position: image.position,
+        isPrimary: image.is_primary,
+      }))
+      .sort((a, b) => a.position - b.position),
   };
 }
 

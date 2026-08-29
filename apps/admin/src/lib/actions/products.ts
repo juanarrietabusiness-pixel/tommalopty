@@ -247,3 +247,155 @@ export async function archiveProduct(productId: string): Promise<ActionResult> {
   revalidatePath('/catalogo');
   return success('Producto archivado.');
 }
+
+/* --- Imágenes de producto -------------------------------------------------- */
+
+/**
+ * Registra una imagen ya subida al almacenamiento.
+ *
+ * La subida ocurre antes, en `/api/media`, que es quien valida el fichero y
+ * devuelve la URL. Aquí solo se guarda la referencia, así que la URL se
+ * comprueba contra el dominio configurado: si no viniera de ahí, el panel
+ * estaría dejando que alguien enganche cualquier dirección de internet como
+ * imagen de un producto.
+ */
+export async function addProductImage(input: {
+  productId: string;
+  url: string;
+  alt: string;
+}): Promise<ActionResult> {
+  await requireAdmin();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
+
+  const publicBase = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
+
+  if (!publicBase || !input.url.startsWith(publicBase.replace(/\/+$/, ''))) {
+    return failure('Esa imagen no viene del almacenamiento de la tienda.');
+  }
+
+  const supabase = await getSupabaseServerClient();
+
+  const { data: existing, error: readError } = await supabase
+    .from('product_images')
+    .select('id, position')
+    .eq('product_id', input.productId)
+    .order('position', { ascending: false })
+    .limit(1);
+
+  if (readError) return fromDatabaseError(readError);
+
+  const last = existing?.[0];
+
+  const { error } = await supabase.from('product_images').insert({
+    product_id: input.productId,
+    url: input.url,
+    alt: input.alt.trim() || null,
+    position: last ? last.position + 1 : 0,
+    // La primera imagen que se sube es la principal: si no, un producto con
+    // fotos seguiría saliendo sin foto en el catálogo hasta que alguien se
+    // acordara de marcarla.
+    is_primary: !last,
+  });
+
+  if (error) return fromDatabaseError(error);
+
+  revalidatePath(`/catalogo/${input.productId}`);
+  return success('Imagen añadida.');
+}
+
+export async function deleteProductImage(
+  productId: string,
+  imageId: string,
+): Promise<ActionResult> {
+  await requireAdmin();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
+
+  const supabase = await getSupabaseServerClient();
+
+  const { data: imagen, error: readError } = await supabase
+    .from('product_images')
+    .select('id, is_primary')
+    .eq('id', imageId)
+    .eq('product_id', productId)
+    .maybeSingle();
+
+  if (readError) return fromDatabaseError(readError);
+  if (!imagen) return failure('Esa imagen ya no existe.');
+
+  const problema = checkWrite(
+    await supabase
+      .from('product_images')
+      .delete()
+      .eq('id', imageId)
+      .eq('product_id', productId)
+      .select('id'),
+    'No se borró la imagen: tu rol no tiene permiso.',
+  );
+
+  if (problema) return problema;
+
+  // Al borrar la principal, la siguiente pasa a serlo. Sin esto el producto se
+  // queda sin imagen principal y el catálogo lo pinta sin foto teniéndolas.
+  if (imagen.is_primary) {
+    const { data: siguiente } = await supabase
+      .from('product_images')
+      .select('id')
+      .eq('product_id', productId)
+      .order('position')
+      .limit(1);
+
+    const heredera = siguiente?.[0];
+    if (heredera) {
+      await supabase.from('product_images').update({ is_primary: true }).eq('id', heredera.id);
+    }
+  }
+
+  revalidatePath(`/catalogo/${productId}`);
+  return success('Imagen eliminada.');
+}
+
+/**
+ * Marca una imagen como principal.
+ *
+ * Se quita primero la marca a las demás porque hay un índice único parcial
+ * (`product_images_primary_key`) que solo admite una principal por producto: en
+ * el orden contrario, la escritura choca contra el índice y falla.
+ */
+export async function setPrimaryProductImage(
+  productId: string,
+  imageId: string,
+): Promise<ActionResult> {
+  await requireAdmin();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
+
+  const supabase = await getSupabaseServerClient();
+
+  const { error: clearError } = await supabase
+    .from('product_images')
+    .update({ is_primary: false })
+    .eq('product_id', productId)
+    .eq('is_primary', true);
+
+  if (clearError) return fromDatabaseError(clearError);
+
+  const problema = checkWrite(
+    await supabase
+      .from('product_images')
+      .update({ is_primary: true })
+      .eq('id', imageId)
+      .eq('product_id', productId)
+      .select('id'),
+    'No se pudo marcar como principal: tu rol no tiene permiso, o la imagen ya no existe.',
+  );
+
+  if (problema) return problema;
+
+  revalidatePath(`/catalogo/${productId}`);
+  return success('Imagen principal actualizada.');
+}

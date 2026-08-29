@@ -39,7 +39,7 @@
 - [x] Recorrido de demostración: el panel se navega entero sin base de datos
 - [x] **Editor de menús** — las tres zonas se editan en `/contenido/menus`
 - [ ] **Gestión de variantes múltiples** desde el panel (hoy: variante por defecto)
-- [ ] **Subida de imágenes** a R2 / Supabase Storage desde el panel
+- [x] **Subida de imágenes** a Cloudflare R2 desde el panel (banner y galería de producto)
 - [ ] **Blog** (`cms_posts` existe, falta la interfaz)
 - [ ] **Reseñas** (`reviews` existe con moderación, falta la interfaz)
 - [ ] **Campañas** (`campaigns` existe, falta la interfaz)

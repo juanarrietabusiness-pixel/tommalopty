@@ -80,8 +80,15 @@ sin tocar SQL. La validación de las URL vive en `@nebula/domain` porque es de
 seguridad, no de formulario: lo que se guarda aquí acaba en un `href` de la
 tienda, así que un `javascript:` se ejecutaría en el navegador de cada
 visitante. Se aceptan rutas internas, http(s), `mailto:` y `tel:`, y nada más.
-0.2 **Subida de imágenes.** Los buckets `product-images` y `cms-media` ya están
-declarados en `supabase/config.toml`; falta la interfaz. Hoy se pegan URLs.
+0.2 ~~**Subida de imágenes.**~~ Hecho, y en Cloudflare R2 en vez de Supabase
+Storage: había dos opciones escritas a la vez y las cerró el
+[ADR 0007](adr/0007-media-en-cloudflare.md). Se sube desde el banner de portada
+y desde la galería de producto —que antes no existía: `product_images` estaba
+sin ninguna pantalla que escribiera en ella—. Se usa el _binding_ de R2, así que
+no hay credenciales que guardar. La validación no se fía del `Content-Type` que
+manda el navegador: lee los primeros bytes del fichero. Falta configurar
+`NEXT_PUBLIC_R2_PUBLIC_URL` en cada entorno; sin él, el panel se niega a subir en
+vez de guardar una imagen que nadie podría ver.
 0.3 **Variantes múltiples.** Hoy solo se gestiona la variante por defecto, así
 que talla y color no son vendibles.
 0.4 **Blog.** `cms_posts` existe sin ninguna pantalla.

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { PanelPage } from '@/components/panel-page';
 import { ProductForm, type ProductFormValues } from '@/components/product-form';
+import { ProductImages } from '@/components/product-images';
 import { cargarProducto } from '@/lib/panel-data';
 
 export const dynamic = 'force-dynamic';
@@ -48,7 +49,10 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
         ) : null
       }
     >
-      <ProductForm initial={initial} />
+      <div className="grid-sidebar">
+        <ProductForm initial={initial} />
+        <ProductImages productId={product.id} images={product.images} />
+      </div>
     </PanelPage>
   );
 }
