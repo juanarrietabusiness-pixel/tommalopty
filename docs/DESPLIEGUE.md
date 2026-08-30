@@ -5,7 +5,7 @@
 | Entorno    | Rama      | Supabase                        | Pasarelas  |
 | ---------- | --------- | ------------------------------- | ---------- |
 | Desarrollo | local     | Supabase local (Docker)         | sandbox    |
-| Staging    | `develop` | Proyecto Supabase de staging    | sandbox    |
+| Staging    | `develop` | `tommalopty-staging` (existe)   | sandbox    |
 | Producción | `main`    | Proyecto Supabase de producción | producción |
 
 Cada entorno tiene **su propio juego de variables y credenciales**. Nunca
@@ -42,6 +42,13 @@ trazabilidad y el siguiente `db push` puede chocar. Crear siempre una migración
 
 **Backups:** activar los backups automáticos de Supabase y definir la política
 de retención antes de abrir la tienda al público.
+
+**Revisar los avisos de seguridad después de cada cambio de esquema.** Supabase
+trae un linter que mira la base ya aplicada, no el SQL, y por eso ve cosas que
+la revisión de código no. Encontró dos reales en este proyecto (ver la migración
+0020): un `revoke ... from anon` que no revocaba nada, y las funciones de
+disparador expuestas como endpoints REST. Se consulta desde el panel del
+proyecto, en **Advisors → Security**.
 
 ## Publicación en Cloudflare
 

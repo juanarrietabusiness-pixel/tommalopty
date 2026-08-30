@@ -109,15 +109,35 @@ Aquí está el grueso del trabajo. Se cierra en cuatro frentes:
 
 Cada una bloquea trabajo concreto. Ninguna la puede tomar el equipo técnico.
 
-| #   | Decisión                                                                                                                | Bloquea               | Por qué hay que decidirla ya                                                    |
-| --- | ----------------------------------------------------------------------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------- |
-| D1  | **Cuenta de Cloudflare y dominio**                                                                                      | Todo el despliegue    | Sin esto no hay "producción", solo capturas                                     |
-| D2  | **Proveedor de mapas**: Google Maps o MapLibre + OpenStreetMap                                                          | Fase L1 completa      | Google exige cuenta de facturación; cambia el costo mensual                     |
-| D3  | **Canal de avisos**: solo email, o email + WhatsApp                                                                     | L2 (avisos de estado) | WhatsApp Business API tiene costo por conversación y alta previa en Meta        |
-| D4  | **Política de abonos**: ¿mínimo inicial? ¿plazo máximo? ¿se despacha con saldo pendiente o nunca?                       | Fase L3               | Es una regla de negocio, no técnica; define la máquina de estados               |
-| D5  | **Modelo con los motorizados**: ¿empleados o independientes? ¿cobran contra entrega? ¿tarifa fija o por zona/distancia? | Fase L4               | Define si hay módulo de liquidaciones y de dinero en manos de terceros          |
-| D6  | **Couriers externos**: cuáles, y ¿hay contrato y credenciales de API?                                                   | Fase L5               | Sin credenciales no se puede ni empezar a integrar                              |
-| D7  | **Facturación fiscal**: ¿la guía es solo interna o hay factura fiscal electrónica (DGI/FE)?                             | L2 y L3               | Si hay factura fiscal, es un proyecto aparte con su propio proveedor autorizado |
+| #      | Decisión                                                                                                                | Bloquea               | Por qué hay que decidirla ya                                                    |
+| ------ | ----------------------------------------------------------------------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------- |
+| D1     | **Cuenta de Cloudflare y dominio**                                                                                      | Todo el despliegue    | Sin esto no hay "producción", solo capturas                                     |
+| ~~D2~~ | ~~**Proveedor de mapas**~~ · **Decidido: MapLibre + OpenStreetMap**                                                     | —                     | Ya no bloquea                                                                   |
+| D3     | **Canal de avisos**: solo email, o email + WhatsApp                                                                     | L2 (avisos de estado) | WhatsApp Business API tiene costo por conversación y alta previa en Meta        |
+| ~~D4~~ | ~~**Política de abonos**~~ · **Decidido: estricta por defecto**, configurable                                           | —                     | Ya no bloquea                                                                   |
+| D5     | **Modelo con los motorizados**: ¿empleados o independientes? ¿cobran contra entrega? ¿tarifa fija o por zona/distancia? | Fase L4               | Define si hay módulo de liquidaciones y de dinero en manos de terceros          |
+| D6     | **Couriers externos**: cuáles, y ¿hay contrato y credenciales de API?                                                   | Fase L5               | Sin credenciales no se puede ni empezar a integrar                              |
+| D7     | **Facturación fiscal**: ¿la guía es solo interna o hay factura fiscal electrónica (DGI/FE)?                             | L2 y L3               | Si hay factura fiscal, es un proyecto aparte con su propio proveedor autorizado |
+
+### Las dos que ya están decididas
+
+La clienta pidió no tener que decidirlas. Se han tomado por el criterio de **no
+bloquear**, y las dos son reversibles sin rehacer nada.
+
+**D2 · Mapas: MapLibre + OpenStreetMap.** El motivo decisivo no es técnico:
+Google Maps exige una cuenta de facturación con tarjeta, y eso no lo puede
+resolver nadie más que la dueña. MapLibre no necesita clave ni facturación, así
+que la fase L1 se puede construir hoy. El proveedor va detrás de una interfaz,
+de modo que cambiar a Google el día que exista la cuenta es tocar un archivo y
+una variable de entorno, no rehacer el checkout. Lo que se pierde mientras tanto
+es calidad de autocompletado fuera del centro urbano — y para eso está el pin
+arrastrable, que es lo que de verdad fija la dirección.
+
+**D4 · Abonos: estricta por defecto.** No se despacha hasta saldo cero. Es la
+regla que menos dinero pone en riesgo, y la única que no obliga a decidir antes
+de tener datos. Las otras dos —umbral por porcentaje y cobro contra entrega—
+quedan implementadas y a un ajuste de distancia, así que la clienta las activa
+cuando sepa cómo le funciona el negocio, sin esperar a nadie.
 
 > **Sobre D7.** «Factura» y «guía de despacho» no son lo mismo. Este plan
 > construye la **guía de despacho** (documento operativo con QR, ítems y
@@ -176,14 +196,15 @@ Cloudflare. Si algún día conviene mudarse, se muda.
 
 ### Los tres entornos
 
-| Entorno     | Rama      | Base de datos                   | Para qué                                                        |
-| ----------- | --------- | ------------------------------- | --------------------------------------------------------------- |
-| Desarrollo  | local     | Supabase en Docker              | Trabajo diario                                                  |
-| **Staging** | `develop` | Proyecto Supabase aparte        | Probar antes de producción — **hoy no existe, hay que crearlo** |
-| Producción  | `main`    | Proyecto Supabase de producción | La tienda real                                                  |
+| Entorno     | Rama      | Base de datos                   | Para qué                                             |
+| ----------- | --------- | ------------------------------- | ---------------------------------------------------- |
+| Desarrollo  | local     | Supabase en Docker              | Trabajo diario                                       |
+| **Staging** | `develop` | `tommalopty-staging`            | Probar antes de producción. **Existe y está al día** |
+| Producción  | `main`    | Proyecto Supabase de producción | La tienda real                                       |
 
-Que hoy solo haya un entorno es un riesgo abierto: significa probar en
-producción. Crear staging es el paso 0.3 del cronograma.
+El entorno de staging **ya existe** (`tommalopty-staging`, Postgres 17, en
+`us-east-2`) y tiene aplicadas las 18 migraciones. El riesgo de «probar en
+producción» que este documento daba por abierto está cerrado.
 
 > Nota operativa: en esta sesión el conector de Netlify no logró conectarse
 > (error 502 de su servidor). No cambia nada de la recomendación —está tomada
@@ -216,7 +237,7 @@ en el aire es distinto a probar en local.
 | ---- | ---------------------------------------------------------------------------------------------------------------------- | ---------- |
 | 0.1  | Dominio propio, y los dos Workers apuntados a él                                                                       | **D1**     |
 | 0.2  | ~~Habilitar R2 y publicar el bucket~~ (hecho). Queda cambiar la URL `r2.dev` por un dominio propio antes de producción | —          |
-| 0.3  | Proyecto Supabase de staging, migraciones aplicadas, historial reconciliado                                            | —          |
+| 0.3  | ~~Proyecto Supabase de staging, migraciones aplicadas~~ (hecho: `tommalopty-staging`, al día)                          | —          |
 | 0.4  | Los Workers dejan el modo demostración y reciben los secretos de Supabase                                              | 0.3        |
 | 0.5  | Cloudflare Access sobre el panel                                                                                       | 0.1        |
 | 0.6  | Backups automáticos de Supabase con retención definida                                                                 | 0.3        |
