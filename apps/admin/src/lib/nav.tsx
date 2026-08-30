@@ -3,6 +3,7 @@ import {
   ChartIcon,
   DashboardIcon,
   DocumentIcon,
+  LinkIcon,
   MegaphoneIcon,
   ReceiptIcon,
   SettingsIcon,
@@ -43,6 +44,7 @@ export function getNavGroups(role: Enums<'user_role'>): AdminNavGroup[] {
       items: [
         { label: 'Banners', href: '/contenido/banners', icon: <MegaphoneIcon /> },
         { label: 'Páginas', href: '/contenido/paginas', icon: <DocumentIcon /> },
+        { label: 'Menús', href: '/contenido/menus', icon: <LinkIcon /> },
       ],
     },
     {

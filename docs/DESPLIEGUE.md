@@ -5,7 +5,7 @@
 | Entorno    | Rama      | Supabase                        | Pasarelas  |
 | ---------- | --------- | ------------------------------- | ---------- |
 | Desarrollo | local     | Supabase local (Docker)         | sandbox    |
-| Staging    | `develop` | Proyecto Supabase de staging    | sandbox    |
+| Staging    | `develop` | `tommalopty-staging` (existe)   | sandbox    |
 | Producción | `main`    | Proyecto Supabase de producción | producción |
 
 Cada entorno tiene **su propio juego de variables y credenciales**. Nunca
@@ -42,6 +42,13 @@ trazabilidad y el siguiente `db push` puede chocar. Crear siempre una migración
 
 **Backups:** activar los backups automáticos de Supabase y definir la política
 de retención antes de abrir la tienda al público.
+
+**Revisar los avisos de seguridad después de cada cambio de esquema.** Supabase
+trae un linter que mira la base ya aplicada, no el SQL, y por eso ve cosas que
+la revisión de código no. Encontró dos reales en este proyecto (ver la migración
+0020): un `revoke ... from anon` que no revocaba nada, y las funciones de
+disparador expuestas como endpoints REST. Se consulta desde el panel del
+proyecto, en **Advisors → Security**.
 
 ## Publicación en Cloudflare
 
@@ -97,13 +104,141 @@ wrangler secret put PAYPAL_CLIENT_SECRET
 
 ## Almacenamiento de imágenes
 
-El catálogo sirve las imágenes desde Cloudflare R2 (egress $0) o Supabase
-Storage. Una vez definido el dominio público:
+Las imágenes viven en **Cloudflare R2**, no en Supabase Storage
+([ADR 0007](adr/0007-media-en-cloudflare.md)). Hay dos caminos y no se deben
+confundir:
 
-1. Añádelo a `NEXT_PUBLIC_R2_PUBLIC_URL`.
-2. Añádelo a `images.remotePatterns` en el `next.config.ts` de la tienda si se
-   quiere pasar a `next/image`. Hoy se usa `<img>` a propósito, porque el
-   dominio varía por entorno.
+|              | Subir                                          | Servir                          |
+| ------------ | ---------------------------------------------- | ------------------------------- |
+| Quién        | El Worker del panel                            | Cualquier navegador             |
+| Cómo         | Binding `MEDIA` de `apps/admin/wrangler.jsonc` | El dominio público del bucket   |
+| Credenciales | **Ninguna.** El binding no usa claves          | No aplica: es contenido público |
+
+### El bucket
+
+`nebula-media`, creado en agosto de 2026. La subida funciona por el binding y no
+necesita ninguna variable. Lo que sí hace falta es decirle a las aplicaciones
+**desde qué dominio se sirve lo ya subido**, en `NEXT_PUBLIC_R2_PUBLIC_URL`.
+
+Sin esa variable el panel **se niega a subir**, a propósito: guardaría un objeto
+cuya URL nadie puede componer, y la imagen se vería rota sin que nadie supiera
+por qué.
+
+| Entorno                   | Valor                                                                       |
+| ------------------------- | --------------------------------------------------------------------------- |
+| Desarrollo y demostración | `https://pub-524ecdb67a9a4230b194ae8a7de615e3.r2.dev`                       |
+| Producción                | Un dominio propio conectado al bucket, p. ej. `https://media.tudominio.com` |
+
+**La URL `r2.dev` no es para producción.** Cloudflare la limita por tasa y lo
+dice en su documentación: existe para desarrollo y para enseñar la plataforma.
+Antes de abrir la tienda hay que conectar un dominio propio al bucket, desde
+R2 → `nebula-media` → Settings → Custom Domains.
+
+**Cambiar de dominio no mueve nada.** Las claves de los objetos son las mismas;
+solo cambia quién las sirve. Lo que sí hay que hacer es reescribir las URL ya
+guardadas en `product_images.url` y en `cms_banners.media_url`, que llevan el
+dominio dentro. Un `update` con `replace()` sobre esas dos columnas basta.
+
+### Lo que este bucket es y lo que no
+
+`nebula-media` es **público**: cualquiera con la URL de un objeto lo ve, sin
+sesión. Es lo correcto para fotos de catálogo y del CMS, que existen para ser
+vistas.
+
+**No vale para las pruebas de entrega de la fase L4.** Esas fotos llevan la
+puerta de la casa de un cliente, y en un bucket público bastaría con adivinar
+una clave. Van en un bucket aparte, privado, servidas con URL firmada de
+caducidad corta. Está en el [plan de logística](PLAN-LOGISTICA.md); se menciona
+aquí para que a nadie le tiente reutilizar este bucket por comodidad.
+
+### Si algún día se pasa a `next/image`
+
+Habría que añadir el dominio a `images.remotePatterns` en el `next.config.ts` de
+la tienda. Hoy se usa `<img>` a propósito, porque el dominio varía por entorno.
+
+### Variable de repositorio para la previsualización
+
+El enlace de previsualización de cada PR construye en modo demostración, donde
+no se puede subir nada, pero sí se ven las imágenes que ya estén en el bucket.
+Para que las vea, en **Settings → Secrets and variables → Actions → Variables**
+del repositorio: `R2_PUBLIC_URL` con el valor de la tabla de arriba. Es una
+variable, no un secreto: la URL es pública por definición.
+
+## Ver la plataforma funcionando, sin dominio
+
+**No hace falta dominio propio para probar.** Cloudflare da una URL
+`workers.dev` gratis a cada Worker, y con eso se navega la tienda y el panel
+desde cualquier teléfono. El dominio hace falta para _producción_ —para que la
+tienda tenga una dirección presentable, para poner Cloudflare Access sobre el
+panel y para servir las imágenes desde un dominio propio—, no para comprobar
+que algo funciona.
+
+### Dos modalidades, y la diferencia importa
+
+|                          | `preview.yml`                                                | `staging.yml`           |
+| ------------------------ | ------------------------------------------------------------ | ----------------------- |
+| Base de datos            | Ninguna (modo demostración)                                  | La de staging, real     |
+| ¿Se guarda lo que edito? | **No.** Todo responde «esto es un recorrido de demostración» | **Sí**                  |
+| Para qué sirve           | Enseñar el diseño                                            | Comprobar que funciona  |
+| Iniciar sesión           | No hace falta, y no se puede                                 | Sí, con una cuenta real |
+
+Es la distinción que más confusión causa: en la previsualización, subir una
+imagen, crear una variante o editar un menú **no fallan, pero tampoco guardan**.
+Para verificar lo construido hay que usar `staging.yml`.
+
+### Configurarlo una sola vez
+
+En **Settings → Secrets and variables → Actions** del repositorio.
+
+**Variables** (no son secretos: la anon key viaja en el navegador de cualquiera
+que abra la tienda, y lo que protege los datos es RLS):
+
+| Variable                    | Valor                                                           |
+| --------------------------- | --------------------------------------------------------------- |
+| `STAGING_SUPABASE_URL`      | `https://pdbeqkxhrqicgfhcanwl.supabase.co`                      |
+| `STAGING_SUPABASE_ANON_KEY` | La clave `anon` del proyecto, en Supabase → Settings → API Keys |
+| `R2_PUBLIC_URL`             | `https://pub-524ecdb67a9a4230b194ae8a7de615e3.r2.dev`           |
+| `STAGING_SITE_URL`          | La URL `workers.dev` de la tienda, tras el primer despliegue    |
+| `STAGING_ADMIN_URL`         | La URL `workers.dev` del panel, tras el primer despliegue       |
+
+**Secret** (este sí lo es, y mucho: **salta RLS por completo**):
+
+| Secret                              | De dónde sale                                   |
+| ----------------------------------- | ----------------------------------------------- |
+| `STAGING_SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API Keys → `service_role` |
+
+Sin ese secreto todo funciona salvo **confirmar un pedido**: el checkout crea el
+pedido con service-role porque quien compra puede ser invitado y no tiene sesión
+que RLS pueda autorizar.
+
+Las dos primeras variables (`STAGING_SITE_URL` y `STAGING_ADMIN_URL`) son un
+huevo y gallina: hasta el primer despliegue no se conocen. Se deja en blanco,
+se despliega, y se rellenan con las URL que imprime el resumen. Solo afectan a
+las canónicas y al enlace «Ver en la tienda» del panel.
+
+### Publicar
+
+**Actions → Publicar en staging → Run workflow**, eligiendo la rama. El resumen
+de la ejecución imprime las dos URL.
+
+Si falta algo, el workflow no despliega a medias: falla y dice exactamente qué
+variable o secreto poner.
+
+### La primera cuenta
+
+La base de staging arranca con catálogo pero **sin usuarios**, así que al panel
+no entra nadie todavía. El orden es:
+
+1. Registrarse en la tienda, en `/registro`.
+2. Promover esa cuenta desde el editor SQL de Supabase:
+
+   ```sql
+   update public.profiles set role = 'superadmin' where email = 'tu@correo.com';
+   ```
+
+3. Entrar al panel con ella.
+
+Desde ahí, el resto de roles se gestionan en el propio panel.
 
 ## Enseñar la plataforma: previsualización
 
@@ -216,6 +351,8 @@ nuevo cada vez.
 - [ ] Webhooks apuntando al dominio de producción y con firma verificada
 - [ ] Backups automáticos de Supabase activos, con retención definida
 - [ ] Panel protegido con Cloudflare Access
+- [ ] Dominio propio conectado al bucket R2, y `NEXT_PUBLIC_R2_PUBLIC_URL`
+      apuntando a él en vez de a `r2.dev` (limitada por tasa)
 - [ ] Al menos un `superadmin` creado y los roles del equipo asignados
 - [ ] Contenido real: catálogo, banners, páginas legales
 - [ ] Meta Pixel y Conversions API verificados en el Events Manager

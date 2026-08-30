@@ -82,6 +82,8 @@ Desde ahí, el resto de roles se gestionan en el propio panel (**Usuarios y role
 - [`docs/PAGOS-PANAMA.md`](docs/PAGOS-PANAMA.md) — por qué no se usa Stripe y qué pasarelas se integran
 - [`docs/DESPLIEGUE.md`](docs/DESPLIEGUE.md) — entornos, variables y publicación en Cloudflare
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — fases del proyecto y estado actual
+- [`docs/PLAN-LOGISTICA.md`](docs/PLAN-LOGISTICA.md) — trazabilidad, direcciones con mapa, abonos y motorizados
+- [`docs/INVESTIGACION-COURIERS-PANAMA.md`](docs/INVESTIGACION-COURIERS-PANAMA.md) — qué courier panameño se puede integrar y con qué esfuerzo
 - [`docs/adr/`](docs/adr/) — decisiones de arquitectura y por qué se tomaron
 - [`docs/BRIEF.md`](docs/BRIEF.md) — brief original del proyecto, versionado
 

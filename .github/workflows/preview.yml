@@ -200,6 +200,9 @@ jobs:
           NEXT_PUBLIC_SITE_URL: ${{ vars.PREVIEW_SITE_URL || 'https://preview.example.com' }}
           NEXT_PUBLIC_SUPABASE_URL: ''
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ''
+          # Sin base de datos no se sube nada, pero las imágenes que ya estén en
+          # el bucket sí se ven en el enlace de previsualización.
+          NEXT_PUBLIC_R2_PUBLIC_URL: ${{ vars.R2_PUBLIC_URL }}
         run: pnpm --filter @nebula/${{ matrix.app }} cf:build
 
       # `versions upload` sube una versión SIN promoverla a producción, y el

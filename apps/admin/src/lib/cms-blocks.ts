@@ -1,3 +1,4 @@
+import type { MenuItem } from '@nebula/domain';
 import type { Json } from '@nebula/db';
 
 /**
@@ -26,4 +27,9 @@ export function fromBlocks(content: Json): string {
     })
     .filter(Boolean)
     .join('\n\n');
+}
+
+/** Los items del menú, listos para escribirse en la columna `jsonb`. */
+export function toMenuJson(items: readonly MenuItem[]): Json {
+  return items.map((item) => ({ label: item.label, url: item.url }));
 }

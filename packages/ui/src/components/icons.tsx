@@ -224,6 +224,23 @@ export function MegaphoneIcon(props: IconProps) {
   );
 }
 
+export function LinkIcon(props: IconProps) {
+  return (
+    <svg {...strokeThin} {...props}>
+      <path
+        d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function PlusIcon(props: IconProps) {
   return (
     <svg {...stroke} {...props}>

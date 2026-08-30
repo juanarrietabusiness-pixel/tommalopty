@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { parseMenuItems, type MenuItem } from '@nebula/domain';
 import type { Database, Tables } from '../generated/database.types';
 
 type Client = SupabaseClient<Database>;
@@ -7,11 +8,10 @@ export type Banner = Tables<'cms_banners'>;
 export type CmsPage = Tables<'cms_pages'>;
 export type CmsPost = Tables<'cms_posts'>;
 
-export interface MenuItem {
-  label: string;
-  url: string;
-  children?: MenuItem[];
-}
+// La forma de un enlace de menú —y las reglas de qué URL es segura ponerle a
+// un `href`— viven en `@nebula/domain`, porque la tienda y el panel tienen que
+// coincidir. Aquí solo se reexporta para quien ya importaba desde `@nebula/db`.
+export type { MenuItem };
 
 /**
  * Banner activo de una zona ('announcement_bar' | 'hero' | 'cta_band').
@@ -39,7 +39,7 @@ export async function getMenu(client: Client, location: string): Promise<MenuIte
     .maybeSingle();
 
   if (error) throw error;
-  return (data?.items as MenuItem[] | undefined) ?? [];
+  return parseMenuItems(data?.items);
 }
 
 export async function getPage(client: Client, slug: string): Promise<CmsPage | null> {

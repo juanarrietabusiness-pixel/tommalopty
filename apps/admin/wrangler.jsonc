@@ -14,6 +14,16 @@
   "observability": {
     "enabled": true
   },
+  // Acceso al bucket de imágenes sin credenciales: el Worker puede escribir en
+  // él porque está declarado aquí, así que no hay claves que rotar ni filtrar.
+  // Ver docs/adr/0007-media-en-cloudflare.md
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "nebula-media",
+      "preview_bucket_name": "nebula-media"
+    }
+  ],
   // Habilita las URL de previsualización por versión y por rama. Es lo que
   // permite abrir cada PR en un enlace propio antes de mergear.
   // Wrangler 4.44+ las hace coincidir con `workers_dev` si no se declara.

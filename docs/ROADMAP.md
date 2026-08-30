@@ -22,7 +22,7 @@
 - [x] Historial y detalle de pedidos
 - [x] Direcciones guardadas
 - [x] Wishlist / favoritos
-- [ ] Edición de datos personales desde el panel de cliente
+- [x] Edición de datos personales desde el panel de cliente (`/cuenta/datos`)
 
 ## Fase 3 — Panel administrativo ✅
 
@@ -37,9 +37,9 @@
 - [x] Usuarios y roles
 - [x] Configuración de integraciones
 - [x] Recorrido de demostración: el panel se navega entero sin base de datos
-- [ ] **Editor de menús** (`cms_menus` solo se puede cambiar por SQL)
-- [ ] **Gestión de variantes múltiples** desde el panel (hoy: variante por defecto)
-- [ ] **Subida de imágenes** a R2 / Supabase Storage desde el panel
+- [x] **Editor de menús** — las tres zonas se editan en `/contenido/menus`
+- [x] **Gestión de variantes múltiples** desde el panel (talla y color ya son vendibles)
+- [x] **Subida de imágenes** a Cloudflare R2 desde el panel (banner y galería de producto)
 - [ ] **Blog** (`cms_posts` existe, falta la interfaz)
 - [ ] **Reseñas** (`reviews` existe con moderación, falta la interfaz)
 - [ ] **Campañas** (`campaigns` existe, falta la interfaz)
@@ -65,6 +65,19 @@
 - [ ] Auditoría completa del panel (la tabla `audit_log` ya existe)
 
 ---
+
+## Fase 6 — Logística y trazabilidad 🔲
+
+Planificada en detalle en [`PLAN-LOGISTICA.md`](PLAN-LOGISTICA.md), a partir de
+las preguntas de la clienta. Nada de esto existe todavía.
+
+- [ ] Direcciones con mapa y coordenadas (el pin, no el texto, manda)
+- [ ] Envíos como entidad propia, con guía y línea de tiempo
+- [ ] Guía de despacho en PDF con QR que abre Waze y Google Maps
+- [ ] Página pública de seguimiento del pedido
+- [ ] Abonos: pagos parciales y despacho condicionado al saldo
+- [ ] Motorizados: rol, app PWA, asignación, rutas y liquidaciones
+- [ ] Couriers externos (Servientrega, Droppy) como adaptadores
 
 ## Lo primero que hay que decidir
 

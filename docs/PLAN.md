@@ -74,17 +74,48 @@ pasarela, catálogo real ni contenido definitivo.
 
 **Panel y CMS, lo que falta por construir:**
 
-0.1 **Editor de menús.** `cms_menus` se carga por seed y no se puede tocar desde
-el panel. Cambiar un enlace del pie exige SQL.
-0.2 **Subida de imágenes.** Los buckets `product-images` y `cms-media` ya están
-declarados en `supabase/config.toml`; falta la interfaz. Hoy se pegan URLs.
-0.3 **Variantes múltiples.** Hoy solo se gestiona la variante por defecto, así
-que talla y color no son vendibles.
+0.1 ~~**Editor de menús.**~~ Hecho. Las tres zonas —cabecera, pie/tienda y
+pie/ayuda— se editan en `/contenido/menus`: añadir, reordenar y borrar enlaces
+sin tocar SQL. La validación de las URL vive en `@nebula/domain` porque es de
+seguridad, no de formulario: lo que se guarda aquí acaba en un `href` de la
+tienda, así que un `javascript:` se ejecutaría en el navegador de cada
+visitante. Se aceptan rutas internas, http(s), `mailto:` y `tel:`, y nada más.
+0.2 ~~**Subida de imágenes.**~~ Hecho, y en Cloudflare R2 en vez de Supabase
+Storage: había dos opciones escritas a la vez y las cerró el
+[ADR 0007](adr/0007-media-en-cloudflare.md). Se sube desde el banner de portada
+y desde la galería de producto —que antes no existía: `product_images` estaba
+sin ninguna pantalla que escribiera en ella—. Se usa el _binding_ de R2, así que
+no hay credenciales que guardar. La validación no se fía del `Content-Type` que
+manda el navegador: lee los primeros bytes del fichero. El bucket `nebula-media` ya existe y tiene URL pública, así que la
+subida funciona de punta a punta. Queda cambiar esa URL `r2.dev` —limitada por
+tasa— por un dominio propio antes de abrir la tienda.
+0.3 ~~**Variantes múltiples.**~~ Hecho. La ficha de producto tiene su sección de
+variantes: alta, edición, cuál es la de por defecto y borrado, con el stock a la
+vista. La tienda ya sabía pintar el selector cuando hay más de una, así que talla
+y color eran vendibles en teoría y no en la práctica.
+
+De paso se cierra una divergencia que esto habría creado: el formulario de
+producto escribía precio, SKU y stock en la variante por defecto, con un esquema
+que no comprobaba que el precio tachado fuera mayor que el de venta. Eran dos
+formularios sobre la misma fila validando distinto. Ahora esos campos solo
+aparecen al dar de alta —la primera variante hay que crearla con algo— y a partir
+de ahí los gobierna la sección de variantes.
 0.4 **Blog.** `cms_posts` existe sin ninguna pantalla.
 0.5 **Reseñas.** `reviews` existe con estados de moderación y sin moderador.
 0.6 **Campañas.** `campaigns` existe sin interfaz.
-0.7 **Datos personales del cliente.** El panel de cliente muestra pedidos,
-direcciones y favoritos, pero no deja editar nombre ni teléfono.
+0.7 ~~**Datos personales del cliente.**~~ Hecho. `/cuenta/datos` deja corregir
+nombre, apellido, teléfono y el consentimiento de marketing. El teléfono no es un
+adorno: es lo que resuelve una entrega cuando quien la lleva no encuentra la
+dirección.
+
+Abrir `customers` a un formulario público obligó a terminar el trabajo de la
+migración 0013. RLS es por fila, no por columna, así que `customers_update_own`
+autorizaba la fila entera; 0013 tapó email, `profile_id` y las métricas de
+compra, pero dejaba fuera `tags` —un cliente podía etiquetarse «mayorista» y
+colarse en la segmentación del CRM—, `notes_count` y `last_order_at`. La
+migración 0019 los cierra, y de paso hace que la fecha de consentimiento de
+marketing la selle el disparador en vez de aceptarla del formulario: si la
+escribe quien quiera, no sirve como prueba de nada.
 
 **Despliegue:**
 

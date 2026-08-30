@@ -2,12 +2,14 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { isMenuLocation, normalizeMenuItems } from '@nebula/domain';
 import { getSupabaseServerClient } from '@/lib/supabase';
-import { toBlocks } from '@/lib/cms-blocks';
+import { toBlocks, toMenuJson } from '@/lib/cms-blocks';
 import { requireAdmin } from '@/lib/auth';
 import {
   bloqueadoEnDemostracion,
   checkWrite,
+  failure,
   fromDatabaseError,
   fromZodError,
   success,
@@ -165,4 +167,63 @@ export async function savePage(_previous: ActionResult, formData: FormData): Pro
 
   revalidatePath('/contenido/paginas');
   return success(input.id ? 'Página actualizada.' : 'Página creada.');
+}
+
+/* --- Menús ----------------------------------------------------------------- */
+
+/**
+ * Guarda una zona de navegación completa.
+ *
+ * El formulario manda tantos `label`/`url` como filas tenga, y se emparejan por
+ * posición: es lo que permite reordenar, añadir y borrar en un solo envío sin
+ * inventar identificadores para algo que en la base de datos es un único JSON.
+ *
+ * La validación de las URL vive en `@nebula/domain` a propósito. Estos enlaces
+ * acaban en un `href` de la tienda pública, así que la regla es de seguridad y
+ * la comparten las dos aplicaciones.
+ */
+export async function saveMenu(_previous: ActionResult, formData: FormData): Promise<ActionResult> {
+  await requireAdmin();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
+
+  const location = String(formData.get('location') ?? '');
+  if (!isMenuLocation(location)) {
+    return failure('Esa zona de navegación no existe.');
+  }
+
+  const labels = formData.getAll('label').map(String);
+  const urls = formData.getAll('url').map(String);
+
+  const { items, errors } = normalizeMenuItems(
+    labels.map((label, index) => ({ label, url: urls[index] ?? '' })),
+  );
+
+  if (errors.length > 0) {
+    const fieldErrors: Record<string, string[]> = {};
+    for (const problema of errors) {
+      const key = `${problema.field}-${problema.index}`;
+      fieldErrors[key] = [...(fieldErrors[key] ?? []), problema.message];
+    }
+    return failure('Revisa los enlaces marcados.', fieldErrors);
+  }
+
+  const supabase = await getSupabaseServerClient();
+
+  // `upsert` por `location` y no `update`: las tres zonas existen por seed, pero
+  // una base recién creada sin seed no tendría fila y el update fallaría en
+  // silencio afectando a cero filas.
+  const problema = checkWrite(
+    await supabase
+      .from('cms_menus')
+      .upsert({ location, items: toMenuJson(items) }, { onConflict: 'location' })
+      .select('id'),
+    'No se guardó el menú: tu rol no tiene permiso.',
+  );
+
+  if (problema) return problema;
+
+  revalidatePath('/contenido/menus');
+  return success('Menú actualizado. La tienda lo muestra en cuanto revalide.');
 }

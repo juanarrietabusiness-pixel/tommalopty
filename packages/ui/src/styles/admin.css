@@ -494,6 +494,24 @@
   }
 }
 
+@media (max-width: 620px) {
+  .variant-row {
+    grid-template-columns: 1fr;
+  }
+  .variant-row-numbers {
+    align-items: flex-start;
+  }
+  .variant-row-actions {
+    justify-content: flex-start;
+  }
+  .menu-row {
+    grid-template-columns: 1fr;
+  }
+  .menu-row-actions {
+    padding-top: 0;
+  }
+}
+
 @media (max-width: 860px) {
   .admin-shell {
     grid-template-columns: 1fr;
@@ -517,4 +535,188 @@
   .admin-content {
     padding: 20px 16px;
   }
+}
+
+/* --- Editor de menús -------------------------------------------------------- */
+/* Cada fila es un enlace: texto, destino y los controles de orden y borrado. */
+.menu-rows {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.menu-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+.menu-row .field {
+  margin-bottom: 0;
+}
+.menu-row-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  /* Alinea con los inputs, que llevan su etiqueta encima. */
+  padding-top: 22px;
+}
+.menu-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+/* --- Subida de imágenes ----------------------------------------------------- */
+.image-upload-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.image-upload-preview img {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+.image-upload-preview-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* --- Galería de producto ---------------------------------------------------- */
+.product-images {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+.product-images li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+/* La principal es la que sale en el catálogo: se distingue de un vistazo. */
+.product-images li.is-primary {
+  border-color: var(--color-primary);
+}
+.product-images img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+.product-images-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* --- Variantes de producto -------------------------------------------------- */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.variant-rows {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.variant-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+/* En edición ocupa toda la fila: dentro va el formulario, no las columnas. */
+.variant-row.is-editing {
+  display: block;
+}
+.variant-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.variant-row-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.variant-row-numbers {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.variant-price {
+  font-weight: 600;
+}
+.variant-compare {
+  color: var(--color-muted);
+  text-decoration: line-through;
+  font-size: 0.85rem;
+}
+.variant-row-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.variant-form .field-row:last-of-type {
+  margin-bottom: 4px;
+}
+.variant-form-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.variant-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.85rem;
+  margin-bottom: 16px;
+}
+
+.variant-new {
+  border-top: 1px solid var(--color-border);
+  padding-top: 14px;
+}
+.variant-new > summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 12px;
 }

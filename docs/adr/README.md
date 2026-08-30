@@ -15,3 +15,4 @@ modelo de seguridad, estructura de datos, contrato entre módulos.
 | [0004](0004-pedidos-transaccionales.md)       | Los pedidos se crean en una función de Postgres | Aceptada |
 | [0005](0005-cms-propio.md)                    | CMS y CRM propios, sin plataforma externa       | Aceptada |
 | [0006](0006-pasarela-al-final.md)             | La pasarela de pago se conecta al final         | Aceptada |
+| [0007](0007-media-en-cloudflare.md)           | El media vive en Cloudflare; Supabase, datos    | Aceptada |

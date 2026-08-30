@@ -26,18 +26,14 @@ port = 54323
 enabled = true
 port = 54324
 
+# Supabase Storage queda apagado a propósito: las imágenes y el video viven en
+# Cloudflare R2 y Stream, no aquí. Había dos opciones escritas a la vez —el ADR
+# 0002 decía R2 y este archivo declaraba buckets de Supabase— y ganaba la que se
+# implementara primero. La decisión está cerrada en
+# docs/adr/0007-media-en-cloudflare.md: Supabase se queda con la base de datos y
+# las cuentas; todo lo que se sirve al navegador, en Cloudflare.
 [storage]
-enabled = true
-file_size_limit = "50MiB"
-
-[storage.buckets.product-images]
-public = true
-file_size_limit = "10MiB"
-allowed_mime_types = ["image/png", "image/jpeg", "image/webp", "image/avif"]
-
-[storage.buckets.cms-media]
-public = true
-file_size_limit = "20MiB"
+enabled = false
 
 [auth]
 enabled = true
