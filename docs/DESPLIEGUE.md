@@ -164,6 +164,82 @@ Para que las vea, en **Settings → Secrets and variables → Actions → Variab
 del repositorio: `R2_PUBLIC_URL` con el valor de la tabla de arriba. Es una
 variable, no un secreto: la URL es pública por definición.
 
+## Ver la plataforma funcionando, sin dominio
+
+**No hace falta dominio propio para probar.** Cloudflare da una URL
+`workers.dev` gratis a cada Worker, y con eso se navega la tienda y el panel
+desde cualquier teléfono. El dominio hace falta para _producción_ —para que la
+tienda tenga una dirección presentable, para poner Cloudflare Access sobre el
+panel y para servir las imágenes desde un dominio propio—, no para comprobar
+que algo funciona.
+
+### Dos modalidades, y la diferencia importa
+
+|                          | `preview.yml`                                                | `staging.yml`           |
+| ------------------------ | ------------------------------------------------------------ | ----------------------- |
+| Base de datos            | Ninguna (modo demostración)                                  | La de staging, real     |
+| ¿Se guarda lo que edito? | **No.** Todo responde «esto es un recorrido de demostración» | **Sí**                  |
+| Para qué sirve           | Enseñar el diseño                                            | Comprobar que funciona  |
+| Iniciar sesión           | No hace falta, y no se puede                                 | Sí, con una cuenta real |
+
+Es la distinción que más confusión causa: en la previsualización, subir una
+imagen, crear una variante o editar un menú **no fallan, pero tampoco guardan**.
+Para verificar lo construido hay que usar `staging.yml`.
+
+### Configurarlo una sola vez
+
+En **Settings → Secrets and variables → Actions** del repositorio.
+
+**Variables** (no son secretos: la anon key viaja en el navegador de cualquiera
+que abra la tienda, y lo que protege los datos es RLS):
+
+| Variable                    | Valor                                                           |
+| --------------------------- | --------------------------------------------------------------- |
+| `STAGING_SUPABASE_URL`      | `https://pdbeqkxhrqicgfhcanwl.supabase.co`                      |
+| `STAGING_SUPABASE_ANON_KEY` | La clave `anon` del proyecto, en Supabase → Settings → API Keys |
+| `R2_PUBLIC_URL`             | `https://pub-524ecdb67a9a4230b194ae8a7de615e3.r2.dev`           |
+| `STAGING_SITE_URL`          | La URL `workers.dev` de la tienda, tras el primer despliegue    |
+| `STAGING_ADMIN_URL`         | La URL `workers.dev` del panel, tras el primer despliegue       |
+
+**Secret** (este sí lo es, y mucho: **salta RLS por completo**):
+
+| Secret                              | De dónde sale                                   |
+| ----------------------------------- | ----------------------------------------------- |
+| `STAGING_SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API Keys → `service_role` |
+
+Sin ese secreto todo funciona salvo **confirmar un pedido**: el checkout crea el
+pedido con service-role porque quien compra puede ser invitado y no tiene sesión
+que RLS pueda autorizar.
+
+Las dos primeras variables (`STAGING_SITE_URL` y `STAGING_ADMIN_URL`) son un
+huevo y gallina: hasta el primer despliegue no se conocen. Se deja en blanco,
+se despliega, y se rellenan con las URL que imprime el resumen. Solo afectan a
+las canónicas y al enlace «Ver en la tienda» del panel.
+
+### Publicar
+
+**Actions → Publicar en staging → Run workflow**, eligiendo la rama. El resumen
+de la ejecución imprime las dos URL.
+
+Si falta algo, el workflow no despliega a medias: falla y dice exactamente qué
+variable o secreto poner.
+
+### La primera cuenta
+
+La base de staging arranca con catálogo pero **sin usuarios**, así que al panel
+no entra nadie todavía. El orden es:
+
+1. Registrarse en la tienda, en `/registro`.
+2. Promover esa cuenta desde el editor SQL de Supabase:
+
+   ```sql
+   update public.profiles set role = 'superadmin' where email = 'tu@correo.com';
+   ```
+
+3. Entrar al panel con ella.
+
+Desde ahí, el resto de roles se gestionan en el propio panel.
+
 ## Enseñar la plataforma: previsualización
 
 Dos niveles, y conviene tener clara la diferencia porque una de las dos cosas

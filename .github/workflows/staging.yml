@@ -1,0 +1,202 @@
+name: Publicar en staging
+
+# Despliega las dos aplicaciones conectadas a la base de datos de staging, en
+# las URL `workers.dev` de Cloudflare. **No hace falta dominio propio.**
+#
+# Es distinto de `preview.yml`, y la diferencia importa:
+#
+#   * `preview.yml` publica en MODO DEMOSTRACIÓN, sin base de datos. Sirve para
+#     enseñar el diseño, pero nada se guarda: subir una imagen, crear una
+#     variante o editar un menú responden «esto es un recorrido de
+#     demostración».
+#   * Este workflow publica contra la base de STAGING. Ahí sí se guarda, así que
+#     es el único sitio donde se puede comprobar que lo construido funciona de
+#     verdad.
+#
+# Se lanza a mano: publicar es una acción deliberada, no algo que deba pasar
+# solo al empujar código.
+
+on:
+  workflow_dispatch:
+    inputs:
+      rama:
+        description: 'Rama a publicar'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  requisitos:
+    name: ¿Están los secretos?
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      cloudflare: ${{ steps.check.outputs.cloudflare }}
+      supabase: ${{ steps.check.outputs.supabase }}
+      service_role: ${{ steps.check.outputs.service_role }}
+    steps:
+      - id: check
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SB_URL: ${{ vars.STAGING_SUPABASE_URL }}
+          SB_ANON: ${{ vars.STAGING_SUPABASE_ANON_KEY }}
+          SB_SERVICE: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -n "$CF_TOKEN" ] && [ -n "$CF_ACCOUNT" ]; then
+            echo "cloudflare=si" >> "$GITHUB_OUTPUT"
+          else
+            echo "cloudflare=no" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ -n "$SB_URL" ] && [ -n "$SB_ANON" ]; then
+            echo "supabase=si" >> "$GITHUB_OUTPUT"
+          else
+            echo "supabase=no" >> "$GITHUB_OUTPUT"
+          fi
+
+          # El checkout crea el pedido con service-role porque quien compra
+          # puede ser invitado y no tiene sesión que RLS pueda autorizar. Sin
+          # esta clave todo lo demás funciona y solo falla confirmar un pedido.
+          if [ -n "$SB_SERVICE" ]; then
+            echo "service_role=si" >> "$GITHUB_OUTPUT"
+          else
+            echo "service_role=no" >> "$GITHUB_OUTPUT"
+          fi
+
+  publicar:
+    name: Publicar ${{ matrix.app }}
+    needs: requisitos
+    if: needs.requisitos.outputs.cloudflare == 'si' && needs.requisitos.outputs.supabase == 'si'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [storefront, admin]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.rama || github.ref }}
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.33.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+
+      - run: pnpm install --frozen-lockfile
+
+      # `NEXT_PUBLIC_*` se incrusta en el bundle en tiempo de build, así que
+      # tiene que ir aquí y no en el despliegue.
+      #
+      # La anon key es pública por diseño: viaja en el navegador de cualquiera
+      # que abra la tienda, y lo que protege los datos es RLS, no el secreto de
+      # esta clave. Por eso va como `vars` y no como `secrets`.
+      - name: Construir contra la base de staging
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.STAGING_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.STAGING_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SITE_URL: ${{ vars.STAGING_SITE_URL }}
+          NEXT_PUBLIC_ADMIN_URL: ${{ vars.STAGING_ADMIN_URL }}
+          NEXT_PUBLIC_R2_PUBLIC_URL: ${{ vars.R2_PUBLIC_URL }}
+          NEXT_PUBLIC_BRAND_NAME: ${{ vars.STAGING_BRAND_NAME || 'Nébula Store' }}
+        run: pnpm --filter @nebula/${{ matrix.app }} cf:build
+
+      # Los secretos de ejecución van al Worker, no al bundle. Se cargan antes
+      # de desplegar para que la primera versión ya los tenga.
+      - name: Cargar los secretos del Worker
+        if: needs.requisitos.outputs.service_role == 'si'
+        working-directory: apps/${{ matrix.app }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SERVICE_ROLE: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          # `wrangler secret put` sobre un Worker que aún no existe falla. En ese
+          # caso se deja para después del despliegue, que es cuando existirá.
+          if printf '%s' "$SERVICE_ROLE" | pnpm exec wrangler secret put SUPABASE_SERVICE_ROLE_KEY; then
+            echo "Secreto cargado."
+          else
+            echo "::notice::El Worker aún no existe; el secreto se carga tras el primer despliegue."
+          fi
+
+      - name: Desplegar
+        id: desplegar
+        working-directory: apps/${{ matrix.app }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          pnpm exec wrangler deploy | tee salida.txt
+          url="$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' salida.txt | head -1 || true)"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      # Segundo intento, para la primera vez: ahora el Worker ya existe.
+      - name: Cargar los secretos del Worker (reintento)
+        if: needs.requisitos.outputs.service_role == 'si'
+        working-directory: apps/${{ matrix.app }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SERVICE_ROLE: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+        run: printf '%s' "$SERVICE_ROLE" | pnpm exec wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+
+      - name: Resumen
+        env:
+          APP: ${{ matrix.app }}
+          URL: ${{ steps.desplegar.outputs.url }}
+          SERVICE: ${{ needs.requisitos.outputs.service_role }}
+        run: |
+          {
+            echo "## ${APP} publicado en staging"
+            echo
+            if [ -n "$URL" ]; then
+              echo "**${URL}**"
+            else
+              echo "Desplegado. La URL no se pudo extraer de la salida; está en el panel de Cloudflare."
+            fi
+            echo
+            echo "Conectado a la base de datos de staging: aquí **sí se guarda** lo que se edite."
+            if [ "$SERVICE" != "si" ]; then
+              echo
+              echo "> Falta el secreto \`STAGING_SUPABASE_SERVICE_ROLE_KEY\`."
+              echo "> Todo funciona salvo confirmar un pedido en el checkout."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  faltan_secretos:
+    name: Qué falta configurar
+    needs: requisitos
+    if: needs.requisitos.outputs.cloudflare == 'no' || needs.requisitos.outputs.supabase == 'no'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - env:
+          CF: ${{ needs.requisitos.outputs.cloudflare }}
+          SB: ${{ needs.requisitos.outputs.supabase }}
+        run: |
+          {
+            echo "## Falta configuración"
+            echo
+            echo "En **Settings → Secrets and variables → Actions**:"
+            echo
+            if [ "$CF" = "no" ]; then
+              echo "### Secrets"
+              echo "- \`CLOUDFLARE_API_TOKEN\`"
+              echo "- \`CLOUDFLARE_ACCOUNT_ID\`"
+            fi
+            if [ "$SB" = "no" ]; then
+              echo "### Variables"
+              echo "- \`STAGING_SUPABASE_URL\`"
+              echo "- \`STAGING_SUPABASE_ANON_KEY\`"
+              echo
+              echo "Los valores están en docs/DESPLIEGUE.md."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "Faltan secretos o variables. Ver el resumen de la ejecución."
+          exit 1
