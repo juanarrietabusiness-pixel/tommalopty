@@ -691,6 +691,69 @@ export interface Database {
           },
         ];
       };
+      courier_zones: {
+        Row: {
+          courier_id: string;
+          zone_id: string;
+        };
+        Insert: {
+          courier_id: string;
+          zone_id: string;
+        };
+        Update: {
+          courier_id?: string;
+          zone_id?: string;
+        };
+        Relationships: [];
+      };
+      couriers: {
+        Row: {
+          id: string;
+          profile_id: string;
+          display_name: string;
+          phone: string | null;
+          national_id: string | null;
+          documents: Json;
+          vehicle_type: string;
+          plate: string | null;
+          rate: number | null;
+          status: string;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          display_name: string;
+          phone?: string | null;
+          national_id?: string | null;
+          documents?: Json;
+          vehicle_type?: string;
+          plate?: string | null;
+          rate?: number | null;
+          status?: string;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          display_name?: string;
+          phone?: string | null;
+          national_id?: string | null;
+          documents?: Json;
+          vehicle_type?: string;
+          plate?: string | null;
+          rate?: number | null;
+          status?: string;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       delivery_zones: {
         Row: {
           id: string;
@@ -1971,6 +2034,8 @@ export interface Database {
         Args: Record<string, never>;
         Returns: Database['public']['Enums']['user_role'];
       };
+      is_courier: { Args: Record<string, never>; Returns: boolean };
+      current_courier_id: { Args: Record<string, never>; Returns: string | null };
       is_staff: { Args: Record<string, never>; Returns: boolean };
       is_admin: { Args: Record<string, never>; Returns: boolean };
       is_superadmin: { Args: Record<string, never>; Returns: boolean };
@@ -2027,7 +2092,7 @@ export interface Database {
         | 'cancelled';
       product_status: 'draft' | 'active' | 'archived';
       review_status: 'pending' | 'approved' | 'rejected';
-      user_role: 'customer' | 'operator' | 'admin' | 'superadmin';
+      user_role: 'customer' | 'operator' | 'admin' | 'superadmin' | 'courier';
     };
     CompositeTypes: Record<string, never>;
   };

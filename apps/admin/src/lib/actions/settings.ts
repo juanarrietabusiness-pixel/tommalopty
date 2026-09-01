@@ -68,7 +68,7 @@ export async function updateIntegration(
 
 const roleSchema = z.object({
   profileId: z.uuid(),
-  role: z.enum(['customer', 'operator', 'admin', 'superadmin']),
+  role: z.enum(['customer', 'operator', 'admin', 'superadmin', 'courier']),
 });
 
 export async function updateUserRole(
