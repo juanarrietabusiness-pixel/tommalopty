@@ -18,7 +18,9 @@ import { siteUrl } from '@/lib/site';
  * Nominatim trae medio centenar de campos y ninguno más hace falta.
  */
 
-export const runtime = 'edge';
+// Node.js y no `edge`: el adaptador de Cloudflare (OpenNext) sirve el runtime de
+// Node, y una ruta declarada `edge` se compila a un paquete que no sabe servir.
+export const runtime = 'nodejs';
 
 interface ResultadoNominatim {
   lat?: string;
