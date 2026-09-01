@@ -10,10 +10,10 @@
 
 ## 1. Dónde está publicado, y cómo se publica
 
-| Entorno | Tienda | Panel | Base de datos |
-| --- | --- | --- | --- |
-| **Staging** | `https://nebula-storefront.juanarrietabusiness.workers.dev` | `https://nebula-admin.juanarrietabusiness.workers.dev` | Supabase `tommalopty-staging` (`pdbeqkxhrqicgfhcanwl`) |
-| **Producción** | no existe todavía | no existe todavía | — |
+| Entorno        | Tienda                                                      | Panel                                                  | Base de datos                                          |
+| -------------- | ----------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------ |
+| **Staging**    | `https://nebula-storefront.juanarrietabusiness.workers.dev` | `https://nebula-admin.juanarrietabusiness.workers.dev` | Supabase `tommalopty-staging` (`pdbeqkxhrqicgfhcanwl`) |
+| **Producción** | no existe todavía                                           | no existe todavía                                      | —                                                      |
 
 **Staging escribe en una base de datos real.** Lo que se edite ahí se guarda.
 No es una demostración.
@@ -25,13 +25,13 @@ decisión, no un efecto secundario.
 
 Configuración necesaria, ya puesta (Settings → Secrets and variables → Actions):
 
-| Tipo | Nombre | Para qué |
-| --- | --- | --- |
-| Secret | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | Desplegar los Workers |
-| Secret | `STAGING_SUPABASE_SERVICE_ROLE_KEY` | Confirmar pedidos (salta RLS; solo servidor) |
-| Variable | `STAGING_SUPABASE_URL`, `STAGING_SUPABASE_ANON_KEY` | Conexión pública a Supabase |
-| Variable | `STAGING_SITE_URL`, `STAGING_ADMIN_URL` | Que cada aplicación sepa su propia URL |
-| Variable | `R2_PUBLIC_URL` | Dominio público de las imágenes |
+| Tipo     | Nombre                                              | Para qué                                     |
+| -------- | --------------------------------------------------- | -------------------------------------------- |
+| Secret   | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`     | Desplegar los Workers                        |
+| Secret   | `STAGING_SUPABASE_SERVICE_ROLE_KEY`                 | Confirmar pedidos (salta RLS; solo servidor) |
+| Variable | `STAGING_SUPABASE_URL`, `STAGING_SUPABASE_ANON_KEY` | Conexión pública a Supabase                  |
+| Variable | `STAGING_SITE_URL`, `STAGING_ADMIN_URL`             | Que cada aplicación sepa su propia URL       |
+| Variable | `R2_PUBLIC_URL`                                     | Dominio público de las imágenes              |
 
 La anon key va como **variable y no como secreto** a propósito: viaja en el
 navegador de cualquiera que abra la tienda. Lo que protege los datos es RLS, no
@@ -119,11 +119,11 @@ reconstruirlo es media hora si hace falta.
 Sirve para desarrollo y para enseñar la pantalla; **no es una decisión tomada
 para producción**. Antes de abrir hay que elegir:
 
-| Opción | A favor | En contra |
-| --- | --- | --- |
+| Opción                 | A favor                                                  | En contra                                                                    |
+| ---------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | **Protomaps sobre R2** | Sin cuota mensual; encaja con tener ya Cloudflare pagado | Hay que generar el extracto de Panamá, subirlo y pasar de ráster a vectorial |
-| **MapTiler** | Inmediato, capa gratuita generosa | Requiere cuenta y clave; la clave viaja al navegador |
-| **CARTO con plan** | Ya está integrado, cambio cero | Coste mensual |
+| **MapTiler**           | Inmediato, capa gratuita generosa                        | Requiere cuenta y clave; la clave viaja al navegador                         |
+| **CARTO con plan**     | Ya está integrado, cambio cero                           | Coste mensual                                                                |
 
 Primero se usó `tile.openstreetmap.org`. **No volver a hacerlo**: su política
 dice expresamente que no está para aplicaciones de terceros.

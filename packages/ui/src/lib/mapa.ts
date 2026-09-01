@@ -34,8 +34,7 @@ export const TILES_URL =
   'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
 
 export const ATTRIBUTION =
-  process.env.NEXT_PUBLIC_MAP_ATTRIBUTION ??
-  '© colaboradores de OpenStreetMap © CARTO';
+  process.env.NEXT_PUBLIC_MAP_ATTRIBUTION ?? '© colaboradores de OpenStreetMap © CARTO';
 
 /**
  * Estilo mínimo de MapLibre: una sola capa ráster.

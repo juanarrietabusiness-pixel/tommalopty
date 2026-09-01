@@ -48,12 +48,16 @@ const addressSchema = z
     reference: z.string().max(200).optional(),
     deliveryInstructions: z.string().max(200).optional(),
   })
-  .refine((direccion) => (direccion.latitude === undefined) === (direccion.longitude === undefined), {
-    message: 'La ubicación llegó a medias.',
-    path: ['longitude'],
-  })
   .refine(
-    (direccion) => (direccion.latitude === undefined) === (direccion.locationPrecision === undefined),
+    (direccion) => (direccion.latitude === undefined) === (direccion.longitude === undefined),
+    {
+      message: 'La ubicación llegó a medias.',
+      path: ['longitude'],
+    },
+  )
+  .refine(
+    (direccion) =>
+      (direccion.latitude === undefined) === (direccion.locationPrecision === undefined),
     { message: 'Falta saber de dónde salió la ubicación.', path: ['locationPrecision'] },
   );
 

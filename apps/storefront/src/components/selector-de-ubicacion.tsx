@@ -307,7 +307,11 @@ export function SelectorDeUbicacion({
             se mueva el mapa y no el pin. */}
         <span className="ubicacion-pin" aria-hidden="true" />
 
-        <button type="button" className="btn btn-outline btn-sm ubicacion-gps" onClick={usarMiUbicacion}>
+        <button
+          type="button"
+          className="btn btn-outline btn-sm ubicacion-gps"
+          onClick={usarMiUbicacion}
+        >
           Usar mi ubicación
         </button>
       </div>

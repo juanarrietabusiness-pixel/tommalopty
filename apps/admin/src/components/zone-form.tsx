@@ -2,7 +2,11 @@
 
 import { useActionState } from 'react';
 import type { DeliveryZone } from '@nebula/domain';
-import { createDeliveryZone, deleteDeliveryZone, updateDeliveryZone } from '@/lib/actions/logistica';
+import {
+  createDeliveryZone,
+  deleteDeliveryZone,
+  updateDeliveryZone,
+} from '@/lib/actions/logistica';
 import { IDLE } from '@/lib/actions/result';
 import { FieldError, FormFeedback, SubmitButton } from './form';
 import { ZoneMap } from './zone-map';
@@ -14,10 +18,7 @@ export interface ZonaEditable extends DeliveryZone {
 }
 
 export function ZoneForm({ zona }: { zona?: ZonaEditable }) {
-  const [state, formAction] = useActionState(
-    zona ? updateDeliveryZone : createDeliveryZone,
-    IDLE,
-  );
+  const [state, formAction] = useActionState(zona ? updateDeliveryZone : createDeliveryZone, IDLE);
 
   return (
     <form action={formAction} className="card">

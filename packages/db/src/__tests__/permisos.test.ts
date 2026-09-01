@@ -69,7 +69,10 @@ const CONSULTAS_DEL_PANEL: { nombre: string; sql: string }[] = [
   { nombre: 'las ventas por día', sql: 'select * from public.report_sales_daily limit 1' },
   { nombre: 'los más vendidos', sql: 'select * from public.report_top_products limit 1' },
   { nombre: 'el informe de stock bajo', sql: 'select * from public.report_low_stock limit 1' },
-  { nombre: 'el embudo de conversión', sql: 'select * from public.report_conversion_funnel limit 1' },
+  {
+    nombre: 'el embudo de conversión',
+    sql: 'select * from public.report_conversion_funnel limit 1',
+  },
   {
     nombre: 'la pantalla de inventario',
     sql: `select variant_id, quantity, reserved_quantity, low_stock_threshold
@@ -84,10 +87,16 @@ const CONSULTAS_DEL_PANEL: { nombre: string; sql: string }[] = [
           limit 1`,
   },
   { nombre: 'los pedidos', sql: 'select id, order_number, total from public.orders limit 1' },
-  { nombre: 'las líneas del pedido', sql: 'select id, product_title from public.order_items limit 1' },
+  {
+    nombre: 'las líneas del pedido',
+    sql: 'select id, product_title from public.order_items limit 1',
+  },
   { nombre: 'los pagos', sql: 'select id, provider, amount from public.payments limit 1' },
   { nombre: 'la ficha de cliente', sql: 'select id, email, tags from public.customers limit 1' },
-  { nombre: 'las zonas de reparto', sql: 'select id, name, polygon from public.delivery_zones limit 1' },
+  {
+    nombre: 'las zonas de reparto',
+    sql: 'select id, name, polygon from public.delivery_zones limit 1',
+  },
   { nombre: 'usuarios y roles', sql: 'select id, email, role from public.profiles limit 1' },
 ];
 

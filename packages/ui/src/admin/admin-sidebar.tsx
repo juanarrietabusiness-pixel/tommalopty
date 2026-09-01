@@ -67,10 +67,7 @@ export function AdminSidebar({ brandName, groups, currentPath, user }: AdminSide
             <ul>
               {group.items.map((item) => (
                 <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    aria-current={item.href === activo ? 'page' : undefined}
-                  >
+                  <Link href={item.href} aria-current={item.href === activo ? 'page' : undefined}>
                     {item.icon}
                     {item.label}
                   </Link>
