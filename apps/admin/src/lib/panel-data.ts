@@ -1,3 +1,10 @@
+import {
+  REGLA_POR_DEFECTO,
+  isPoliticaDeDespacho,
+  isShipmentStatus,
+  type ReglaDeDespacho,
+  type ShipmentStatus,
+} from '@nebula/domain';
 import type { Enums, Tables, Views } from '@nebula/db';
 import {
   getCustomer,
@@ -683,4 +690,98 @@ export async function cargarUsuarios(): Promise<FilaUsuario[]> {
     .order('created_at', { ascending: false });
 
   return data ?? [];
+}
+
+/* --- Envíos ---------------------------------------------------------------- */
+
+export interface EnvioDelPedido {
+  id: string;
+  trackingNumber: string;
+  status: ShipmentStatus;
+  assignedTo: string | null;
+  carrier: string | null;
+  carrierTrackingNumber: string | null;
+  tieneCoordenadas: boolean;
+  createdAt: string;
+}
+
+/**
+ * Los envíos de un pedido, y quién puede llevarlos.
+ *
+ * Las dos consultas van juntas porque se pintan juntas: la lista de operadores
+ * solo existe para llenar el selector de «quién lo lleva» de cada envío.
+ */
+export async function cargarEnviosDelPedido(orderId: string): Promise<{
+  envios: EnvioDelPedido[];
+  operadores: { id: string; nombre: string }[];
+}> {
+  if (esModoDemostracion()) return { envios: [], operadores: [] };
+
+  const supabase = await getSupabaseServerClient();
+
+  const [{ data: envios }, { data: perfiles }] = await Promise.all([
+    supabase
+      .from('shipments')
+      .select(
+        `id, tracking_number, status, assigned_to, carrier, carrier_tracking_number,
+         latitude, created_at`,
+      )
+      .eq('order_id', orderId)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('profiles')
+      .select('id, full_name, email, role')
+      .in('role', ['operator', 'admin', 'superadmin'])
+      .eq('is_active', true)
+      .order('full_name'),
+  ]);
+
+  return {
+    envios: (envios ?? []).map((fila) => ({
+      id: fila.id,
+      trackingNumber: fila.tracking_number,
+      status: isShipmentStatus(fila.status) ? fila.status : 'pendiente',
+      assignedTo: fila.assigned_to,
+      carrier: fila.carrier,
+      carrierTrackingNumber: fila.carrier_tracking_number,
+      tieneCoordenadas: fila.latitude !== null,
+      createdAt: fila.created_at,
+    })),
+    operadores: (perfiles ?? []).map((perfil) => ({
+      id: perfil.id,
+      nombre: perfil.full_name ?? perfil.email,
+    })),
+  };
+}
+
+/**
+ * La regla de despacho que está activa (D4).
+ *
+ * Si el ajuste no existe o viene mal escrito se cae a la estricta, que es la
+ * única que no puede acabar en pérdida. Un ajuste ilegible no debería abrir la
+ * puerta a despachar sin cobrar.
+ */
+export async function cargarReglaDeDespacho(): Promise<ReglaDeDespacho> {
+  if (esModoDemostracion()) return REGLA_POR_DEFECTO;
+
+  const supabase = await getSupabaseServerClient();
+  const { data } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'dispatch_policy')
+    .maybeSingle();
+
+  const valor = (data?.value ?? {}) as { politica?: unknown; umbralPorcentaje?: unknown };
+
+  const politica =
+    typeof valor.politica === 'string' && isPoliticaDeDespacho(valor.politica)
+      ? valor.politica
+      : REGLA_POR_DEFECTO.politica;
+
+  const umbral =
+    typeof valor.umbralPorcentaje === 'number' && Number.isFinite(valor.umbralPorcentaje)
+      ? valor.umbralPorcentaje
+      : REGLA_POR_DEFECTO.umbralPorcentaje;
+
+  return { politica, umbralPorcentaje: umbral };
 }

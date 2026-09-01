@@ -1436,3 +1436,241 @@
   font-weight: 600;
   color: var(--color-text);
 }
+
+/* ============================================================================
+   PÁGINA DE ENTREGA (lo que abre el QR de la guía)
+   ----------------------------------------------------------------------------
+   Se usa de pie, en la calle, con una mano y a veces con guantes. Todo lo que
+   se toca es grande y va en una sola columna: nada de tocar un botón pequeño
+   con el motor encendido. No hay cabecera ni pie de la tienda — quien entrega
+   no viene a comprar.
+   ========================================================================== */
+/*
+   Quien entrega no viene a comprar: la cabecera con el buscador y el carrito
+   sobra, y en un móvil se come la mitad de la pantalla útil.
+
+   Se esconde con `:has()` y no moviendo rutas a un grupo con su propio layout,
+   que es la forma canónica de hacerlo en Next. El motivo es de riesgo: el grupo
+   obliga a mover las veinte carpetas de rutas que ya existen, y esto es una
+   regla de tres líneas que hace lo mismo y se borra sola el día que alguien
+   haga esa reorganización. Queda anotado como lo que es: un atajo con fecha de
+   caducidad, no la forma correcta.
+*/
+body:has(.entrega) .site-header,
+body:has(.entrega) .site-footer,
+body:has(.entrega) .announcement-bar {
+  display: none;
+}
+
+.entrega {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 16px 16px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.entrega-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.entrega-guia {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.entrega-estado {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.entrega-estado[data-estado='entregado'] {
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.entrega-estado[data-estado='fallido'],
+.entrega-estado[data-estado='devuelto'] {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.entrega-navegar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 56 px de alto: lo que se acierta sin mirar. */
+.entrega-boton {
+  width: 100%;
+  min-height: 56px;
+  font-size: 1rem;
+}
+
+.entrega-bloque {
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
+.entrega-bloque h2 {
+  margin: 0 0 10px;
+  font-family: var(--font-heading);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
+}
+
+.entrega-direccion {
+  margin: 0 0 12px;
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+
+/* La referencia es lo que de verdad encuentra la puerta cuando la dirección
+   escrita no basta, así que se lee antes que el resto. */
+.entrega-referencia {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.entrega-pie {
+  margin: 0;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+
+/* ============================================================================
+   SEGUIMIENTO DEL PEDIDO
+   ----------------------------------------------------------------------------
+   Responde a una sola pregunta: «¿dónde está mi pedido?». Por eso la línea de
+   tiempo ocupa el centro y lo demás va debajo.
+   ========================================================================== */
+.seguimiento-envio {
+  padding: 20px;
+  margin-bottom: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
+.seguimiento-envio header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.seguimiento-envio header strong {
+  font-family: var(--font-heading);
+  letter-spacing: 0.02em;
+}
+
+.seguimiento-linea {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 26px;
+  position: relative;
+}
+
+/* La línea que une los puntos. Va detrás, y por eso es un pseudoelemento del
+   contenedor y no un borde de cada paso: así no se corta entre uno y otro. */
+.seguimiento-linea::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: var(--color-border);
+}
+
+.seguimiento-linea li {
+  position: relative;
+  padding: 0 0 18px;
+  color: var(--color-muted);
+  font-size: 0.92rem;
+}
+
+.seguimiento-linea li:last-child {
+  padding-bottom: 0;
+}
+
+.seguimiento-linea li::before {
+  content: '';
+  position: absolute;
+  left: -26px;
+  top: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.seguimiento-linea li[data-hecho='true'] {
+  color: var(--color-text);
+}
+
+.seguimiento-linea li[data-hecho='true']::before {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+
+/* El paso actual, marcado con un anillo: es lo que se busca al abrir la
+   página, y tiene que encontrarse sin leer. */
+.seguimiento-linea li[data-actual='true'] {
+  font-weight: 600;
+}
+
+.seguimiento-linea li[data-actual='true']::before {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 22%, transparent);
+}
+
+.seguimiento-linea time {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+.seguimiento-quien {
+  margin: 16px 0 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: 0.9rem;
+}
+
+/* El saldo pendiente en la lista de pedidos del cliente. Solo aparece cuando
+   hay algo que deber, así que cuando aparece tiene que verse. */
+.order-saldo {
+  margin: 10px 0 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 35%, transparent);
+  font-size: 0.88rem;
+}

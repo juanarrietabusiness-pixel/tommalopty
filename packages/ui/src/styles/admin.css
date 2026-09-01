@@ -749,3 +749,281 @@
   display: flex;
   gap: 8px;
 }
+
+/* --- La regla de despacho -------------------------------------------------- */
+.regla-opciones {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.regla-opcion {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.regla-opcion[data-elegida='true'] {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+}
+
+.regla-opcion span {
+  display: block;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--color-muted);
+}
+
+.regla-opcion strong {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 0.92rem;
+  color: var(--color-text);
+}
+
+.seccion-titulo {
+  margin: 28px 0 14px;
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+}
+
+/* --- Abonos y saldo -------------------------------------------------------- */
+.abono-resumen {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.abono-resumen > div {
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.abono-resumen span {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
+}
+
+.abono-resumen strong {
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* El saldo pendiente en rojo: es el número por el que se abre esta pantalla. */
+.abono-resumen > div[data-saldo='true'] {
+  border-color: var(--color-danger);
+}
+
+.abono-resumen > div[data-saldo='true'] strong {
+  color: var(--color-danger);
+}
+
+/* --- Envíos dentro del pedido --------------------------------------------- */
+.envio {
+  padding: 14px;
+  margin-bottom: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.envio-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.envio-cabecera strong {
+  font-family: var(--font-heading);
+  letter-spacing: 0.02em;
+}
+
+/* ============================================================================
+   GUÍA DE DESPACHO
+   ----------------------------------------------------------------------------
+   Se imprime en térmica de 4×6 pulgadas, que es la etiqueta estándar de
+   paquetería. `@page` fija ese tamaño para que salga a escala real sin que
+   nadie tenga que acordarse de configurar la impresora.
+
+   Se mira también en pantalla: revisar la guía antes de gastar una etiqueta es
+   lo que evita imprimir veinte con la dirección mal.
+
+   Todo en negro sobre blanco y sin grises: una térmica no imprime grises, los
+   convierte en tramas que a este tamaño se ven sucias.
+   ========================================================================== */
+@page {
+  size: 4in 6in;
+  margin: 0;
+}
+
+.guia-hoja {
+  width: 4in;
+  min-height: 6in;
+  margin: 24px auto;
+  padding: 0.18in;
+  background: #fff;
+  color: #000;
+  font-family: var(--font-body);
+  font-size: 10pt;
+  line-height: 1.35;
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.1in;
+}
+
+.guia-barra-superior {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.1in;
+  padding-bottom: 0.1in;
+  border-bottom: 2px solid #000;
+}
+
+.guia-barra-superior strong {
+  display: block;
+  font-family: var(--font-heading);
+  font-size: 15pt;
+  letter-spacing: 0.02em;
+}
+
+.guia-barra-superior span {
+  font-size: 9pt;
+}
+
+/* 1.15in: probado como el mínimo que una cámara de móvil lee de un tirón, a
+   pulso y con la luz de un portal. */
+.guia-qr {
+  flex: 0 0 auto;
+  width: 1.15in;
+  height: 1.15in;
+}
+
+.guia-qr svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.guia-destino h2,
+.guia-items h2 {
+  margin: 0 0 0.04in;
+  font-size: 7.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.guia-nombre {
+  margin: 0;
+  font-size: 13pt;
+  font-weight: 700;
+}
+
+.guia-direccion {
+  margin: 0.03in 0 0;
+  font-size: 11pt;
+}
+
+.guia-telefono {
+  margin: 0.04in 0 0;
+  font-size: 12pt;
+  font-weight: 700;
+}
+
+.guia-referencia {
+  padding: 0.07in 0.08in;
+  border: 1.5px solid #000;
+  font-size: 10.5pt;
+}
+
+.guia-referencia span {
+  display: block;
+  font-size: 7pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Invertido: es el dato que no se puede pasar por alto en un portal. */
+.guia-cobrar {
+  padding: 0.08in;
+  background: #000;
+  color: #fff;
+  text-align: center;
+  font-size: 11pt;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.guia-cobrar strong {
+  display: block;
+  font-size: 15pt;
+}
+
+/* Lo ya abonado, en pequeño: no es lo que hay que cobrar, pero es lo que deja
+   a quien entrega responder si el cliente pregunta por qué no es el total. */
+.guia-cobrar em {
+  display: block;
+  margin-top: 0.02in;
+  font-size: 7.5pt;
+  font-style: normal;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.guia-pagado {
+  padding: 0.06in;
+  border: 1.5px solid #000;
+  text-align: center;
+  font-size: 9.5pt;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.guia-items ul {
+  margin: 0;
+  padding-left: 0.14in;
+  font-size: 9.5pt;
+}
+
+.guia-items span {
+  font-weight: 700;
+}
+
+.guia-pie {
+  margin: auto 0 0;
+  padding-top: 0.06in;
+  border-top: 1px solid #000;
+  font-size: 7.5pt;
+  text-align: center;
+}
+
+@media print {
+  /* Fuera todo lo que no es la etiqueta: el panel entero desaparece. */
+  .admin-sidebar,
+  .admin-topbar,
+  .panel-page-head {
+    display: none !important;
+  }
+
+  .guia-hoja {
+    margin: 0;
+    border: 0;
+    width: 100%;
+    min-height: auto;
+  }
+}

@@ -196,6 +196,10 @@ function pedido(n: number, campos: Partial<Pedido> & Pick<Pedido, 'email' | 'tot
     fulfillment_status: 'unfulfilled',
     currency: 'USD',
     subtotal,
+    // El recorrido de demostración enseña pedidos ya cobrados: el saldo es
+    // cero y el estado, pagado. Los abonos se ven contra la base de verdad.
+    amount_paid: campos.total,
+    balance_due: 0,
     discount_total: 0,
     shipping_total: 0,
     tax_total: 0,
@@ -337,6 +341,7 @@ export const PAGOS_DEMO: Tables<'payments'>[] = [
     order_id: PEDIDOS_DEMO[0]!.id,
     provider: 'manual',
     provider_payment_id: null,
+    reference: 'Efectivo en tienda',
     status: 'paid',
     amount: 43.4,
     currency: 'USD',

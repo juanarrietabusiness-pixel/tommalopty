@@ -114,7 +114,15 @@ export default async function OrderConfirmationPage({
         </div>
 
         <div style={{ display: 'flex', gap: 12, marginTop: 28, flexWrap: 'wrap' }}>
-          <Link href="/tienda" className="btn btn-dark btn-sm">
+          {/*
+            El seguimiento va primero y en oscuro: es lo que quien acaba de
+            comprar va a querer abrir mañana, y funciona sin haberse registrado
+            porque usa este mismo enlace.
+          */}
+          <Link href={`/seguimiento/${token}`} className="btn btn-dark btn-sm">
+            Seguir mi pedido
+          </Link>
+          <Link href="/tienda" className="btn btn-outline btn-sm">
             Seguir comprando
           </Link>
           <Link href="/cuenta/pedidos" className="btn btn-outline btn-sm">

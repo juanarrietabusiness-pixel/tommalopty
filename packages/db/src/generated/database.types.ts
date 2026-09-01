@@ -1105,6 +1105,9 @@ export interface Database {
           tax_total: number;
           total: number;
           discount_code: string | null;
+          amount_paid: number;
+          /** Columna generada: la base la calcula, no se escribe. */
+          balance_due: number | null;
           shipping_address: Json | null;
           billing_address: Json | null;
           shipping_method: Json | null;
@@ -1133,6 +1136,7 @@ export interface Database {
           tax_total?: number;
           total?: number;
           discount_code?: string | null;
+          amount_paid?: number;
           shipping_address?: Json | null;
           billing_address?: Json | null;
           shipping_method?: Json | null;
@@ -1161,6 +1165,7 @@ export interface Database {
           tax_total?: number;
           total?: number;
           discount_code?: string | null;
+          amount_paid?: number;
           shipping_address?: Json | null;
           billing_address?: Json | null;
           shipping_method?: Json | null;
@@ -1243,6 +1248,7 @@ export interface Database {
           order_id: string;
           provider: Database['public']['Enums']['payment_provider'];
           provider_payment_id: string | null;
+          reference: string | null;
           status: Database['public']['Enums']['payment_status'];
           amount: number;
           currency: string;
@@ -1257,6 +1263,7 @@ export interface Database {
           order_id: string;
           provider: Database['public']['Enums']['payment_provider'];
           provider_payment_id?: string | null;
+          reference?: string | null;
           status?: Database['public']['Enums']['payment_status'];
           amount: number;
           currency?: string;
@@ -1271,6 +1278,7 @@ export interface Database {
           order_id?: string;
           provider?: Database['public']['Enums']['payment_provider'];
           provider_payment_id?: string | null;
+          reference?: string | null;
           status?: Database['public']['Enums']['payment_status'];
           amount?: number;
           currency?: string;
@@ -1660,6 +1668,96 @@ export interface Database {
           },
         ];
       };
+      shipments: {
+        Row: {
+          id: string;
+          order_id: string;
+          tracking_number: string;
+          token: string;
+          status: string;
+          assigned_to: string | null;
+          carrier: string | null;
+          carrier_tracking_number: string | null;
+          carrier_tracking_url: string | null;
+          destination: Json;
+          latitude: number | null;
+          longitude: number | null;
+          delivery_proof_key: string | null;
+          delivery_note: string | null;
+          received_by: string | null;
+          failure_reason: string | null;
+          shipping_cost: number | null;
+          estimated_at: string | null;
+          dispatched_at: string | null;
+          delivered_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          tracking_number?: string;
+          token?: string;
+          status?: string;
+          assigned_to?: string | null;
+          carrier?: string | null;
+          carrier_tracking_number?: string | null;
+          carrier_tracking_url?: string | null;
+          destination?: Json;
+          latitude?: number | null;
+          longitude?: number | null;
+          delivery_proof_key?: string | null;
+          delivery_note?: string | null;
+          received_by?: string | null;
+          failure_reason?: string | null;
+          shipping_cost?: number | null;
+          estimated_at?: string | null;
+          dispatched_at?: string | null;
+          delivered_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          tracking_number?: string;
+          token?: string;
+          status?: string;
+          assigned_to?: string | null;
+          carrier?: string | null;
+          carrier_tracking_number?: string | null;
+          carrier_tracking_url?: string | null;
+          destination?: Json;
+          latitude?: number | null;
+          longitude?: number | null;
+          delivery_proof_key?: string | null;
+          delivery_note?: string | null;
+          received_by?: string | null;
+          failure_reason?: string | null;
+          shipping_cost?: number | null;
+          estimated_at?: string | null;
+          dispatched_at?: string | null;
+          delivered_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'shipments_order_id_fkey';
+            columns: ['order_id'];
+            isOneToOne: false;
+            referencedRelation: 'orders';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'shipments_assigned_to_fkey';
+            columns: ['assigned_to'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       shipping_methods: {
         Row: {
           id: string;
@@ -1918,7 +2016,15 @@ export interface Database {
       lead_status: 'new' | 'contacted' | 'qualified' | 'converted' | 'lost';
       order_status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded';
       payment_provider: 'paypal' | 'wompi' | 'paguelofacil' | 'yappy' | 'manual';
-      payment_status: 'pending' | 'authorized' | 'paid' | 'partially_refunded' | 'refunded' | 'failed' | 'cancelled';
+      payment_status:
+        | 'pending'
+        | 'authorized'
+        | 'partially_paid'
+        | 'paid'
+        | 'partially_refunded'
+        | 'refunded'
+        | 'failed'
+        | 'cancelled';
       product_status: 'draft' | 'active' | 'archived';
       review_status: 'pending' | 'approved' | 'rejected';
       user_role: 'customer' | 'operator' | 'admin' | 'superadmin';

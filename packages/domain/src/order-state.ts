@@ -11,7 +11,14 @@ export type OrderStatus =
   'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded';
 
 export type PaymentStatus =
-  'pending' | 'authorized' | 'paid' | 'partially_refunded' | 'refunded' | 'failed' | 'cancelled';
+  | 'pending'
+  | 'authorized'
+  | 'partially_paid'
+  | 'paid'
+  | 'partially_refunded'
+  | 'refunded'
+  | 'failed'
+  | 'cancelled';
 
 const ORDER_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
   pending: ['confirmed', 'cancelled'],
@@ -25,8 +32,12 @@ const ORDER_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
 };
 
 const PAYMENT_TRANSITIONS: Record<PaymentStatus, readonly PaymentStatus[]> = {
-  pending: ['authorized', 'paid', 'failed', 'cancelled'],
-  authorized: ['paid', 'failed', 'cancelled'],
+  pending: ['authorized', 'partially_paid', 'paid', 'failed', 'cancelled'],
+  authorized: ['partially_paid', 'paid', 'failed', 'cancelled'],
+  // Los abonos: se cobra por partes hasta cerrar el saldo. Puede volver a
+  // `pending` porque un abono mal registrado se corrige borrándolo, y entonces
+  // el pedido vuelve a no tener nada cobrado.
+  partially_paid: ['paid', 'pending', 'failed', 'cancelled'],
   paid: ['partially_refunded', 'refunded'],
   partially_refunded: ['refunded'],
   refunded: [],
@@ -60,9 +71,18 @@ export function isTerminalOrderStatus(status: OrderStatus): boolean {
 /**
  * Un pedido solo cuenta como venta cuando el dinero entró. Es la regla que usan
  * los reportes: si cambia, cambia aquí y en las vistas SQL a la vez.
+ *
+ * Con abonos, un pedido parcialmente pagado también cuenta: hay dinero en la
+ * caja. **Cuánto** cuenta lo deciden las vistas, que suman `amount_paid` y no
+ * el total del pedido (migración 0028). Esta función solo dice si entra en el
+ * reporte, no por cuánto.
  */
 export function countsAsRevenue(paymentStatus: PaymentStatus): boolean {
-  return paymentStatus === 'paid' || paymentStatus === 'partially_refunded';
+  return (
+    paymentStatus === 'paid' ||
+    paymentStatus === 'partially_paid' ||
+    paymentStatus === 'partially_refunded'
+  );
 }
 
 export interface TransitionError {

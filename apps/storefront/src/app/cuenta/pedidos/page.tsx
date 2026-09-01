@@ -50,6 +50,22 @@ export default async function MyOrdersPage() {
                 </li>
               ))}
             </ul>
+
+            {/*
+              El saldo solo aparece cuando hay algo que deber. Un aviso de
+              «pagado» en cada pedido de la lista es ruido: lo normal es que lo
+              estén, y lo que hay que encontrar de un vistazo es el que no.
+            */}
+            {Number(order.balance_due ?? 0) > 0 ? (
+              <p className="order-saldo">
+                Llevas abonado {money(Number(order.amount_paid ?? 0))} · quedan{' '}
+                <strong>{money(Number(order.balance_due))}</strong> por pagar
+              </p>
+            ) : null}
+
+            <a className="btn btn-outline btn-sm" href={`/seguimiento/${order.confirmation_token}`}>
+              Seguir este pedido
+            </a>
           </article>
         ))
       )}
