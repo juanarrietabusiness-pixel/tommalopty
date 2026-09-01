@@ -303,4 +303,150 @@ describeSiHayBase('permisos de tabla', () => {
       });
     }
   });
+
+  /**
+   * Lo que el público NO alcanza, que es la mitad que faltaba.
+   *
+   * Hasta la migración 0033, este archivo solo comprobaba que `anon` pudiera
+   * hacer lo que la tienda necesita. Nada comprobaba lo contrario, y por eso
+   * pasó desapercibido durante todo el proyecto que `anon` tenía `truncate`
+   * sobre cada tabla —incluidas `orders` y `payments`— sin que ninguna
+   * migración se lo hubiera dado.
+   *
+   * `truncate` es el que importa: es el único de los cinco que **no pasa por
+   * RLS**, porque las políticas filtran filas y `truncate` no mira filas. Con
+   * `select` o `delete`, una política que devuelve cero filas ya protege; con
+   * `truncate`, lo único que separa a un visitante anónimo de vaciar la tabla
+   * es el privilegio.
+   */
+  describe('lo que el público no alcanza', () => {
+    const SOLO_DEL_EQUIPO = [
+      'public.orders',
+      'public.order_items',
+      'public.order_events',
+      'public.payments',
+      'public.payment_webhook_events',
+      'public.shipments',
+      'public.customers',
+      'public.addresses',
+      'public.profiles',
+      'public.couriers',
+      'public.courier_zones',
+      'public.crm_notes',
+      'public.crm_tags',
+      'public.discounts',
+      'public.discount_redemptions',
+      'public.campaigns',
+      'public.integrations',
+      'public.audit_log',
+      'public.carts',
+      'public.cart_items',
+      'public.wishlists',
+      'public.wishlist_items',
+    ];
+
+    for (const tabla of SOLO_DEL_EQUIPO) {
+      it(`anon no tiene ningún privilegio sobre ${tabla}`, async () => {
+        const { rows } = await client.query<Record<string, boolean>>(
+          `select has_table_privilege('anon', $1, 'SELECT')   as leer,
+                  has_table_privilege('anon', $1, 'INSERT')   as insertar,
+                  has_table_privilege('anon', $1, 'UPDATE')   as actualizar,
+                  has_table_privilege('anon', $1, 'DELETE')   as borrar,
+                  has_table_privilege('anon', $1, 'TRUNCATE') as vaciar`,
+          [tabla],
+        );
+
+        expect(rows[0]).toEqual({
+          leer: false,
+          insertar: false,
+          actualizar: false,
+          borrar: false,
+          vaciar: false,
+        });
+      });
+    }
+
+    /**
+     * Las tablas que la tienda sí lee conservan `select` y nada más. Este test
+     * es el que impide «arreglar» el de arriba revocándolo todo: si alguien
+     * quita el `select` del catálogo, la tienda se queda sin catálogo, y eso ya
+     * duró once días sin que nadie lo viera (`docs/ESTADO.md` § 4).
+     */
+    const PUBLICAS_DE_SOLO_LECTURA = [
+      'public.products',
+      'public.product_images',
+      'public.product_options',
+      'public.product_categories',
+      'public.categories',
+      'public.reviews',
+      'public.settings',
+      'public.shipping_methods',
+      'public.delivery_zones',
+      'public.cms_pages',
+      'public.cms_posts',
+      'public.cms_banners',
+      'public.cms_menus',
+    ];
+
+    for (const tabla of PUBLICAS_DE_SOLO_LECTURA) {
+      it(`anon lee ${tabla}, pero no la escribe ni la vacía`, async () => {
+        const { rows } = await client.query<Record<string, boolean>>(
+          `select has_table_privilege('anon', $1, 'SELECT')   as leer,
+                  has_table_privilege('anon', $1, 'INSERT')   as insertar,
+                  has_table_privilege('anon', $1, 'UPDATE')   as actualizar,
+                  has_table_privilege('anon', $1, 'DELETE')   as borrar,
+                  has_table_privilege('anon', $1, 'TRUNCATE') as vaciar`,
+          [tabla],
+        );
+
+        expect(rows[0]).toEqual({
+          leer: true,
+          insertar: false,
+          actualizar: false,
+          borrar: false,
+          vaciar: false,
+        });
+      });
+    }
+
+    // El formulario de contacto escribe aquí sin sesión, y leerlos es del
+    // equipo. Es la única tabla con esa forma, y por eso va suelta.
+    it('anon escribe en leads pero no los lee', async () => {
+      const { rows } = await client.query<Record<string, boolean>>(
+        `select has_table_privilege('anon', 'public.leads', 'SELECT')   as leer,
+                has_table_privilege('anon', 'public.leads', 'INSERT')   as insertar,
+                has_table_privilege('anon', 'public.leads', 'TRUNCATE') as vaciar`,
+      );
+
+      expect(rows[0]).toEqual({ leer: false, insertar: true, vaciar: false });
+    });
+
+    /**
+     * Y que las futuras nazcan limpias.
+     *
+     * Esto es lo que cierra el agujero en vez de taparlo: sin este test, la
+     * próxima tabla vuelve a nacer con los privilegios que le dan los
+     * `alter default privileges` y nadie se entera hasta la siguiente auditoría.
+     * Se crea una tabla de verdad porque preguntarle a `pg_default_acl` sería
+     * comprobar la intención; esto comprueba el resultado.
+     */
+    it('una tabla nueva nace sin nada para anon', async () => {
+      await client.query('create table public.zz_prueba_de_privilegios (id int)');
+      try {
+        const { rows } = await client.query<{ privilegios: string | null }>(
+          `select string_agg(privilege_type, ',' order by privilege_type) as privilegios
+           from information_schema.role_table_grants
+           where table_schema = 'public'
+             and table_name = 'zz_prueba_de_privilegios'
+             and grantee = 'anon'`,
+        );
+
+        // Sobre el objeto entero y no sobre el campo: así la comprobación
+        // también falla si la consulta no devolviera ninguna fila.
+        expect(rows[0]).toEqual({ privilegios: null });
+      } finally {
+        await client.query('drop table if exists public.zz_prueba_de_privilegios');
+      }
+    });
+  });
 });

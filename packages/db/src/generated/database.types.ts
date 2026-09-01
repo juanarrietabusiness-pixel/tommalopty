@@ -134,7 +134,7 @@ export interface Database {
           entity: string;
           entity_id: string | null;
           changes: Json;
-          ip_address: string | null;
+          ip_address: unknown;
           created_at: string;
         };
         Insert: {
@@ -144,7 +144,7 @@ export interface Database {
           entity: string;
           entity_id?: string | null;
           changes?: Json;
-          ip_address?: string | null;
+          ip_address?: unknown;
           created_at?: string;
         };
         Update: {
@@ -154,7 +154,7 @@ export interface Database {
           entity?: string;
           entity_id?: string | null;
           changes?: Json;
-          ip_address?: string | null;
+          ip_address?: unknown;
           created_at?: string;
         };
         Relationships: [
@@ -1200,6 +1200,7 @@ export interface Database {
           total?: number;
           discount_code?: string | null;
           amount_paid?: number;
+          balance_due?: number | null;
           shipping_address?: Json | null;
           billing_address?: Json | null;
           shipping_method?: Json | null;
@@ -1229,6 +1230,7 @@ export interface Database {
           total?: number;
           discount_code?: string | null;
           amount_paid?: number;
+          balance_due?: number | null;
           shipping_address?: Json | null;
           billing_address?: Json | null;
           shipping_method?: Json | null;
@@ -1548,7 +1550,7 @@ export interface Database {
           created_by: string | null;
           created_at: string;
           updated_at: string;
-          search_vector: unknown | null;
+          search_vector: unknown;
         };
         Insert: {
           id?: string;
@@ -1564,6 +1566,7 @@ export interface Database {
           seo_description?: string | null;
           rating_average?: number;
           rating_count?: number;
+          search_vector?: unknown;
           published_at?: string | null;
           created_by?: string | null;
           created_at?: string;
@@ -1583,6 +1586,7 @@ export interface Database {
           seo_description?: string | null;
           rating_average?: number;
           rating_count?: number;
+          search_vector?: unknown;
           published_at?: string | null;
           created_by?: string | null;
           created_at?: string;
