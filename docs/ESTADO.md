@@ -59,6 +59,9 @@ disparador de alta. Ver migración `20260901020000`.
 - **Fase L1 completa**: la dirección del checkout captura coordenada,
   procedencia del punto, referencia e instrucciones de entrega, y todo eso viaja
   hasta quedar grabado en el pedido.
+- **Fase L3 casi completa**: se cobran abonos desde el panel, el saldo lo lleva
+  la base de datos, y una regla configurable decide si un pedido con saldo puede
+  salir del almacén. Falta solo los recordatorios por correo.
 - **Fase L2 casi completa**: los envíos son una entidad propia con su máquina de
   estados, el panel los crea y los mueve, la guía se imprime en 4×6" con su QR,
   la página que abre ese QR funciona en la calle, y quien compró sigue su pedido
@@ -175,7 +178,7 @@ Al añadir una pantalla que lea algo nuevo, añade su consulta a
   Site URL a `workers.dev` se perdió el permiso implícito que tenía el entorno
   local. Sin eso, registrarse desde el equipo de desarrollo no confirma cuentas.
 
-### 🟡 E · Lo que L2 dejó abierto a propósito
+### 🟡 E · Lo que L2 y L3 dejaron abierto a propósito
 
 - **Los avisos automáticos (2.e)**: los correos que existen no se han ampliado a
   los estados de envío. Es lo único de L2 sin empezar.
@@ -186,8 +189,13 @@ Al añadir una pantalla que lea algo nuevo, añade su consulta a
   motorizado, en vez de mover las rutas a un grupo con su propio layout. Es un
   atajo consciente: el grupo obliga a mover veinte carpetas. Cuando alguien haga
   esa reorganización, esas tres líneas de CSS se borran.
-- **El saldo de la guía** hoy es el total si el pedido no está pagado. Con los
-  abonos (L3) pasará a ser el saldo real.
+- **Los recordatorios de vencimiento (L3)** y la tabla `payment_plans` con las
+  cuotas. Van junto a los avisos de L2: es el mismo trabajo de correo.
+- **El comprobante adjunto del abono** necesita el mismo bucket privado que la
+  prueba de entrega.
+- **La guía imprimible sigue enseñando el total** cuando el pedido no está
+  pagado, en vez del saldo real. Con `balance_due` ya en la base es un cambio de
+  una línea; queda pendiente de hacerlo.
 
 ### 🟡 F · Cosas menores conocidas
 

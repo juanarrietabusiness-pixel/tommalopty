@@ -16,7 +16,7 @@
 | ¿Podrá seguir sus pedidos?                                           | **Sí, con línea de tiempo y sin registrarse**                     | ✅ Hecho     | Fase **L2**       |
 | ¿El cliente pone la dirección en un mapa, como PedidosYa o inDriver? | **Sí, ya está en staging**                                        | ✅ Hecho     | Fase **L1**       |
 | ¿La guía lleva QR que abra Waze y Google Maps?                       | **Sí, guía imprimible en 4×6" con QR**                            | ✅ Hecho     | Fase **L2**       |
-| ¿Puede recibir abonos y despachar al completarse el pago?            | Hoy no; la base de datos ya aguanta varios pagos por pedido       | 🔲 No existe | Fase **L3**       |
+| ¿Puede recibir abonos y despachar al completarse el pago?            | **Sí, con tres reglas de despacho a elegir**                      | ✅ Hecho     | Fase **L3**       |
 | ¿Hay panel de clientes? ¿Vive sin clientes registrados?              | **Sí a las dos.** Ya está hecho y funcionando                     | ✅ Hecho     | —                 |
 | ¿Cómo entra su comunidad de motorizados?                             | Es un módulo nuevo completo, con su propia app                    | 🔲 No existe | Fase **L4**       |
 | ¿Y Servientrega, Droppy y demás?                                     | Como adaptadores intercambiables, igual que las pasarelas de pago | 🔲 No existe | Fase **L5**       |
@@ -486,6 +486,9 @@ en dos toques.
 
 ### Fase L3 · Abonos: cobrar por partes y despachar cuando cuadre
 
+> **Estado: construida salvo los recordatorios por correo**, que van con los
+> avisos pendientes de L2. Al final está lo que se hizo.
+
 **Lo que ya aguanta la base de datos:** la tabla `payments` ya permite varios
 pagos por pedido, y el proveedor `manual` ya existe en el catálogo de métodos —
 justo el que hace falta para registrar un abono en efectivo o por transferencia.
@@ -533,6 +536,40 @@ panel; al tercero, el pedido se vuelve despachable solo; el cliente vio su saldo
 bajar en cada paso.
 
 **Duración estimada:** 2 semanas.
+
+#### Lo que se construyó
+
+- **Migraciones 0026 a 0029.** `orders` gana `amount_paid` —mantenida por un
+  disparador sobre `payments`— y `balance_due`, que es una **columna generada**:
+  no puede desincronizarse porque no existe fuera del total y lo cobrado. El
+  estado `partially_paid` va en su propia migración, porque Postgres no deja
+  usar un valor nuevo de un `enum` en la misma transacción que lo añade.
+- **Solo cuentan los pagos en estado `paid`.** Un pago pendiente es una
+  intención, y despachar contra una intención es lo que esta fase evita.
+- **D4 resuelta como ajuste, no como código.** Las tres políticas —estricta,
+  umbral, contra entrega— viven en `settings.dispatch_policy`. Por defecto la
+  estricta: es la única que no puede acabar en pérdida. La regla está en el
+  dominio para avisar con un mensaje útil, y repetida en un disparador que
+  impide que un envío salga del almacén si no se cumple.
+- **Ingresos pasa a ser el dinero cobrado.** Antes los reportes sumaban el total
+  de los pedidos `paid`, así que un pedido de 300 con 200 cobrados sumaba cero
+  habiendo 200 en la caja. Ahora suman `amount_paid`; para un pedido pagado del
+  todo el número no cambia. El ticket medio sigue usando el total, que es lo
+  correcto para lo que mide.
+- **Panel**: bloque de abonos con el saldo antes que el formulario, historial y
+  borrado de los abonos manuales. Cobrar de más avisa pero no bloquea.
+- **Cliente**: cuánto lleva abonado y cuánto debe, en el seguimiento y en sus
+  pedidos.
+
+#### Lo que queda pendiente de esta fase
+
+- **Los recordatorios por correo antes del vencimiento**, y con ellos la tabla
+  `payment_plans` (cuotas y vencimientos). Van junto a los avisos de L2: es el
+  mismo trabajo de correo y conviene hacerlo de una vez.
+- **El comprobante adjunto** al registrar un abono. Necesita el mismo bucket
+  privado que la prueba de entrega, que todavía no existe.
+- **`valor_recaudar` de Servientrega**: con la política de contra entrega, el
+  courier nacional puede cobrar el saldo en la puerta. Se conecta en L5.
 
 ---
 
