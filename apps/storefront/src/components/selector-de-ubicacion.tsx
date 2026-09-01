@@ -81,6 +81,11 @@ export function SelectorDeUbicacion({
   const [buscando, setBuscando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
 
+  // Que el mapa no pueda pintarse no puede quedar en una caja blanca muda: sin
+  // esto, «no cargan las teselas» y «el componente está roto» se ven idénticos,
+  // y hay que abrir la consola del navegador para distinguirlos.
+  const [mapaCaido, setMapaCaido] = useState(false);
+
   // --- El mapa -------------------------------------------------------------
   useEffect(() => {
     if (!contenedor.current || mapa.current) return;
@@ -103,6 +108,13 @@ export function SelectorDeUbicacion({
       });
 
       instancia.addControl(new NavigationControl({ showCompass: false }), 'top-right');
+
+      // MapLibre avisa de cada tesela que no llega. Con una basta para saber
+      // que el proveedor de mapas no está respondiendo.
+      instancia.on('error', (evento) => {
+        console.error('[mapa] No se pudo cargar el mapa:', evento.error);
+        setMapaCaido(true);
+      });
 
       instancia.on('moveend', () => {
         const centro = instancia?.getCenter();
@@ -256,6 +268,13 @@ export function SelectorDeUbicacion({
           Usar mi ubicación
         </button>
       </div>
+
+      {mapaCaido ? (
+        <div className="notice notice-error">
+          No pudimos cargar las imágenes del mapa. Puedes seguir con tu pedido: escribe abajo cómo
+          reconocer el sitio y nos pondremos en contacto para confirmar la entrega.
+        </div>
+      ) : null}
 
       <p className="field-hint ubicacion-estado" role="status">
         {punto && precision

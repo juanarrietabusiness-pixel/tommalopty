@@ -1,29 +1,41 @@
 /**
- * Configuración del mapa de la tienda.
+ * Configuración del mapa: proveedor de teselas y estilo.
  *
  * POR QUÉ MAPLIBRE Y NO GOOGLE MAPS
  *
  * Google Maps exige una cuenta de facturación que solo puede crear la dueña del
- * negocio, y hasta que exista no se podría ni probar la pantalla. MapLibre con
- * teselas de OpenStreetMap no pide nada. Todo lo específico del proveedor vive
- * en este archivo: cambiar a Google el día que interese es tocar aquí, no las
- * pantallas.
+ * negocio, y hasta que exista no se podría ni probar la pantalla. MapLibre es
+ * software libre y no pide nada. Todo lo específico del proveedor vive en este
+ * archivo: cambiar a Google el día que interese es tocar aquí, no las pantallas.
  *
- * SOBRE LAS TESELAS
+ * DOS COSAS DISTINTAS QUE SE CONFUNDEN
  *
- * El valor por defecto son las teselas públicas de OpenStreetMap, que sirven
- * para desarrollo y para enseñar la pantalla, pero **su política de uso no cubre
- * una tienda en producción**. Antes de abrir hay que apuntar
- * `NEXT_PUBLIC_MAP_TILES_URL` a un proveedor con plan: MapTiler, CARTO, o
- * Protomaps servido desde el propio R2 —esta última no añade cuota mensual, que
- * es lo que encaja con tener ya Cloudflare pagado—.
+ * Una es la **librería** que dibuja el mapa y gestiona el gesto de arrastrar:
+ * MapLibre GL, libre y gratis para siempre. Otra son las **teselas**, que son
+ * las imágenes del mapa en sí; ésas las sirve alguien, y ahí es donde hay
+ * política de uso y, según el proveedor, dinero.
+ *
+ * SOBRE EL PROVEEDOR POR DEFECTO
+ *
+ * No son las teselas de `tile.openstreetmap.org`. Su política de uso dice
+ * expresamente que no están para aplicaciones de terceros, y bloquean lo que
+ * consideran abuso sin avisar: el mapa se queda en blanco y no hay a quién
+ * reclamar. Se usa el mapa base de CARTO, construido con los mismos datos de
+ * OpenStreetMap y servido sin clave, que sí está pensado para incrustar.
+ *
+ * Sigue habiendo un límite de uso razonable. Antes de abrir al público de
+ * verdad hay que decidir entre contratar un plan (CARTO, MapTiler) o servir las
+ * teselas desde el propio R2 con Protomaps, que no añade cuota mensual y es lo
+ * que encaja con tener ya Cloudflare pagado. Se cambia con una variable.
  */
 
 export const TILES_URL =
-  process.env.NEXT_PUBLIC_MAP_TILES_URL ?? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+  process.env.NEXT_PUBLIC_MAP_TILES_URL ??
+  'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
 
 export const ATTRIBUTION =
-  process.env.NEXT_PUBLIC_MAP_ATTRIBUTION ?? '© colaboradores de OpenStreetMap';
+  process.env.NEXT_PUBLIC_MAP_ATTRIBUTION ??
+  '© colaboradores de OpenStreetMap © CARTO';
 
 /**
  * Estilo mínimo de MapLibre: una sola capa ráster.

@@ -20,13 +20,36 @@ export interface AdminSidebarProps {
   user: { name: string; role: string };
 }
 
-/** Marca activo el enlace más específico que coincida con la ruta actual. */
-function isActive(currentPath: string, href: string): boolean {
+/** ¿Cubre este enlace la ruta actual? */
+function cubre(currentPath: string, href: string): boolean {
   if (href === '/') return currentPath === '/';
   return currentPath === href || currentPath.startsWith(`${href}/`);
 }
 
+/**
+ * El enlace más específico de todo el menú que cubre la ruta actual.
+ *
+ * Hacía falta mirar el menú entero y no cada enlace por su cuenta. Con la
+ * comprobación aislada, `/catalogo/categorias` la pasaban dos: «Productos»
+ * (`/catalogo`) y «Categorías`, y el panel encendía los dos a la vez. El
+ * comentario de antes ya prometía «el más específico»; ahora se cumple.
+ */
+function enlaceActivo(groups: AdminNavGroup[], currentPath: string): string | null {
+  let mejor: string | null = null;
+
+  for (const group of groups) {
+    for (const item of group.items) {
+      if (!cubre(currentPath, item.href)) continue;
+      if (mejor === null || item.href.length > mejor.length) mejor = item.href;
+    }
+  }
+
+  return mejor;
+}
+
 export function AdminSidebar({ brandName, groups, currentPath, user }: AdminSidebarProps) {
+  const activo = enlaceActivo(groups, currentPath);
+
   return (
     <aside className="admin-sidebar">
       <div className="admin-brand">
@@ -46,7 +69,7 @@ export function AdminSidebar({ brandName, groups, currentPath, user }: AdminSide
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    aria-current={isActive(currentPath, item.href) ? 'page' : undefined}
+                    aria-current={item.href === activo ? 'page' : undefined}
                   >
                     {item.icon}
                     {item.label}
