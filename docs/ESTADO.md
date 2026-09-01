@@ -46,6 +46,86 @@ su resumen y la tienda funciona igual, solo que sin avisar a nadie. Los pasos de
 instalación, cuando haya dominio, están en
 [`PLAN-LOGISTICA.md` § 2.e](PLAN-LOGISTICA.md).
 
+### Quién tiene acceso a qué, y qué NO es una vía de acceso
+
+Este apartado existe porque la pregunta se ha hecho ya y se volverá a hacer, y
+porque la respuesta equivocada cuesta cara: **ninguna parte de esta plataforma
+depende de una conexión MCP.**
+
+#### Un conector MCP no es una credencial de la tienda
+
+Quien desarrolla puede tener conectados a su asistente conectores de Supabase,
+Cloudflare, Notion, Resend o los que sea. Eso son **cuentas personales de esa
+persona**, atadas a su sesión de trabajo, y no tienen nada que ver con la
+plataforma:
+
+- **El código no lee ningún conector.** Todo lo que la tienda necesita lo lee de
+  variables de entorno (`process.env`), y esas variables las pone el despliegue
+  desde los secretos del repositorio. No hay un solo `import` de nada MCP.
+- **Una sesión de asistente no tiene acceso a la base de datos ni a Cloudflare de
+  este proyecto**, salvo que alguien le dé las credenciales a propósito. Las
+  sesiones de trabajo de este repositorio no las han tenido.
+- Por eso, cuando en un commit se lee «probado contra Postgres real», eso
+  significa **una base de datos desechable levantada dentro del contenedor de esa
+  sesión**, con el esquema del repositorio aplicado y datos inventados. Nunca es
+  staging, y nunca es producción.
+
+Si alguien alguna vez conecta un MCP a la base real, **eso no es integrarlo: es
+darle acceso de escritura a una persona.** Se decide a sabiendas y se revoca al
+terminar.
+
+#### Cómo se autentica de verdad cada servicio
+
+| Servicio                | Para qué                          | Cómo entra la credencial                                                                  | Estado hoy                             |
+| ----------------------- | --------------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------- |
+| **Supabase**            | Base de datos, autenticación, RLS | `NEXT_PUBLIC_SUPABASE_URL` + anon key (variables) y `SUPABASE_SERVICE_ROLE_KEY` (secreto) | ✅ Puesto (staging)                    |
+| **Cloudflare Workers**  | Servir las dos aplicaciones       | `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` (secretos de Actions)                    | ✅ Puesto                              |
+| **Cloudflare R2**       | Imágenes de producto              | Enlace `r2_buckets` en `wrangler.jsonc` + `R2_PUBLIC_URL`                                 | ✅ Puesto, bucket `nebula-media`       |
+| **Resend**              | Correo transaccional              | `RESEND_API_KEY` (secreto) + `EMAIL_FROM`                                                 | 🔲 Falta. Necesita dominio             |
+| **Meta**                | Píxel y Conversions API           | `NEXT_PUBLIC_META_PIXEL_ID` + `META_CONVERSIONS_ACCESS_TOKEN`                             | 🔲 Falta                               |
+| **Yappy · Botón**       | Cobrar en el checkout             | `YAPPY_MERCHANT_ID`, `YAPPY_SECRET_KEY`, `YAPPY_DOMAIN_URL`                               | 🔲 Falta especificación y credenciales |
+| **Yappy · Integración** | Conciliar cobros                  | `YAPPY_API_URL`, `YAPPY_API_KEY`, `YAPPY_API_SECRET_KEY`                                  | 🔲 Falta el host de la API             |
+| **Teselas del mapa**    | Las imágenes del mapa             | `NEXT_PUBLIC_MAP_TILES_URL`                                                               | ⚠️ CARTO sin clave, sin plan           |
+
+Los nombres exactos y sus valores de ejemplo están en
+[`.env.example`](../.env.example). Las reglas de qué va como secreto y qué como
+variable, en [`DESPLIEGUE.md`](DESPLIEGUE.md).
+
+#### Lo que ninguna sesión de trabajo puede hacer sola
+
+Conviene tenerlo presente al leer un commit que dice «listo»:
+
+- **Aplicar migraciones.** El workflow de «Publicar en staging» construye y
+  despliega los Workers; **no toca la base de datos**. Las migraciones se aplican
+  a mano con `supabase db push` desde una máquina que sí tenga acceso al
+  proyecto. Contra staging **nunca** `supabase db reset`: eso borra, y staging
+  guarda datos reales.
+- **Poner un secreto.** Los valores los pega una persona en GitHub → Settings →
+  Secrets and variables → Actions. Nada de este repositorio los contiene ni
+  puede leerlos.
+- **Verificar contra Supabase de verdad.** Lo más cerca que llega una sesión sin
+  acceso es un Postgres con el esquema aplicado. Quien confirma que las
+  migraciones entran limpias en un Supabase real es **CI**, que levanta uno con
+  Docker en cada pull request.
+
+#### Cuando la plataforma pase a la dueña
+
+Las cuentas de servicio son de quien las crea. Si se abren a nombre de quien
+desarrolla, el día del traspaso el correo, el dominio o las imágenes se quedan
+atrás. Antes de abrir al público, cada una de estas debería estar a nombre del
+negocio:
+
+| Cuenta         | Qué se pierde si queda a nombre de otra persona                    |
+| -------------- | ------------------------------------------------------------------ |
+| **Supabase**   | La base de datos entera y sus backups                              |
+| **Cloudflare** | El dominio, los Workers y las imágenes de R2                       |
+| **Resend**     | El dominio verificado del correo, y con él todos los avisos        |
+| **Yappy**      | El comercio afiliado y su liquidación bancaria                     |
+| **Meta**       | El píxel y el histórico de conversiones que alimenta la publicidad |
+
+Lo que **no** hay que traspasar es este repositorio de configuración: no guarda
+ninguna credencial, a propósito.
+
 ### Cómo entra el primer administrador
 
 No hay pantalla para crearlo, y hace bien: si la hubiera, se la quedaría quien
@@ -131,14 +211,16 @@ funcionando.
 
 ### 🟡 P3 · Deuda conocida, sin urgencia
 
-| #   | Qué                                                                                                                                                                                                            |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 10  | **La URL pública de R2 sigue en `r2.dev`**: hay que pasarla a dominio propio antes de producción                                                                                                               |
-| 11  | **`http://localhost:3000/**` falta en las Redirect URLs de Supabase**: sin eso, registrarse desde el entorno de desarrollo no confirma cuentas                                                                 |
-| 12  | **La posición del motorizado en ruta** en el seguimiento: la aplicación ya existe (L4.1), falta enviar y pintar la posición (L4.2)                                                                             |
-| 13  | **`/cuenta/direcciones` es solo lectura**: no se pueden guardar ni reutilizar direcciones con su punto                                                                                                         |
-| 14  | **La cabecera de la tienda se esconde con `:has()`** en la página del motorizado, en vez de mover las rutas a un grupo con su propio layout. Atajo consciente; se borra cuando alguien haga esa reorganización |
-| 15  | **La pantalla de integraciones lee `NEXT_PUBLIC_META_PIXEL_ID` de forma dinámica**, así que dirá «pendiente» aunque esté configurada. Cosmético, afecta a una fila                                             |
+| #   | Qué                                                                                                                                                                                                                                        |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 10  | **La URL pública de R2 sigue en `r2.dev`**: hay que pasarla a dominio propio antes de producción                                                                                                                                           |
+| 11  | **`http://localhost:3000/**` falta en las Redirect URLs de Supabase**: sin eso, registrarse desde el entorno de desarrollo no confirma cuentas                                                                                             |
+| 12  | **La posición del motorizado en ruta** en el seguimiento: la aplicación ya existe (L4.1), falta enviar y pintar la posición (L4.2)                                                                                                         |
+| 13  | **`/cuenta/direcciones` es solo lectura**: no se pueden guardar ni reutilizar direcciones con su punto                                                                                                                                     |
+| 14  | **La cabecera de la tienda se esconde con `:has()`** en la página del motorizado, en vez de mover las rutas a un grupo con su propio layout. Atajo consciente; se borra cuando alguien haga esa reorganización                             |
+| 15  | **La pantalla de integraciones lee `NEXT_PUBLIC_META_PIXEL_ID` de forma dinámica**, así que dirá «pendiente» aunque esté configurada. Cosmético, afecta a una fila                                                                         |
+| 16  | **`NEXT_PUBLIC_ADMIN_URL` no lo lee nadie**: se declara en `.env.example` y el despliegue lo pasa, pero ningún código lo usa. O se usa, o se quita: una variable que se configura y no hace nada es media hora de alguien buscando por qué |
+| 17  | **Las cuentas de servicio deberían estar a nombre del negocio** antes de abrir. Ver el apartado «Cuando la plataforma pase a la dueña» del punto 1                                                                                         |
 
 ---
 

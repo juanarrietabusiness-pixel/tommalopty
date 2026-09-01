@@ -21,6 +21,11 @@ Los nombres exactos están en [`.env.example`](../.env.example). Reglas:
 - Las claves de pasarelas de pago, Meta y email viven en el secret store del
   hosting. La tabla `integrations` solo guarda el interruptor de activación y
   configuración no sensible.
+- **Ninguna credencial llega por un conector MCP.** Un MCP conectado al asistente
+  de quien desarrolla es su cuenta personal y no toca esta plataforma: el código
+  solo lee `process.env`. Quién se autentica con qué, y qué no puede hacer una
+  sesión de trabajo sin acceso, está en
+  [`ESTADO.md` § 1](ESTADO.md) → «Quién tiene acceso a qué».
 
 ## Base de datos
 
@@ -39,6 +44,16 @@ pnpm db:types
 
 Nunca editar el esquema a mano desde el panel de Supabase: se pierde la
 trazabilidad y el siguiente `db push` puede chocar. Crear siempre una migración.
+
+**El despliegue no aplica migraciones.** El workflow de «Publicar en staging»
+construye y despliega los Workers; la base de datos no la toca. Aplicar una
+migración es un `supabase db push` deliberado, desde una máquina con acceso al
+proyecto.
+
+**Contra staging, `db push` — nunca `db reset`.** El `reset` borra y reconstruye,
+y staging guarda datos reales. El `pnpm db:reset` de este repositorio es
+`--local` y no llega a un proyecto remoto, pero conviene saberlo antes de
+escribirlo con prisa.
 
 **Backups:** activar los backups automáticos de Supabase y definir la política
 de retención antes de abrir la tienda al público.
