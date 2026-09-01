@@ -1660,6 +1660,96 @@ export interface Database {
           },
         ];
       };
+      shipments: {
+        Row: {
+          id: string;
+          order_id: string;
+          tracking_number: string;
+          token: string;
+          status: string;
+          assigned_to: string | null;
+          carrier: string | null;
+          carrier_tracking_number: string | null;
+          carrier_tracking_url: string | null;
+          destination: Json;
+          latitude: number | null;
+          longitude: number | null;
+          delivery_proof_key: string | null;
+          delivery_note: string | null;
+          received_by: string | null;
+          failure_reason: string | null;
+          shipping_cost: number | null;
+          estimated_at: string | null;
+          dispatched_at: string | null;
+          delivered_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          tracking_number?: string;
+          token?: string;
+          status?: string;
+          assigned_to?: string | null;
+          carrier?: string | null;
+          carrier_tracking_number?: string | null;
+          carrier_tracking_url?: string | null;
+          destination?: Json;
+          latitude?: number | null;
+          longitude?: number | null;
+          delivery_proof_key?: string | null;
+          delivery_note?: string | null;
+          received_by?: string | null;
+          failure_reason?: string | null;
+          shipping_cost?: number | null;
+          estimated_at?: string | null;
+          dispatched_at?: string | null;
+          delivered_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          tracking_number?: string;
+          token?: string;
+          status?: string;
+          assigned_to?: string | null;
+          carrier?: string | null;
+          carrier_tracking_number?: string | null;
+          carrier_tracking_url?: string | null;
+          destination?: Json;
+          latitude?: number | null;
+          longitude?: number | null;
+          delivery_proof_key?: string | null;
+          delivery_note?: string | null;
+          received_by?: string | null;
+          failure_reason?: string | null;
+          shipping_cost?: number | null;
+          estimated_at?: string | null;
+          dispatched_at?: string | null;
+          delivered_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'shipments_order_id_fkey';
+            columns: ['order_id'];
+            isOneToOne: false;
+            referencedRelation: 'orders';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'shipments_assigned_to_fkey';
+            columns: ['assigned_to'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       shipping_methods: {
         Row: {
           id: string;
