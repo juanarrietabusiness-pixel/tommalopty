@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { email as emails, payments } from '@nebula/integrations';
 import { getSupabaseServiceClient } from '@/lib/supabase';
 import { createEventId, sendServerEvent } from '@/lib/tracking';
+import { siteUrl } from '@/lib/site';
 
 /**
  * Creación de pedido y arranque del pago.
@@ -144,8 +145,8 @@ export async function POST(request: Request) {
   });
 
   // Arranque del pago en la pasarela elegida.
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
-  const orderUrl = `${siteUrl}/checkout/confirmacion/${order.confirmation_token}`;
+  const base = siteUrl();
+  const orderUrl = `${base}/checkout/confirmacion/${order.confirmation_token}`;
 
   // El correo que la pantalla de confirmación lleva prometiendo desde el primer
   // día. Se manda aquí y no después de la pasarela porque el pedido ya existe:
@@ -201,7 +202,7 @@ export async function POST(request: Request) {
       // El token opaco, no el número de pedido: los números son secuenciales y
       // enumerarlos dejaría leer pedidos ajenos.
       returnUrl: orderUrl,
-      cancelUrl: `${siteUrl}/carrito`,
+      cancelUrl: `${base}/carrito`,
     });
 
     await supabase.from('payments').insert({

@@ -29,6 +29,11 @@ export interface Database {
           country_code: string;
           postal_code: string | null;
           phone: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          location_precision: string | null;
+          reference: string | null;
+          delivery_instructions: string | null;
           is_default: boolean;
           created_at: string;
           updated_at: string;
@@ -48,6 +53,11 @@ export interface Database {
           country_code?: string;
           postal_code?: string | null;
           phone?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location_precision?: string | null;
+          reference?: string | null;
+          delivery_instructions?: string | null;
           is_default?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -67,6 +77,11 @@ export interface Database {
           country_code?: string;
           postal_code?: string | null;
           phone?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location_precision?: string | null;
+          reference?: string | null;
+          delivery_instructions?: string | null;
           is_default?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -645,6 +660,45 @@ export interface Database {
             referencedColumns: ['id'];
           },
         ];
+      };
+      delivery_zones: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          polygon: Json;
+          shipping_price: number | null;
+          handled_by: string;
+          is_active: boolean;
+          position: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          polygon?: Json;
+          shipping_price?: number | null;
+          handled_by?: string;
+          is_active?: boolean;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          polygon?: Json;
+          shipping_price?: number | null;
+          handled_by?: string;
+          is_active?: boolean;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       discount_redemptions: {
         Row: {

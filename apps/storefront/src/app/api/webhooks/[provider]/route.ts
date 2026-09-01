@@ -2,6 +2,7 @@ import { after, NextResponse } from 'next/server';
 import { email, payments } from '@nebula/integrations';
 import type { Json } from '@nebula/db';
 import { getSupabaseServiceClient } from '@/lib/supabase';
+import { siteUrl } from '@/lib/site';
 
 /**
  * Webhooks de las pasarelas de pago.
@@ -192,10 +193,6 @@ export async function POST(
   }
 
   return NextResponse.json({ ok: true });
-}
-
-function siteUrl(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 }
 
 function safeParse(body: string): Json {

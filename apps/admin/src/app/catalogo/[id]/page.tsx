@@ -5,6 +5,7 @@ import { ProductForm, type ProductFormValues } from '@/components/product-form';
 import { ProductImages } from '@/components/product-images';
 import { ProductVariants } from '@/components/product-variants';
 import { cargarProducto } from '@/lib/panel-data';
+import { storefrontUrl } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +32,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
     seoDescription: product.seoDescription ?? '',
   };
 
-  const storefrontUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+  const tienda = storefrontUrl();
 
   return (
     <PanelPage
@@ -40,7 +41,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
       actions={
         product.status === 'active' ? (
           <Link
-            href={`${storefrontUrl}/producto/${product.slug}`}
+            href={`${tienda}/producto/${product.slug}`}
             target="_blank"
             rel="noreferrer noopener"
             className="btn btn-outline btn-sm"

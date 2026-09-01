@@ -1,13 +1,14 @@
 import type { MetadataRoute } from 'next';
 import { listPublishedPageSlugs, listPublishedProductSlugs } from '@nebula/db';
 import { getSupabaseAnonClient, isSupabaseConfigured } from '@/lib/supabase';
+import { siteUrl } from '@/lib/site';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+  const base = siteUrl();
 
   const staticRoutes: MetadataRoute.Sitemap = [
-    { url: siteUrl, changeFrequency: 'daily', priority: 1 },
-    { url: `${siteUrl}/tienda`, changeFrequency: 'daily', priority: 0.9 },
+    { url: base, changeFrequency: 'daily', priority: 1 },
+    { url: `${base}/tienda`, changeFrequency: 'daily', priority: 0.9 },
   ];
 
   if (!isSupabaseConfigured()) return staticRoutes;
@@ -22,13 +23,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     return [
       ...staticRoutes,
       ...products.map((product) => ({
-        url: `${siteUrl}/producto/${product.slug}`,
+        url: `${base}/producto/${product.slug}`,
         lastModified: new Date(product.updated_at),
         changeFrequency: 'weekly' as const,
         priority: 0.8,
       })),
       ...pages.map((page) => ({
-        url: `${siteUrl}/p/${page.slug}`,
+        url: `${base}/p/${page.slug}`,
         lastModified: new Date(page.updated_at),
         changeFrequency: 'monthly' as const,
         priority: 0.5,
