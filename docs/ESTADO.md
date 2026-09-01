@@ -52,6 +52,10 @@ Este apartado existe porque la pregunta se ha hecho ya y se volverá a hacer, y
 porque la respuesta equivocada cuesta cara: **ninguna parte de esta plataforma
 depende de una conexión MCP.**
 
+> Lo pendiente de accesos y credenciales, con sus casillas, está en el
+> [issue #23](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/23).
+> Este apartado explica el porqué; ese issue lleva la cuenta de lo que falta.
+
 #### Un conector MCP no es una credencial de la tienda
 
 Quien desarrolla puede tener conectados a su asistente conectores de Supabase,
