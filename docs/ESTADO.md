@@ -6,6 +6,12 @@
 > aprendió por las malas. El plan de a dónde vamos está en
 > [`PLAN-LOGISTICA.md`](PLAN-LOGISTICA.md); esto es de dónde partimos.
 
+> **¿Tienes acceso a Supabase y a Cloudflare?** Entonces lo tuyo es
+> [`CONECTAR.md`](CONECTAR.md): la lista ordenada de lo que hay construido y
+> esperando a que alguien lo enchufe, con cómo verificar cada paso. Está escrita
+> para una sesión con esos conectores puestos, que es lo que ninguna de las
+> sesiones de desarrollo ha tenido.
+
 ---
 
 ## 1. Dónde está publicado, y cómo se publica
@@ -94,7 +100,9 @@ terminar.
 
 Los nombres exactos y sus valores de ejemplo están en
 [`.env.example`](../.env.example). Las reglas de qué va como secreto y qué como
-variable, en [`DESPLIEGUE.md`](DESPLIEGUE.md).
+variable, en [`DESPLIEGUE.md`](DESPLIEGUE.md). **Y el orden en el que conviene
+enchufar todo esto, con su verificación paso a paso, en
+[`CONECTAR.md`](CONECTAR.md).**
 
 #### Lo que ninguna sesión de trabajo puede hacer sola
 

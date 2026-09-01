@@ -10,6 +10,10 @@ tipografías, espaciados y comportamiento.
 
 > **¿Retomas el trabajo?** Empieza por [`docs/ESTADO.md`](docs/ESTADO.md): qué
 > hay publicado, qué está roto y qué se sabe de cada fallo abierto.
+>
+> **¿Tienes acceso a Supabase y a Cloudflare?** Entonces ve directo a
+> [`docs/CONECTAR.md`](docs/CONECTAR.md): lo que está construido y esperando a
+> que alguien lo enchufe, en orden y con cómo verificar cada paso.
 
 ---
 

@@ -1,5 +1,10 @@
 # Despliegue
 
+> Esto explica **cómo funciona** el despliegue. Si lo que buscas es la lista
+> ordenada de lo que hay que enchufar —migraciones, bucket privado, dominio,
+> correo— con su verificación paso a paso, eso está en
+> [`CONECTAR.md`](CONECTAR.md).
+
 ## Entornos
 
 | Entorno    | Rama      | Supabase                        | Pasarelas  |
