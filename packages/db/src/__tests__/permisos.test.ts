@@ -146,15 +146,38 @@ if (!disponible) {
   );
 }
 
+/**
+ * Una cuenta con rol de equipo, para las consultas del panel.
+ *
+ * Hace falta de verdad, no por completar el escenario: `dashboard_metrics`
+ * comprueba `is_staff()` por su cuenta y responde «No autorizado.» a cualquier
+ * sesión que no sea de equipo. La primera versión de este archivo la probó con
+ * un superadministrador real contra la base de staging y pasó; en CI, donde la
+ * sesión es un `authenticated` cualquiera, falló. El fallo era del test.
+ */
+const STAFF = '00000000-0000-0000-0000-0000000000a1';
+
 describeSiHayBase('permisos de tabla', () => {
   let client: Client;
 
   beforeAll(async () => {
     client = await connect();
+
+    await client.query(
+      `insert into auth.users (id, email, raw_user_meta_data)
+       values ($1, 'permisos-staff@test.local', '{"full_name":"Equipo"}')
+       on conflict (id) do nothing`,
+      [STAFF],
+    );
+    // El perfil lo crea el disparador de alta; aquí solo se le sube el rol.
+    await client.query(`update public.profiles set role = 'admin' where id = $1`, [STAFF]);
   });
 
   afterAll(async () => {
-    if (client) await client.end();
+    if (!client) return;
+    // En cascada se lleva el perfil y la ficha de cliente.
+    await client.query('delete from auth.users where id = $1', [STAFF]);
+    await client.end();
   });
 
   describe('lo que la tienda necesita leer sin sesión', () => {
@@ -179,7 +202,7 @@ describeSiHayBase('permisos de tabla', () => {
   describe('lo que el panel necesita leer con sesión de equipo', () => {
     for (const consulta of CONSULTAS_DEL_PANEL) {
       it(`authenticated puede ejecutar ${consulta.nombre}`, async () => {
-        const error = await asRole(client, { role: 'authenticated' }, async (c) => {
+        const error = await asRole(client, { role: 'authenticated', userId: STAFF }, async (c) => {
           try {
             await c.query(consulta.sql);
             return null;

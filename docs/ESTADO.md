@@ -128,12 +128,22 @@ para producción**. Antes de abrir hay que elegir:
 Primero se usó `tile.openstreetmap.org`. **No volver a hacerlo**: su política
 dice expresamente que no está para aplicaciones de terceros.
 
-### 🟠 C · Los tests de RLS y permisos nunca se han visto correr
+### 🟢 C · Los tests de RLS y permisos ya corrieron (resuelto)
 
 `packages/db/src/__tests__/` tiene 76 tests que necesitan un Postgres real. En
-el entorno donde se escribieron no había Docker, así que **se omiten en local**.
-Corren en el job `base-datos` de CI, y conviene mirar una ejecución y confirmar
-que pasan de verdad antes de fiarse de ellos.
+el entorno donde se escribieron no había Docker, así que se omitían en local y
+nunca se habían visto pasar. **Corrieron por primera vez en el PR #21 y pasan
+los 76.**
+
+La primera ejecución falló uno, y merece quedar anotado porque es la trampa de
+este tipo de test: `dashboard_metrics` comprueba `is_staff()` por su cuenta y
+responde «No autorizado.» a cualquier sesión que no sea de equipo. El test se
+había validado contra staging con un superadministrador real y pasaba; en CI,
+donde la sesión es un `authenticated` cualquiera, falló. **El fallo era del
+test, no del esquema.** Ahora crea su propia cuenta con rol de equipo.
+
+Al añadir una pantalla que lea algo nuevo, añade su consulta a
+`permisos.test.ts` — con la sesión que esa pantalla usará de verdad.
 
 ### 🟡 D · Falta lo que solo se puede hacer con acceso de la dueña
 
