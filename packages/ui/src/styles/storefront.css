@@ -1561,3 +1561,105 @@ body:has(.entrega) .announcement-bar {
   font-size: 0.78rem;
   color: var(--color-muted);
 }
+
+/* ============================================================================
+   SEGUIMIENTO DEL PEDIDO
+   ----------------------------------------------------------------------------
+   Responde a una sola pregunta: «¿dónde está mi pedido?». Por eso la línea de
+   tiempo ocupa el centro y lo demás va debajo.
+   ========================================================================== */
+.seguimiento-envio {
+  padding: 20px;
+  margin-bottom: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
+.seguimiento-envio header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.seguimiento-envio header strong {
+  font-family: var(--font-heading);
+  letter-spacing: 0.02em;
+}
+
+.seguimiento-linea {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 26px;
+  position: relative;
+}
+
+/* La línea que une los puntos. Va detrás, y por eso es un pseudoelemento del
+   contenedor y no un borde de cada paso: así no se corta entre uno y otro. */
+.seguimiento-linea::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: var(--color-border);
+}
+
+.seguimiento-linea li {
+  position: relative;
+  padding: 0 0 18px;
+  color: var(--color-muted);
+  font-size: 0.92rem;
+}
+
+.seguimiento-linea li:last-child {
+  padding-bottom: 0;
+}
+
+.seguimiento-linea li::before {
+  content: '';
+  position: absolute;
+  left: -26px;
+  top: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.seguimiento-linea li[data-hecho='true'] {
+  color: var(--color-text);
+}
+
+.seguimiento-linea li[data-hecho='true']::before {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+
+/* El paso actual, marcado con un anillo: es lo que se busca al abrir la
+   página, y tiene que encontrarse sin leer. */
+.seguimiento-linea li[data-actual='true'] {
+  font-weight: 600;
+}
+
+.seguimiento-linea li[data-actual='true']::before {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 22%, transparent);
+}
+
+.seguimiento-linea time {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+.seguimiento-quien {
+  margin: 16px 0 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: 0.9rem;
+}
