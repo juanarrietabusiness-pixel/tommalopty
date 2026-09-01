@@ -213,6 +213,107 @@ test.describe('checkout', () => {
   });
 });
 
+/**
+ * El mapa rellena la dirección.
+ *
+ * Durante meses el mapa capturaba la coordenada y no tocaba el formulario: quien
+ * compraba marcaba su casa en el mapa y, acto seguido, tenía que escribir la
+ * misma dirección a mano. La coordenada llegaba al pedido, así que nada parecía
+ * roto, pero el trabajo que el mapa venía a quitar seguía ahí.
+ *
+ * Va en su propio `describe` por el permiso de ubicación: se concede aquí y no
+ * en el resto de la tienda, donde un permiso concedido de más cambiaría lo que
+ * se prueba.
+ *
+ * La respuesta del geocodificador se sirve desde el propio test. No es por
+ * comodidad: llamar a Nominatim desde CI ataría el color del build a la
+ * disponibilidad de un tercero y a su límite de peticiones, y lo que hay que
+ * probar es que la pantalla usa la respuesta, no que el tercero responde.
+ */
+test.describe('la dirección se rellena desde el mapa', () => {
+  test.use({
+    permissions: ['geolocation'],
+    // Un punto real de Ciudad de Panamá: tiene que caer dentro del país o la
+    // pantalla, con razón, ni pregunta la dirección.
+    geolocation: { latitude: 8.9824, longitude: -79.5199 },
+  });
+
+  async function irAlCheckout(page: import('@playwright/test').Page) {
+    await page.goto('/');
+    await page
+      .locator('.product-card')
+      .first()
+      .getByRole('button', { name: /añadir/i })
+      .click();
+    await page.goto('/checkout');
+  }
+
+  test('marcar el punto escribe dirección, ciudad y provincia', async ({ page }) => {
+    await page.route('**/api/geo/inverso*', (route) =>
+      route.fulfill({
+        json: {
+          direccion: {
+            line1: 'Calle 50 55',
+            city: 'Bella Vista',
+            province: 'Panamá',
+            etiqueta: 'Calle 50 55, Bella Vista, Panamá',
+          },
+        },
+      }),
+    );
+
+    await irAlCheckout(page);
+
+    const direccion = page.getByLabel('Dirección', { exact: true });
+    const ciudad = page.getByLabel('Ciudad');
+    const provincia = page.getByLabel('Provincia');
+
+    // Empiezan vacíos: es la mitad de la prueba. Sin esto, un campo que llegara
+    // relleno por cualquier otro motivo daría el test por bueno.
+    await expect(direccion).toHaveValue('');
+    await expect(ciudad).toHaveValue('');
+
+    await page.getByRole('button', { name: /usar mi ubicación/i }).click();
+
+    await expect(direccion).toHaveValue('Calle 50 55', { timeout: 15_000 });
+    await expect(ciudad).toHaveValue('Bella Vista');
+    await expect(provincia).toHaveValue('Panamá');
+    await expect(page.getByTestId('aviso-autocompletado')).toBeVisible();
+  });
+
+  test('lo que se escribe a mano no lo pisa el mapa', async ({ page }) => {
+    await page.route('**/api/geo/inverso*', (route) =>
+      route.fulfill({
+        json: {
+          direccion: {
+            line1: 'Calle 50 55',
+            city: 'Bella Vista',
+            province: 'Panamá',
+            etiqueta: 'Calle 50 55, Bella Vista, Panamá',
+          },
+        },
+      }),
+    );
+
+    await irAlCheckout(page);
+
+    const ciudad = page.getByLabel('Ciudad');
+
+    // Primero se corrige a mano, y solo después se marca el punto: es el orden
+    // en el que duele. Quien ya escribió su barriada no quiere verla
+    // desaparecer porque el mapa opine otra cosa.
+    await ciudad.fill('Villa Lucre');
+    await page.getByRole('button', { name: /usar mi ubicación/i }).click();
+
+    // La dirección sí se rellena —ese campo no lo tocó nadie—, y es la señal de
+    // que el volcado ocurrió de verdad y no se quedó por el camino.
+    await expect(page.getByLabel('Dirección', { exact: true })).toHaveValue('Calle 50 55', {
+      timeout: 15_000,
+    });
+    await expect(ciudad).toHaveValue('Villa Lucre');
+  });
+});
+
 test.describe('ficha de producto', () => {
   // Regresión: sin base de datos, `loadProduct` devolvía null y la ficha
   // respondía 404 — aunque la portada y el catálogo enlazaran a ella. Lo

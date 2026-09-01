@@ -8,12 +8,15 @@ import {
   findZoneForPoint,
   isWithinPanama,
   roundCoordinate,
+  tieneAlgoQueRellenar,
   type Coordinates,
   type DeliveryZone,
+  type DireccionAproximada,
   type LocationPrecision,
 } from '@nebula/domain';
 import { estiloDelMapa } from '@nebula/ui';
 import type { LugarEncontrado } from '@/app/api/geo/buscar/route';
+import type { DireccionEnElPunto } from '@/app/api/geo/inverso/route';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 /**
@@ -65,15 +68,30 @@ export interface UbicacionElegida {
  * No es lo mismo una coordenada del GPS del teléfono que una deducida de una
  * búsqueda de texto. Quien prepara el reparto necesita saberlo: una «deducida»
  * merece una llamada antes de mandar a alguien.
+ *
+ * EL PUNTO ESCRIBE LA DIRECCIÓN, NO AL REVÉS
+ *
+ * Marcado el punto, se le pregunta al geocodificador qué dirección hay ahí y se
+ * avisa por `onDireccion`. Quien compra no debería escribir dos veces el mismo
+ * sitio: una en el mapa y otra en el formulario. El texto que sale es una
+ * propuesta —se puede corregir entera— pero deja de partir de una hoja en
+ * blanco, que es donde se abandonan los carritos.
  */
 export function SelectorDeUbicacion({
   zonas = [],
   valorInicial,
   onCambio,
+  onDireccion,
 }: {
   zonas?: readonly DeliveryZone[];
   valorInicial?: Partial<UbicacionElegida>;
   onCambio?: (valor: UbicacionElegida | null) => void;
+  /**
+   * Se llama cada vez que se resuelve la dirección de un punto nuevo. Quien
+   * escuche decide qué hacer con ella: el checkout rellena sus campos, pero solo
+   * los que quien compra no haya tocado ya.
+   */
+  onDireccion?: (direccion: DireccionAproximada) => void;
 }) {
   const contenedor = useRef<HTMLDivElement | null>(null);
   const mapa = useRef<MapaLibre | null>(null);
@@ -99,6 +117,24 @@ export function SelectorDeUbicacion({
   const [resultados, setResultados] = useState<LugarEncontrado[]>([]);
   const [buscando, setBuscando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
+
+  /**
+   * La dirección que el geocodificador dice que hay en el punto, con el punto al
+   * que pertenece.
+   *
+   * Van juntos y no en dos estados sueltos porque así «esta dirección ya no es
+   * la de este pin» se ve en el render con una comparación, sin ningún efecto
+   * que limpie nada. Mover el mapa hace desaparecer la dirección vieja sola, que
+   * es justo lo que tiene que pasar: enseñar la calle anterior bajo un pin nuevo
+   * es peor que no enseñar ninguna.
+   *
+   * `valor: null` es una respuesta, no una ausencia: significa «preguntamos por
+   * este punto y no hay dirección». Se distingue de no haber preguntado todavía.
+   */
+  const [direccion, setDireccion] = useState<{
+    punto: Coordinates;
+    valor: DireccionAproximada | null;
+  } | null>(null);
 
   /**
    * Por qué falló el mapa, cuando falla.
@@ -199,6 +235,50 @@ export function SelectorDeUbicacion({
     });
   }, [punto, precision, referencia, instrucciones, onCambio]);
 
+  // --- La dirección que hay en el punto ------------------------------------
+  /*
+   * Se pregunta después de que el mapa pare, no mientras se mueve: arrastrar el
+   * dedo por la ciudad dispara un `moveend` por cada parada, y Nominatim pide
+   * como mucho una consulta por segundo. La espera también evita rellenar el
+   * formulario con calles por las que solo se estaba pasando.
+   */
+  useEffect(() => {
+    // Fuera de Panamá no se pregunta: la pantalla ya avisa de que el punto está
+    // mal, y una dirección de otro país en el formulario confunde más que ayuda.
+    if (!punto || !isWithinPanama(punto)) return;
+
+    const destino = punto;
+    const controlador = new AbortController();
+
+    const temporizador = window.setTimeout(() => {
+      void fetch(`/api/geo/inverso?lat=${destino.lat}&lng=${destino.lng}`, {
+        signal: controlador.signal,
+      })
+        .then((r) => (r.ok ? (r.json() as Promise<DireccionEnElPunto>) : null))
+        .then((datos) => {
+          const encontrada = datos?.direccion ?? null;
+          setDireccion({ punto: destino, valor: encontrada });
+
+          // Solo se avisa de lo que sirve para algo. Una respuesta sin calle, sin
+          // ciudad y sin provincia —pasa en el mar y en carreteras sin nombre— no
+          // debe borrar lo que quien compra ya hubiera escrito.
+          if (encontrada && tieneAlgoQueRellenar(encontrada)) onDireccion?.(encontrada);
+        })
+        // Que el geocodificador falle no rompe nada: el punto ya está marcado y
+        // los campos se escriben a mano, como antes de que esto existiera. Se
+        // registra igual contra su punto para poder decir «no hay dirección» en
+        // vez de dejar el mensaje de «buscando» colgado para siempre.
+        .catch(() => {
+          if (!controlador.signal.aborted) setDireccion({ punto: destino, valor: null });
+        });
+    }, 700);
+
+    return () => {
+      window.clearTimeout(temporizador);
+      controlador.abort();
+    };
+  }, [punto, onDireccion]);
+
   const volar = useCallback((destino: Coordinates, procedencia: LocationPrecision) => {
     precisionPendiente.current = procedencia;
     mapa.current?.flyTo({ center: [destino.lng, destino.lat], zoom: 17, duration: 900 });
@@ -267,6 +347,13 @@ export function SelectorDeUbicacion({
   const zona = punto ? findZoneForPoint(punto, zonas) : null;
   const fueraDePanama = punto ? !isWithinPanama(punto) : false;
 
+  // Solo vale la dirección del punto que hay ahora mismo bajo el pin. Si no
+  // coincide, es que el mapa se movió y la respuesta todavía viene en camino.
+  const resuelta =
+    direccion && punto && direccion.punto.lat === punto.lat && direccion.punto.lng === punto.lng
+      ? direccion
+      : null;
+
   return (
     <div className="ubicacion">
       <div className="ubicacion-buscador">
@@ -333,6 +420,22 @@ export function SelectorDeUbicacion({
           ? `Punto marcado · ${LOCATION_PRECISION_LABELS[precision]}`
           : 'Mueve el mapa hasta el punto exacto de entrega, o busca la dirección arriba.'}
       </p>
+
+      {/*
+        La dirección resuelta se enseña aunque el formulario ya la haya recogido:
+        es la forma de comprobar de un vistazo que el pin cayó en la calle que se
+        quería y no en la paralela. Sin esto, rellenar campos solo se nota si se
+        mira hacia arriba.
+      */}
+      {punto && !fueraDePanama ? (
+        <p className="field-hint ubicacion-direccion" role="status">
+          {!resuelta
+            ? 'Buscando la dirección de este punto…'
+            : resuelta.valor?.etiqueta
+              ? `Dirección aproximada: ${resuelta.valor.etiqueta}`
+              : 'No encontramos una dirección para este punto. Escríbela arriba y cuéntanos cómo reconocer el sitio.'}
+        </p>
+      ) : null}
 
       {fueraDePanama ? (
         <div className="notice notice-error">
