@@ -1,4 +1,10 @@
-import { isShipmentStatus, type ShipmentStatus } from '@nebula/domain';
+import {
+  REGLA_POR_DEFECTO,
+  isPoliticaDeDespacho,
+  isShipmentStatus,
+  type ReglaDeDespacho,
+  type ShipmentStatus,
+} from '@nebula/domain';
 import type { Enums, Tables, Views } from '@nebula/db';
 import {
   getCustomer,
@@ -746,4 +752,36 @@ export async function cargarEnviosDelPedido(orderId: string): Promise<{
       nombre: perfil.full_name ?? perfil.email,
     })),
   };
+}
+
+/**
+ * La regla de despacho que está activa (D4).
+ *
+ * Si el ajuste no existe o viene mal escrito se cae a la estricta, que es la
+ * única que no puede acabar en pérdida. Un ajuste ilegible no debería abrir la
+ * puerta a despachar sin cobrar.
+ */
+export async function cargarReglaDeDespacho(): Promise<ReglaDeDespacho> {
+  if (esModoDemostracion()) return REGLA_POR_DEFECTO;
+
+  const supabase = await getSupabaseServerClient();
+  const { data } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'dispatch_policy')
+    .maybeSingle();
+
+  const valor = (data?.value ?? {}) as { politica?: unknown; umbralPorcentaje?: unknown };
+
+  const politica =
+    typeof valor.politica === 'string' && isPoliticaDeDespacho(valor.politica)
+      ? valor.politica
+      : REGLA_POR_DEFECTO.politica;
+
+  const umbral =
+    typeof valor.umbralPorcentaje === 'number' && Number.isFinite(valor.umbralPorcentaje)
+      ? valor.umbralPorcentaje
+      : REGLA_POR_DEFECTO.umbralPorcentaje;
+
+  return { politica, umbralPorcentaje: umbral };
 }

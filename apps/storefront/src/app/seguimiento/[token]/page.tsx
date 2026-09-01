@@ -47,7 +47,7 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   const { data: pedido } = await supabase
     .from('orders')
     .select(
-      `id, order_number, status, payment_status, total, created_at,
+      `id, order_number, status, payment_status, total, amount_paid, balance_due, created_at,
        shipments (id, tracking_number, status, carrier, carrier_tracking_url,
                   dispatched_at, delivered_at, failure_reason, created_at,
                   profiles:assigned_to (full_name, phone))`,
@@ -58,6 +58,10 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
   if (!pedido) notFound();
 
   const envios = pedido.shipments ?? [];
+
+  const total = Number(pedido.total);
+  const abonado = Number(pedido.amount_paid ?? 0);
+  const saldo = Number(pedido.balance_due ?? Math.max(total - abonado, 0));
 
   return (
     <div className="container section seguimiento">
@@ -137,9 +141,27 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
         })
       )}
 
-      {pedido.payment_status !== 'paid' ? (
+      {/*
+        El saldo, con lo abonado a la vista. Enseñar solo lo que falta deja a
+        quien pagó a plazos sin ver que su dinero llegó: la pregunta que trae
+        no es solo «¿cuánto debo?», es «¿me contaron lo que ya pagué?».
+      */}
+      {saldo > 0 ? (
         <div className="notice notice-info" style={{ marginTop: 20 }}>
-          Queda por pagar <strong>{money(Number(pedido.total))}</strong> al recibir.
+          {abonado > 0 ? (
+            <>
+              Llevas abonado <strong>{money(abonado)}</strong> de {money(total)}. Quedan{' '}
+              <strong>{money(saldo)}</strong> por pagar.
+            </>
+          ) : (
+            <>
+              Queda por pagar <strong>{money(saldo)}</strong> al recibir.
+            </>
+          )}
+        </div>
+      ) : total > 0 ? (
+        <div className="notice notice-success" style={{ marginTop: 20 }}>
+          Este pedido está pagado por completo.
         </div>
       ) : null}
     </div>

@@ -5,7 +5,8 @@ import { DataTable, StatusBadge, Timeline } from '@nebula/ui/admin';
 import { PanelPage } from '@/components/panel-page';
 import { OrderNoteForm, OrderStatusForm } from '@/components/order-forms';
 import { EnvioForm, NuevoEnvioForm } from '@/components/shipment-forms';
-import { cargarEnviosDelPedido, cargarPedido } from '@/lib/panel-data';
+import { AbonosForm, BorrarAbonoButton } from '@/components/abono-forms';
+import { cargarEnviosDelPedido, cargarPedido, cargarReglaDeDespacho } from '@/lib/panel-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +26,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const datos = await cargarPedido(id);
   if (!datos) notFound();
 
-  const { envios, operadores } = await cargarEnviosDelPedido(id);
+  const [{ envios, operadores }, regla] = await Promise.all([
+    cargarEnviosDelPedido(id),
+    cargarReglaDeDespacho(),
+  ]);
 
   const { order, events, payments: orderPayments } = datos;
 
@@ -112,6 +116,18 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
           <section className="card">
             <div className="card-head">
+              <h2>Abonos y saldo</h2>
+            </div>
+            <AbonosForm
+              orderId={order.id}
+              total={Number(order.total)}
+              pagado={Number(order.amount_paid)}
+              regla={regla}
+            />
+          </section>
+
+          <section className="card">
+            <div className="card-head">
               <h2>Pagos</h2>
             </div>
             {orderPayments.length === 0 ? (
@@ -142,6 +158,19 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                     header: 'Importe',
                     align: 'right',
                     render: (payment) => money(payment.amount),
+                  },
+                  {
+                    key: 'borrar',
+                    header: '',
+                    align: 'right',
+                    // Solo los abonos registrados a mano. Un pago de pasarela
+                    // no se borra desde aquí: lo que dice la pasarela es la
+                    // verdad, y borrarlo dejaría el pedido contando dinero que
+                    // el proveedor sí tiene registrado.
+                    render: (payment) =>
+                      payment.provider === 'manual' ? (
+                        <BorrarAbonoButton paymentId={payment.id} orderId={order.id} />
+                      ) : null,
                   },
                 ]}
               />
