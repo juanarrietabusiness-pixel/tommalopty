@@ -14,7 +14,7 @@
 | Pregunta                                                             | Respuesta corta                                                   | Estado hoy   | Dónde se resuelve |
 | -------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------ | ----------------- |
 | ¿Podrá seguir sus pedidos?                                           | Sí, y ya hay media base construida                                | 🔶 Parcial   | Fase **L2**       |
-| ¿El cliente pone la dirección en un mapa, como PedidosYa o inDriver? | Hoy no; es la pieza que más impacto tiene                         | 🔲 No existe | Fase **L1**       |
+| ¿El cliente pone la dirección en un mapa, como PedidosYa o inDriver? | **Sí, ya está en staging**                                        | ✅ Hecho     | Fase **L1**       |
 | ¿La guía lleva QR que abra Waze y Google Maps?                       | Hoy no hay guía; se construye con QR desde el primer día          | 🔲 No existe | Fase **L2**       |
 | ¿Puede recibir abonos y despachar al completarse el pago?            | Hoy no; la base de datos ya aguanta varios pagos por pedido       | 🔲 No existe | Fase **L3**       |
 | ¿Hay panel de clientes? ¿Vive sin clientes registrados?              | **Sí a las dos.** Ya está hecho y funcionando                     | ✅ Hecho     | —                 |
@@ -254,6 +254,10 @@ programar.
 
 ### Fase L1 · La dirección deja de ser texto y pasa a ser un punto en el mapa
 
+> **Estado: construida y publicada en staging.** Lo que sigue es el plan tal y
+> como se escribió; al final de la fase está lo que se hizo de verdad y en qué
+> se apartó del plan.
+
 **El problema real.** Hoy el checkout pide calle, ciudad y provincia en cajas de
 texto (`apps/storefront/src/components/checkout-form.tsx`). El cliente escribe
 «casa blanca portón negro cerca del super», y el motorizado llama por teléfono.
@@ -307,6 +311,50 @@ interfaz, para poder cambiarlo sin tocar el checkout.
 abrirlas en el móvil cae sobre la puerta correcta.
 
 **Duración estimada:** 2 semanas.
+
+#### Lo que se construyó, y en qué se apartó del plan
+
+- **Migración 0021**: `addresses` gana `latitude`, `longitude`,
+  `location_precision`, `reference` y `delivery_instructions`, con
+  restricciones que impiden media coordenada y una coordenada sin procedencia.
+  Nueva tabla `delivery_zones`. **Sin `plus_code`**: no se encontró un uso real
+  en el reparto panameño que lo justificara, y una columna que nadie escribe es
+  una columna que confunde.
+- **`@nebula/domain/geo`**: punto-en-polígono, caja de Panamá, enlaces de Waze y
+  Google Maps, y lectura defensiva del polígono. Todo puro y probado sin base de
+  datos ni mapa.
+- **`<SelectorDeUbicacion>`** en la tienda, no en `packages/ui`: usa `maplibre-gl`
+  y el buscador propio, y no tenía sentido que el paquete común arrastrara esas
+  dependencias. Lo que sí se movió a `@nebula/ui` es la configuración del mapa,
+  que comparten tienda y panel.
+- **El pin no se arrastra: se mueve el mapa debajo.** Es la diferencia entre
+  acertar el portón y acertar la manzana en un móvil pequeño, porque arrastrar
+  el pin obliga a taparlo con la mano justo cuando hay que verlo. Es también lo
+  que hacen PedidosYa y Uber, y el plan original decía «pin arrastrable».
+- **`/api/geo/buscar`**: el autocompletado no llama a Nominatim desde el
+  navegador. Su política de uso pide identificar la aplicación y limitar el
+  ritmo, y con una sola salida —cacheada un día— eso se cumple.
+- **Pantalla de zonas en el panel**, con el área dibujada tocando el mapa.
+- **Decisión D2 tomada: MapLibre + OpenStreetMap**, no Google. Google Maps exige
+  una cuenta de facturación que solo puede crear la dueña del negocio, y hasta
+  que exista no se podría ni probar la pantalla. El proveedor queda detrás de
+  `packages/ui/src/lib/mapa.ts`, así que cambiarlo el día que haya cuenta es
+  tocar un archivo.
+
+#### Lo que queda pendiente de esta fase
+
+- **Las teselas del mapa, antes de abrir al público.** Ahora mismo se usan las
+  públicas de OpenStreetMap, que sirven para desarrollo y para enseñar la
+  pantalla, pero **su política de uso no cubre una tienda en producción**. Hay
+  que apuntar `NEXT_PUBLIC_MAP_TILES_URL` a un proveedor con plan: MapTiler,
+  CARTO, o Protomaps servido desde el propio R2 —esta última no añade cuota
+  mensual, que es lo que encaja con tener ya Cloudflare pagado—.
+- **El panel todavía no enseña el punto del pedido en un mini-mapa.** La
+  coordenada ya llega y queda grabada; falta pintarla. Va con la fase L2, que es
+  donde se construye la guía de despacho.
+- **`/cuenta/direcciones` sigue siendo solo lectura.** Guardar y reutilizar
+  direcciones con su punto es trabajo de la misma pantalla y no estaba en el
+  camino crítico de que un pedido llegue con coordenadas.
 
 ---
 
