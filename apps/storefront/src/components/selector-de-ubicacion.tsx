@@ -16,6 +16,25 @@ import { estiloDelMapa } from '@nebula/ui';
 import type { LugarEncontrado } from '@/app/api/geo/buscar/route';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
+/**
+ * ¿Puede este navegador dibujar un mapa?
+ *
+ * MapLibre pinta con WebGL. No estar disponible es más común de lo que parece:
+ * pasa con la aceleración por hardware desactivada, en algunos escritorios
+ * remotos y en navegadores con la privacidad muy cerrada. Cuando pasa, el
+ * constructor del mapa lanza y no hay forma de recuperarse.
+ *
+ * Solo puede llamarse en el navegador: usa `document`.
+ */
+function soportaWebGL(): boolean {
+  try {
+    const lienzo = document.createElement('canvas');
+    return Boolean(lienzo.getContext('webgl2') ?? lienzo.getContext('webgl'));
+  } catch {
+    return false;
+  }
+}
+
 export interface UbicacionElegida {
   lat: number;
   lng: number;
@@ -81,10 +100,15 @@ export function SelectorDeUbicacion({
   const [buscando, setBuscando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
 
-  // Que el mapa no pueda pintarse no puede quedar en una caja blanca muda: sin
-  // esto, «no cargan las teselas» y «el componente está roto» se ven idénticos,
-  // y hay que abrir la consola del navegador para distinguirlos.
-  const [mapaCaido, setMapaCaido] = useState(false);
+  /**
+   * Por qué falló el mapa, cuando falla.
+   *
+   * Los tres motivos se veían idénticos —una caja blanca— y para distinguirlos
+   * había que abrir la consola del navegador. Son fallos distintos con arreglos
+   * distintos, así que cada uno lo dice: uno se arregla cambiando de proveedor
+   * de mapas, otro no tiene arreglo en el navegador de quien compra.
+   */
+  const [fallo, setFallo] = useState<'webgl' | 'libreria' | 'teselas' | null>(null);
 
   // --- El mapa -------------------------------------------------------------
   useEffect(() => {
@@ -95,40 +119,59 @@ export function SelectorDeUbicacion({
 
     // Carga diferida: maplibre pesa, y quien solo mira el carrito no debería
     // descargarlo.
-    void import('maplibre-gl').then(({ Map: MapaConstructor, NavigationControl }) => {
-      if (cancelado || !contenedor.current) return;
+    void import('maplibre-gl')
+      .then(({ Map: MapaConstructor, NavigationControl }) => {
+        if (cancelado || !contenedor.current) return;
 
-      instancia = new MapaConstructor({
-        container: contenedor.current,
-        style: estiloDelMapa(),
-        center: [punto?.lng ?? PANAMA_CITY_CENTER.lng, punto?.lat ?? PANAMA_CITY_CENTER.lat],
-        zoom: punto ? 17 : 12,
-        // El mapa es para señalar un portón, no para explorar el mundo.
-        attributionControl: { compact: true },
+        // Un mapa de MapLibre se dibuja con WebGL, y sin él el constructor
+        // lanza. Se comprueba antes para poder decir *por qué* no hay mapa en
+        // vez de enseñar un fallo genérico. La comprobación va aquí dentro y no
+        // en el cuerpo del efecto porque `document` no existe al renderizar en
+        // el servidor.
+        if (!soportaWebGL()) {
+          setFallo('webgl');
+          return;
+        }
+
+        instancia = new MapaConstructor({
+          container: contenedor.current,
+          style: estiloDelMapa(),
+          center: [punto?.lng ?? PANAMA_CITY_CENTER.lng, punto?.lat ?? PANAMA_CITY_CENTER.lat],
+          zoom: punto ? 17 : 12,
+          // El mapa es para señalar un portón, no para explorar el mundo.
+          attributionControl: { compact: true },
+        });
+
+        instancia.addControl(new NavigationControl({ showCompass: false }), 'top-right');
+
+        // MapLibre avisa de cada tesela que no llega. Con una basta para saber
+        // que el proveedor de mapas no está respondiendo.
+        instancia.on('error', (evento) => {
+          console.error('[mapa] El proveedor de mapas no respondió:', evento.error);
+          setFallo((previo) => previo ?? 'teselas');
+        });
+
+        instancia.on('moveend', () => {
+          const centro = instancia?.getCenter();
+          if (!centro) return;
+
+          const procedencia = precisionPendiente.current ?? 'pin';
+          precisionPendiente.current = null;
+
+          setPunto({ lat: roundCoordinate(centro.lat), lng: roundCoordinate(centro.lng) });
+          setPrecision(procedencia);
+        });
+
+        mapa.current = instancia;
+      })
+      // Sin esto, cualquier fallo al cargar o al construir el mapa era una
+      // promesa rechazada que nadie escuchaba: la caja se quedaba en blanco y
+      // en la pantalla no aparecía nada. Es lo que costó una noche de
+      // suposiciones.
+      .catch((error: unknown) => {
+        console.error('[mapa] No se pudo iniciar el mapa:', error);
+        setFallo('libreria');
       });
-
-      instancia.addControl(new NavigationControl({ showCompass: false }), 'top-right');
-
-      // MapLibre avisa de cada tesela que no llega. Con una basta para saber
-      // que el proveedor de mapas no está respondiendo.
-      instancia.on('error', (evento) => {
-        console.error('[mapa] No se pudo cargar el mapa:', evento.error);
-        setMapaCaido(true);
-      });
-
-      instancia.on('moveend', () => {
-        const centro = instancia?.getCenter();
-        if (!centro) return;
-
-        const procedencia = precisionPendiente.current ?? 'pin';
-        precisionPendiente.current = null;
-
-        setPunto({ lat: roundCoordinate(centro.lat), lng: roundCoordinate(centro.lng) });
-        setPrecision(procedencia);
-      });
-
-      mapa.current = instancia;
-    });
 
     return () => {
       cancelado = true;
@@ -269,10 +312,15 @@ export function SelectorDeUbicacion({
         </button>
       </div>
 
-      {mapaCaido ? (
+      {fallo ? (
         <div className="notice notice-error">
-          No pudimos cargar las imágenes del mapa. Puedes seguir con tu pedido: escribe abajo cómo
-          reconocer el sitio y nos pondremos en contacto para confirmar la entrega.
+          {fallo === 'webgl'
+            ? 'Tu navegador no puede mostrar mapas. Suele arreglarse activando la aceleración por hardware, o abriendo la tienda desde el teléfono.'
+            : fallo === 'teselas'
+              ? 'No pudimos cargar las imágenes del mapa. Es cosa del proveedor de mapas, no de tu conexión.'
+              : 'No pudimos cargar el mapa.'}{' '}
+          Puedes seguir con tu pedido: escribe abajo cómo reconocer el sitio y te llamamos para
+          confirmar la entrega.
         </div>
       ) : null}
 
@@ -315,7 +363,9 @@ export function SelectorDeUbicacion({
           placeholder="Portón negro, al lado de la farmacia"
         />
         <span className="field-hint">
-          Es lo que de verdad usa quien entrega cuando llega a la esquina.
+          {fallo
+            ? 'Sin mapa, esto es lo único que tiene quien entrega. Cuanto más concreto, mejor.'
+            : 'Es lo que de verdad usa quien entrega cuando llega a la esquina.'}
         </span>
       </div>
 
