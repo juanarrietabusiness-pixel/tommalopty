@@ -55,7 +55,7 @@ export default async function GuiaDeDespacho({
     .select(
       `id, tracking_number, token, status, destination, carrier, carrier_tracking_number,
        created_at,
-       orders (order_number, total, payment_status, customer_note,
+       orders (order_number, total, amount_paid, balance_due, payment_status, customer_note,
                order_items (product_title, variant_title, quantity))`,
     )
     .eq('id', shipmentId)
@@ -78,9 +78,11 @@ export default async function GuiaDeDespacho({
     errorCorrectionLevel: 'M',
   });
 
-  // Lo que se cobra al entregar. Cuando existan los abonos (fase L3) este
-  // número será el saldo; hoy es el total si el pedido no está pagado.
-  const porCobrar = pedido && pedido.payment_status !== 'paid' ? Number(pedido.total) : 0;
+  // Lo que hay que cobrar en la puerta: el saldo, no el total. Con abonos son
+  // cosas distintas, y en un papel impreso la diferencia se paga cara — quien
+  // entrega cobraría de nuevo lo que el cliente ya abonó.
+  const porCobrar = Number(pedido?.balance_due ?? 0);
+  const yaAbonado = Number(pedido?.amount_paid ?? 0);
 
   return (
     <div className="guia-hoja">
@@ -130,6 +132,13 @@ export default async function GuiaDeDespacho({
       {porCobrar > 0 ? (
         <div className="guia-cobrar">
           Cobrar al entregar <strong>{money(porCobrar)}</strong>
+          {/* Lo ya abonado va también, para que quien entrega pueda responder
+              si el cliente pregunta por qué no es el total. */}
+          {yaAbonado > 0 ? (
+            <em>
+              ya abonó {money(yaAbonado)} de {money(Number(pedido?.total ?? 0))}
+            </em>
+          ) : null}
         </div>
       ) : (
         <div className="guia-pagado">Pedido pagado · no cobrar</div>

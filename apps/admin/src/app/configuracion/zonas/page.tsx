@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
 import { listDeliveryZones } from '@nebula/db';
 import { PanelPage } from '@/components/panel-page';
+import { ReglaDespachoForm } from '@/components/regla-despacho-form';
 import { ZoneDeleteButton, ZoneForm, type ZonaEditable } from '@/components/zone-form';
 import { requireAdmin } from '@/lib/auth';
+import { cargarReglaDeDespacho } from '@/lib/panel-data';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
 
-export const metadata: Metadata = { title: 'Zonas de reparto' };
+export const metadata: Metadata = { title: 'Reparto y despacho' };
 
 export const dynamic = 'force-dynamic';
 
@@ -33,14 +35,27 @@ async function cargarZonas(): Promise<ZonaEditable[]> {
 }
 
 export default async function ZonasPage() {
-  await requireAdmin();
-  const zonas = await cargarZonas();
+  const sesion = await requireAdmin();
+  const [zonas, regla] = await Promise.all([cargarZonas(), cargarReglaDeDespacho()]);
 
   return (
     <PanelPage
-      title="Zonas de reparto"
-      description="Dónde llega el reparto propio, cuánto cuesta cada área y qué se manda por courier."
+      title="Reparto y despacho"
+      description="Cuándo puede salir un pedido con saldo, y hasta dónde llega el reparto propio."
     >
+      {/*
+        La regla va primero: decide si un pedido puede salir, y eso manda sobre
+        cualquier zona. De nada sirve tener bien dibujada el área si el pedido
+        no puede moverse todavía.
+      */}
+      <section className="card">
+        <div className="card-head">
+          <h2>Cuándo se despacha un pedido con saldo</h2>
+        </div>
+        <ReglaDespachoForm regla={regla} puedeEditar={sesion.role === 'superadmin'} />
+      </section>
+
+      <h2 className="seccion-titulo">Zonas de reparto</h2>
       <div className="notice notice-info">
         El área se dibuja tocando el mapa. Lo que decide si una dirección entra en una zona es la
         coordenada del pedido, no el texto: por eso el checkout pide marcar el punto.

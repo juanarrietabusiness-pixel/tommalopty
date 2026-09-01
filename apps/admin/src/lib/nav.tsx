@@ -58,7 +58,7 @@ export function getNavGroups(role: Enums<'user_role'>): AdminNavGroup[] {
       title: 'Administración',
       items: [
         { label: 'Usuarios y roles', href: '/usuarios', icon: <UsersIcon /> },
-        { label: 'Zonas de reparto', href: '/configuracion/zonas', icon: <BoxIcon /> },
+        { label: 'Reparto y despacho', href: '/configuracion/zonas', icon: <BoxIcon /> },
         { label: 'Integraciones', href: '/configuracion', icon: <SettingsIcon /> },
       ],
     });

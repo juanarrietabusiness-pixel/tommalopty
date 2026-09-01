@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import {
+  POLITICAS_DE_DESPACHO,
   SHIPMENT_STATUSES,
   isShipmentStatus,
   parsePolygon,
@@ -289,4 +290,69 @@ export async function updateShipment(
 
   revalidatePath(`/pedidos/${envio.order_id}`);
   return success('Envío actualizado.');
+}
+
+/* --- La regla de despacho (D4) ---------------------------------------------- */
+
+const reglaSchema = z.object({
+  politica: z.enum(POLITICAS_DE_DESPACHO),
+  umbralPorcentaje: z.coerce.number().int().min(0).max(100),
+});
+
+/**
+ * Guarda cuándo se deja salir un pedido con saldo.
+ *
+ * Existe porque sin ella la regla era «configurable» solo de nombre: vivía en
+ * `settings`, sí, pero cambiarla exigía que alguien ejecutara SQL a mano. Una
+ * decisión de negocio que necesita un programador no es configurable; es código
+ * con más pasos.
+ *
+ * Solo superadministrador, que es quien toca lo que puede costar dinero.
+ */
+export async function guardarReglaDeDespacho(
+  _previous: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const sesion = await requireAdmin();
+  if (sesion.role !== 'superadmin') {
+    return failure('Solo un superadministrador puede cambiar la regla de despacho.');
+  }
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
+
+  const parsed = reglaSchema.safeParse({
+    politica: formData.get('politica'),
+    umbralPorcentaje: formData.get('umbralPorcentaje') || 50,
+  });
+
+  if (!parsed.success) return fromZodError(parsed.error);
+
+  const supabase = await getSupabaseServerClient();
+
+  const problema = checkWrite(
+    await supabase
+      .from('settings')
+      .update({
+        value: {
+          politica: parsed.data.politica,
+          umbralPorcentaje: parsed.data.umbralPorcentaje,
+        },
+        updated_by: sesion.userId,
+      })
+      .eq('key', 'dispatch_policy')
+      .select('key'),
+  );
+
+  if (problema) return problema;
+
+  revalidatePath('/configuracion/zonas');
+
+  return success(
+    parsed.data.politica === 'estricta'
+      ? 'Regla guardada: no saldrá ningún pedido con saldo pendiente.'
+      : parsed.data.politica === 'umbral'
+        ? `Regla guardada: los pedidos saldrán al alcanzar el ${parsed.data.umbralPorcentaje} % del total.`
+        : 'Regla guardada: los pedidos saldrán con saldo, y se cobrará al entregar.',
+  );
 }
