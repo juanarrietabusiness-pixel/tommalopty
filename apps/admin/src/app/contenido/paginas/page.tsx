@@ -4,13 +4,14 @@ import { DataTable, StatusBadge } from '@nebula/ui/admin';
 import { PanelPage } from '@/components/panel-page';
 import { PageForm } from '@/components/cms-forms';
 import { cargarPaginas } from '@/lib/panel-data';
+import { storefrontUrl } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CmsPagesPage() {
   const pages = await cargarPaginas();
 
-  const storefrontUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+  const tienda = storefrontUrl();
 
   return (
     <PanelPage
@@ -38,7 +39,7 @@ export default async function CmsPagesPage() {
               render: (page) =>
                 page.status === 'published' ? (
                   <Link
-                    href={`${storefrontUrl}/p/${page.slug}`}
+                    href={`${tienda}/p/${page.slug}`}
                     target="_blank"
                     rel="noreferrer noopener"
                     className="cell-muted"

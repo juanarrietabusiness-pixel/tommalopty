@@ -1,8 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import type { DeliveryZone } from '@nebula/domain';
 import { money, useCart } from '@nebula/ui';
+import { SelectorDeUbicacion, type UbicacionElegida } from '@/components/selector-de-ubicacion';
 import type { Cotizacion } from '@/app/api/checkout/cotizar/route';
 
 export interface ShippingMethodOption {
@@ -36,9 +38,11 @@ const METHOD_LABELS: Record<string, string> = {
 export function CheckoutForm({
   shippingMethods,
   paymentOptions,
+  deliveryZones = [],
 }: {
   shippingMethods: ShippingMethodOption[];
   paymentOptions: PaymentOption[];
+  deliveryZones?: DeliveryZone[];
 }) {
   const router = useRouter();
   const { lines, subtotal, clear, isHydrated } = useCart();
@@ -50,6 +54,18 @@ export function CheckoutForm({
   const [discountCode, setDiscountCode] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending'>('idle');
   const [error, setError] = useState<string | null>(null);
+
+  // La coordenada es el dato que de verdad localiza la entrega; el texto de la
+  // dirección la acompaña. Se guarda aparte del `FormData` porque el mapa no es
+  // un campo de formulario.
+  const [ubicacion, setUbicacion] = useState<UbicacionElegida | null>(null);
+
+  // `useCallback` porque el selector la tiene en las dependencias de un efecto:
+  // sin memorizar, cada render de este formulario —y hay uno por tecla del
+  // cupón— reiniciaría ese efecto.
+  const recibirUbicacion = useCallback((valor: UbicacionElegida | null) => {
+    setUbicacion(valor);
+  }, []);
 
   // Los totales los calcula el servidor, nunca este componente: aquí no se
   // conocen los precios reales del catálogo ni cuánto descuenta un cupón, y
@@ -132,6 +148,11 @@ export function CheckoutForm({
             province: formData.get('province') || undefined,
             countryCode: 'PA',
             phone: formData.get('phone') || undefined,
+            latitude: ubicacion?.lat,
+            longitude: ubicacion?.lng,
+            locationPrecision: ubicacion?.precision,
+            reference: ubicacion?.reference || undefined,
+            deliveryInstructions: ubicacion?.deliveryInstructions || undefined,
           },
           shippingMethodId: shippingMethodId || undefined,
           paymentProvider,
@@ -225,6 +246,13 @@ export function CheckoutForm({
                 <input id="province" name="province" />
               </div>
             </div>
+
+            <h3 className="checkout-subtitulo">Marca el punto exacto de entrega</h3>
+            <p className="field-hint" style={{ marginTop: -6, marginBottom: 12 }}>
+              En Panamá la dirección escrita casi nunca basta para encontrar una puerta. El punto
+              del mapa es lo que ve quien te lleva el pedido.
+            </p>
+            <SelectorDeUbicacion zonas={deliveryZones} onCambio={recibirUbicacion} />
           </section>
 
           <section className="checkout-block">

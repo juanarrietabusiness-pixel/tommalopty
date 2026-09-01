@@ -17,6 +17,7 @@ export { EmptyState } from './components/empty-state';
 export { QuantityStepper, type QuantityStepperProps } from './components/quantity-stepper';
 
 export * from './components/icons';
+export { estiloDelMapa, TILES_URL, ATTRIBUTION, type EstiloRaster } from './lib/mapa';
 export {
   money,
   number,

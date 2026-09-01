@@ -1290,3 +1290,149 @@
     gap: 14px;
   }
 }
+
+/* ============================================================================
+   SELECTOR DE UBICACIÓN
+   ----------------------------------------------------------------------------
+   El pin vive fuera del mapa y clavado en su centro. Eso es lo que hace que se
+   mueva el mapa debajo y no el pin con el dedo: en un móvil, arrastrar el pin
+   obliga a taparlo con la mano justo cuando hay que verlo.
+   ========================================================================== */
+.ubicacion {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ubicacion-buscador {
+  position: relative;
+}
+
+.ubicacion-buscador input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.ubicacion-buscador input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgb(23 60 46 / 12%);
+}
+
+.ubicacion-sugerencias {
+  position: absolute;
+  z-index: 3;
+  inset-inline: 0;
+  top: calc(100% + 4px);
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-card);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.ubicacion-sugerencias button {
+  display: block;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  text-align: left;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.ubicacion-sugerencias button:hover,
+.ubicacion-sugerencias button:focus-visible {
+  background: var(--color-surface);
+}
+
+.ubicacion-mapa {
+  position: relative;
+  height: 300px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/*
+   Dos selectores y no uno, y el alto declarado además del `inset`. Las dos
+   cosas son la misma defensa contra el mismo fallo.
+
+   MapLibre le pone al contenedor su clase `.maplibregl-map`, que trae
+   `position: relative`. Con un solo selector las dos reglas empatan en
+   especificidad y gana la que cargue después. En desarrollo cargaba antes la
+   suya y todo se veía bien; en el paquete de producción cargaba después, ganaba
+   ella, `inset: 0` dejaba de aplicar, el contenedor se quedaba sin alto propio y
+   colapsaba a cero. El mapa se construía entero —lienzo, controles,
+   atribución— dentro de una caja de cero píxeles de alto, y como MapLibre
+   además añade `overflow: hidden`, no se veía absolutamente nada.
+
+   Con dos clases la especificidad es mayor y ganamos en cualquier orden. El
+   alto y el ancho explícitos son el segundo cinturón: aunque algún día otra
+   regla imponga `position: relative`, el contenedor sigue midiendo lo que
+   debe. */
+.ubicacion-mapa .ubicacion-lienzo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* La punta del pin es lo que señala, así que es la punta —y no el centro del
+   dibujo— la que se alinea con el centro del mapa. */
+.ubicacion-pin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  margin-top: -22px;
+  border: 3px solid var(--color-bg);
+  border-radius: 50% 50% 50% 0;
+  rotate: -45deg;
+  background: var(--color-accent-dark);
+  box-shadow: 0 3px 8px rgb(0 0 0 / 35%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.ubicacion-gps {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 2;
+  background: var(--color-bg);
+}
+
+.ubicacion-estado {
+  margin: 0;
+}
+
+@media (width <= 640px) {
+  .ubicacion-mapa {
+    height: 260px;
+  }
+}
+
+.checkout-subtitulo {
+  margin: 26px 0 10px;
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text);
+}

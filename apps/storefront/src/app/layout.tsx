@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter, Poppins } from 'next/font/google';
 import { CartProvider, SiteFooter, SiteHeader } from '@nebula/ui';
 import { MetaPixel } from '@/components/meta-pixel';
+import { siteUrl } from '@/lib/site';
 import { getAnnouncement, getBrand, getNavigation, toNavItems } from '@/lib/storefront-data';
 import './globals.css';
 
@@ -23,10 +24,9 @@ const inter = Inter({
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = await getBrand();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 
   return {
-    metadataBase: new URL(siteUrl),
+    metadataBase: new URL(siteUrl()),
     title: {
       default: `${brand.name} — Tienda online`,
       template: `%s · ${brand.name}`,

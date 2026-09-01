@@ -20,12 +20,35 @@ function requireEnv(name: string): string {
   return value;
 }
 
+/**
+ * Configuración pública de Supabase.
+ *
+ * Las dos referencias se escriben **literales** —`process.env.NOMBRE`— y no con
+ * el ayudante `readEnv(nombre)`. La diferencia parece cosmética y no lo es:
+ * Next.js sustituye en compilación las referencias literales a `NEXT_PUBLIC_*`
+ * por su valor, y una lectura dinámica `process.env[nombre]` no la reconoce.
+ *
+ * Con el ayudante, esto funcionaba en `next build` —donde el proceso sí tiene
+ * las variables— y fallaba en el Worker ya desplegado, donde `process.env` solo
+ * trae lo que se cargó en Cloudflare. El síntoma era desconcertante:
+ * `isSupabaseConfigured()` decía que sí (usa referencias literales) y acto
+ * seguido crear el cliente lanzaba «falta la variable de entorno». Tienda,
+ * fichas y páginas del CMS respondían 500 mientras las páginas estáticas se
+ * veían perfectas.
+ */
 export function getPublicSupabaseConfig(): { url: string; anonKey: string } {
-  return {
-    // Next.js sustituye estas referencias en build; deben escribirse literalmente.
-    url: requireEnv('NEXT_PUBLIC_SUPABASE_URL'),
-    anonKey: requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
-  };
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) {
+    throw new Error(
+      'Faltan NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY. ' +
+        'En local se copian de .env.example a .env.local; en un despliegue tienen ' +
+        'que estar presentes en el momento de compilar, porque viajan dentro del paquete.',
+    );
+  }
+
+  return { url, anonKey };
 }
 
 export function getServiceRoleKey(): string {
@@ -38,10 +61,13 @@ export function getServiceRoleKey(): string {
   return requireEnv('SUPABASE_SERVICE_ROLE_KEY');
 }
 
+// Mismo motivo que arriba: literales, para que Next las sustituya en compilación.
 export function getSiteUrl(): string {
-  return readEnv('NEXT_PUBLIC_SITE_URL') ?? 'http://localhost:3000';
+  const valor = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  return valor && valor.length > 0 ? valor : 'http://localhost:3000';
 }
 
 export function getBrandName(): string {
-  return readEnv('NEXT_PUBLIC_BRAND_NAME') ?? 'Nébula Store';
+  const valor = process.env.NEXT_PUBLIC_BRAND_NAME?.trim();
+  return valor && valor.length > 0 ? valor : 'Nébula Store';
 }

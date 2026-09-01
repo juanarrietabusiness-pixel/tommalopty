@@ -8,6 +8,9 @@ El diseño parte del esqueleto HTML aprobado por la clienta, que se conserva
 Todo el look & feel se migró tal cual a componentes React: mismos colores,
 tipografías, espaciados y comportamiento.
 
+> **¿Retomas el trabajo?** Empieza por [`docs/ESTADO.md`](docs/ESTADO.md): qué
+> hay publicado, qué está roto y qué se sabe de cada fallo abierto.
+
 ---
 
 ## Estructura

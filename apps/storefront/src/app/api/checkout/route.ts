@@ -1,8 +1,10 @@
 import { after, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { LOCATION_PRECISIONS } from '@nebula/domain';
 import { email as emails, payments } from '@nebula/integrations';
 import { getSupabaseServiceClient } from '@/lib/supabase';
 import { createEventId, sendServerEvent } from '@/lib/tracking';
+import { siteUrl } from '@/lib/site';
 
 /**
  * Creación de pedido y arranque del pago.
@@ -16,17 +18,48 @@ import { createEventId, sendServerEvent } from '@/lib/tracking';
  *    tiene sesión que RLS pueda autorizar.
  */
 
-const addressSchema = z.object({
-  firstName: z.string().min(1, 'Indica el nombre'),
-  lastName: z.string().min(1, 'Indica el apellido'),
-  line1: z.string().min(1, 'Indica la dirección'),
-  line2: z.string().optional(),
-  city: z.string().min(1, 'Indica la ciudad'),
-  province: z.string().optional(),
-  countryCode: z.string().length(2).default('PA'),
-  postalCode: z.string().optional(),
-  phone: z.string().optional(),
-});
+/**
+ * La dirección tal y como queda grabada en el pedido.
+ *
+ * Las coordenadas son opcionales: quien compre desde un navegador sin
+ * JavaScript, o sin permiso de ubicación, tiene que poder terminar la compra.
+ * Lo que no se admite es media coordenada, ni una coordenada sin decir de dónde
+ * salió: un punto sin procedencia parece igual de fiable que uno del GPS y no lo
+ * es, y quien prepara el reparto necesita esa diferencia.
+ *
+ * No hay columnas nuevas que rellenar: `orders.shipping_address` es `jsonb` y
+ * guarda una instantánea, así que estos campos viajan dentro sin tocar el
+ * esquema. Es justo para lo que esa columna es una instantánea.
+ */
+const addressSchema = z
+  .object({
+    firstName: z.string().min(1, 'Indica el nombre'),
+    lastName: z.string().min(1, 'Indica el apellido'),
+    line1: z.string().min(1, 'Indica la dirección'),
+    line2: z.string().optional(),
+    city: z.string().min(1, 'Indica la ciudad'),
+    province: z.string().optional(),
+    countryCode: z.string().length(2).default('PA'),
+    postalCode: z.string().optional(),
+    phone: z.string().optional(),
+    latitude: z.number().min(-90).max(90).optional(),
+    longitude: z.number().min(-180).max(180).optional(),
+    locationPrecision: z.enum(LOCATION_PRECISIONS).optional(),
+    reference: z.string().max(200).optional(),
+    deliveryInstructions: z.string().max(200).optional(),
+  })
+  .refine(
+    (direccion) => (direccion.latitude === undefined) === (direccion.longitude === undefined),
+    {
+      message: 'La ubicación llegó a medias.',
+      path: ['longitude'],
+    },
+  )
+  .refine(
+    (direccion) =>
+      (direccion.latitude === undefined) === (direccion.locationPrecision === undefined),
+    { message: 'Falta saber de dónde salió la ubicación.', path: ['locationPrecision'] },
+  );
 
 const checkoutSchema = z.object({
   email: z.email('Correo electrónico no válido'),
@@ -144,8 +177,8 @@ export async function POST(request: Request) {
   });
 
   // Arranque del pago en la pasarela elegida.
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
-  const orderUrl = `${siteUrl}/checkout/confirmacion/${order.confirmation_token}`;
+  const base = siteUrl();
+  const orderUrl = `${base}/checkout/confirmacion/${order.confirmation_token}`;
 
   // El correo que la pantalla de confirmación lleva prometiendo desde el primer
   // día. Se manda aquí y no después de la pasarela porque el pedido ya existe:
@@ -201,7 +234,7 @@ export async function POST(request: Request) {
       // El token opaco, no el número de pedido: los números son secuenciales y
       // enumerarlos dejaría leer pedidos ajenos.
       returnUrl: orderUrl,
-      cancelUrl: `${siteUrl}/carrito`,
+      cancelUrl: `${base}/carrito`,
     });
 
     await supabase.from('payments').insert({
