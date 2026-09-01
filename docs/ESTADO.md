@@ -80,16 +80,17 @@ terminar.
 
 #### Cómo se autentica de verdad cada servicio
 
-| Servicio                | Para qué                          | Cómo entra la credencial                                                                  | Estado hoy                             |
-| ----------------------- | --------------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------- |
-| **Supabase**            | Base de datos, autenticación, RLS | `NEXT_PUBLIC_SUPABASE_URL` + anon key (variables) y `SUPABASE_SERVICE_ROLE_KEY` (secreto) | ✅ Puesto (staging)                    |
-| **Cloudflare Workers**  | Servir las dos aplicaciones       | `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` (secretos de Actions)                    | ✅ Puesto                              |
-| **Cloudflare R2**       | Imágenes de producto              | Enlace `r2_buckets` en `wrangler.jsonc` + `R2_PUBLIC_URL`                                 | ✅ Puesto, bucket `nebula-media`       |
-| **Resend**              | Correo transaccional              | `RESEND_API_KEY` (secreto) + `EMAIL_FROM`                                                 | 🔲 Falta. Necesita dominio             |
-| **Meta**                | Píxel y Conversions API           | `NEXT_PUBLIC_META_PIXEL_ID` + `META_CONVERSIONS_ACCESS_TOKEN`                             | 🔲 Falta                               |
-| **Yappy · Botón**       | Cobrar en el checkout             | `YAPPY_MERCHANT_ID`, `YAPPY_SECRET_KEY`, `YAPPY_DOMAIN_URL`                               | 🔲 Falta especificación y credenciales |
-| **Yappy · Integración** | Conciliar cobros                  | `YAPPY_API_URL`, `YAPPY_API_KEY`, `YAPPY_API_SECRET_KEY`                                  | 🔲 Falta el host de la API             |
-| **Teselas del mapa**    | Las imágenes del mapa             | `NEXT_PUBLIC_MAP_TILES_URL`                                                               | ⚠️ CARTO sin clave, sin plan           |
+| Servicio                  | Para qué                                 | Cómo entra la credencial                                                                  | Estado hoy                             |
+| ------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------- |
+| **Supabase**              | Base de datos, autenticación, RLS        | `NEXT_PUBLIC_SUPABASE_URL` + anon key (variables) y `SUPABASE_SERVICE_ROLE_KEY` (secreto) | ✅ Puesto (staging)                    |
+| **Cloudflare Workers**    | Servir las dos aplicaciones              | `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` (secretos de Actions)                    | ✅ Puesto                              |
+| **Cloudflare R2**         | Imágenes de producto                     | Enlace `r2_buckets` en `wrangler.jsonc` + `R2_PUBLIC_URL`                                 | ✅ Puesto, bucket `nebula-media`       |
+| **Cloudflare R2 privado** | Prueba de entrega y comprobante de abono | Enlace `r2_buckets` (`MEDIA_PRIVADA`). **Sin dominio público, y no debe tenerlo**         | 🔲 Falta crear `nebula-media-privada`  |
+| **Resend**                | Correo transaccional                     | `RESEND_API_KEY` (secreto) + `EMAIL_FROM`                                                 | 🔲 Falta. Necesita dominio             |
+| **Meta**                  | Píxel y Conversions API                  | `NEXT_PUBLIC_META_PIXEL_ID` + `META_CONVERSIONS_ACCESS_TOKEN`                             | 🔲 Falta                               |
+| **Yappy · Botón**         | Cobrar en el checkout                    | `YAPPY_MERCHANT_ID`, `YAPPY_SECRET_KEY`, `YAPPY_DOMAIN_URL`                               | 🔲 Falta especificación y credenciales |
+| **Yappy · Integración**   | Conciliar cobros                         | `YAPPY_API_URL`, `YAPPY_API_KEY`, `YAPPY_API_SECRET_KEY`                                  | 🔲 Falta el host de la API             |
+| **Teselas del mapa**      | Las imágenes del mapa                    | `NEXT_PUBLIC_MAP_TILES_URL`                                                               | ⚠️ CARTO sin clave, sin plan           |
 
 Los nombres exactos y sus valores de ejemplo están en
 [`.env.example`](../.env.example). Las reglas de qué va como secreto y qué como
@@ -169,6 +170,11 @@ disparador de alta. Ver migración `20260901020000`.
   permisos comprobados contra Postgres real. El panel los da de alta y les asigna
   envíos; ellos entran en `/motorizado` desde la tienda y ven **solo** lo que
   llevan encima. Falta L4.2: rutas, mapa en vivo y liquidaciones.
+- **Ficheros privados**: la foto de la prueba de entrega y el comprobante de un
+  abono van a un bucket **sin dominio público**. Lo que se guarda en la base es
+  la clave del objeto, que por sí sola no sirve de nada: para ver el fichero hay
+  que pedir el envío o el pago por una ruta que comprueba permisos. **Falta crear
+  el bucket en Cloudflare** — el código ya está y avisa si no lo encuentra.
 
 ### Cómo probar la fase L2 sin datos propios
 
@@ -205,13 +211,13 @@ funcionando.
 
 ### 🟠 P2 · Se puede abrir sin ello, pero duele pronto
 
-| #   | Qué falta                                                                                                          | Qué pasa si no está                                                                                                                                                                                                                                                                       |
-| --- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 5   | **Los avisos automáticos por correo** (L2 2.e y L3): despachado, en camino, entregado, recordatorio de vencimiento | El cliente llama por teléfono para preguntar dónde está su pedido. Es el trabajo manual que la plataforma existía para quitar                                                                                                                                                             |
-| 6   | **Cloudflare Access sobre el panel**                                                                               | El panel administrativo es alcanzable por cualquiera que sepa la URL. RLS protege los datos, pero la pantalla de acceso queda expuesta a fuerza bruta                                                                                                                                     |
-| 7   | **Backups de Supabase con retención definida**                                                                     | Un borrado accidental no tiene vuelta atrás                                                                                                                                                                                                                                               |
-| 8   | **Bucket privado** para la foto de prueba de entrega y el comprobante del abono                                    | Ambas funciones están a medias. El bucket que existe es **público**, y una foto de entrega es la puerta de casa de alguien: no sirve                                                                                                                                                      |
-| 9   | **Pasarela de pago real conectada**                                                                                | Hoy los pedidos se registran pero no se cobran en línea. Los abonos manuales sí funcionan. De Yappy falta **solo el Botón de Pago**, y falta porque falta su especificación: ver [`YAPPY.md`](YAPPY.md). Es una decisión de negocio pendiente ([ADR 0006](adr/0006-pasarela-al-final.md)) |
+| #   | Qué falta                                                                                                                                                                                                                                                                                            | Qué pasa si no está                                                                                                                                                                                                                                                                       |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 5   | **Los avisos automáticos por correo** (L2 2.e y L3): despachado, en camino, entregado, recordatorio de vencimiento                                                                                                                                                                                   | El cliente llama por teléfono para preguntar dónde está su pedido. Es el trabajo manual que la plataforma existía para quitar                                                                                                                                                             |
+| 6   | **Cloudflare Access sobre el panel**                                                                                                                                                                                                                                                                 | El panel administrativo es alcanzable por cualquiera que sepa la URL. RLS protege los datos, pero la pantalla de acceso queda expuesta a fuerza bruta                                                                                                                                     |
+| 7   | **Backups de Supabase con retención definida**                                                                                                                                                                                                                                                       | Un borrado accidental no tiene vuelta atrás                                                                                                                                                                                                                                               |
+| 8   | **Crear el bucket privado en Cloudflare**: `wrangler r2 bucket create nebula-media-privada`. El código ya escribe y lee de él —la foto de la prueba de entrega y el comprobante del abono— y avisa con claridad si no lo encuentra. Es un comando, y lo tiene que dar alguien con acceso a la cuenta |
+| 9   | **Pasarela de pago real conectada**                                                                                                                                                                                                                                                                  | Hoy los pedidos se registran pero no se cobran en línea. Los abonos manuales sí funcionan. De Yappy falta **solo el Botón de Pago**, y falta porque falta su especificación: ver [`YAPPY.md`](YAPPY.md). Es una decisión de negocio pendiente ([ADR 0006](adr/0006-pasarela-al-final.md)) |
 
 ### 🟡 P3 · Deuda conocida, sin urgencia
 

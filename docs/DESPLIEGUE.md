@@ -154,6 +154,50 @@ solo cambia quién las sirve. Lo que sí hay que hacer es reescribir las URL ya
 guardadas en `product_images.url` y en `cms_banners.media_url`, que llevan el
 dominio dentro. Un `update` con `replace()` sobre esas dos columnas basta.
 
+### El segundo bucket: el privado
+
+Hay **dos**, y la diferencia no es de configuración sino de qué se guarda en
+cada uno.
+
+`nebula-media` es público y tiene que serlo: una foto de catálogo la pide el
+navegador de cualquiera que abra la tienda, y servirla por un Worker sería pagar
+CPU por cada miniatura.
+
+`nebula-media-privada` **no tiene dominio público, y no debe tenerlo**. Guarda
+dos cosas:
+
+- La **foto de la prueba de entrega**, que es la puerta de casa de alguien y a
+  veces con la persona en el encuadre.
+- El **comprobante de un abono**, que suele ser la captura de una transferencia
+  bancaria con nombres, saldos y números de cuenta.
+
+Se crea una sola vez, y hace falta acceso a la cuenta de Cloudflare:
+
+```bash
+wrangler r2 bucket create nebula-media-privada
+```
+
+**No se le pone dominio público ni acceso `r2.dev`.** El binding ya está
+declarado como `MEDIA_PRIVADA` en los dos `wrangler.jsonc`; el despliegue no
+necesita nada más.
+
+Mientras el bucket no exista, subir una foto o un comprobante avisa con un
+mensaje claro y no rompe nada: la entrega se cierra igual y el abono se registra
+igual.
+
+#### Por qué la clave del objeto no viaja en ninguna URL
+
+Un bucket privado del que se reparten enlaces firmados sigue siendo un bucket del
+que se reparten enlaces: el enlace se reenvía, se queda en un historial y aparece
+en una captura.
+
+Aquí la clave se guarda en la fila —`shipments.delivery_proof_key`,
+`payments.receipt_key`— y **no llega nunca al navegador**. Para ver el fichero se
+pide _la cosa que documenta_: `/api/privado/entrega/<id del envío>` o
+`/api/privado/abono/<id del pago>`. Esa ruta lee la fila con el cliente de
+sesión, así que **quien decide si se puede ver es RLS**, la misma que decide todo
+lo demás. Si la fila no se puede leer, no hay clave; sin clave, no hay bytes.
+
 ### Lo que este bucket es y lo que no
 
 `nebula-media` es **público**: cualquiera con la URL de un objeto lo ve, sin

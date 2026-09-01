@@ -2,8 +2,10 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { storage } from '@nebula/integrations';
 import { getSupabaseServerClient } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/auth';
+import { getBucketPrivado } from '@/lib/media-privada';
 import {
   bloqueadoEnDemostracion,
   checkWrite,
@@ -78,28 +80,111 @@ export async function registrarAbono(
   // dinero mal para que cuadre, que es peor que registrarlo como es.
   const excede = parsed.data.amount > saldo + 0.005;
 
-  const { error } = await supabase.from('payments').insert({
-    order_id: parsed.data.orderId,
-    provider: parsed.data.provider,
-    status: 'paid',
-    amount: parsed.data.amount,
-    processed_at: new Date().toISOString(),
-    // En `reference`, no en `provider_payment_id`: esa columna tiene índice
-    // único por proveedor, para que la misma confirmación de una pasarela no
-    // entre dos veces. Una referencia escrita a mano —«efectivo», el nombre de
-    // quien cobró— se repite todos los días, y chocaba. Ver migración 0029.
-    reference: parsed.data.reference || null,
-  });
+  const { data: creado, error } = await supabase
+    .from('payments')
+    .insert({
+      order_id: parsed.data.orderId,
+      provider: parsed.data.provider,
+      status: 'paid',
+      amount: parsed.data.amount,
+      processed_at: new Date().toISOString(),
+      // En `reference`, no en `provider_payment_id`: esa columna tiene índice
+      // único por proveedor, para que la misma confirmación de una pasarela no
+      // entre dos veces. Una referencia escrita a mano —«efectivo», el nombre de
+      // quien cobró— se repite todos los días, y chocaba. Ver migración 0029.
+      reference: parsed.data.reference || null,
+    })
+    .select('id')
+    .single();
 
   if (error) return fromDatabaseError(error);
 
+  // El comprobante va después de crear el pago, y su fallo no deshace el abono.
+  // El dinero entró: eso es el hecho. La captura de la transferencia lo
+  // documenta, y se puede volver a adjuntar. Perder el registro del cobro
+  // porque la foto pesaba de más sería la decisión al revés.
+  const aviso = await adjuntarComprobante(supabase, creado.id, formData.get('comprobante'));
+
   revalidatePath(`/pedidos/${parsed.data.orderId}`);
 
-  return success(
-    excede
-      ? `Abono registrado. Ojo: supera el saldo pendiente, que era de ${saldo.toFixed(2)}.`
-      : 'Abono registrado.',
-  );
+  const nota = excede
+    ? `Abono registrado. Ojo: supera el saldo pendiente, que era de ${saldo.toFixed(2)}.`
+    : 'Abono registrado.';
+
+  return success(aviso ? `${nota} ${aviso}` : nota);
+}
+
+/**
+ * Guarda el comprobante de un abono en el bucket privado.
+ *
+ * POR QUÉ PRIVADO
+ *
+ * Suele ser la captura de una transferencia bancaria: nombres, saldos y a veces
+ * el número de cuenta de quien paga. En el bucket público de las imágenes de
+ * catálogo, cualquiera con la URL la vería para siempre.
+ *
+ * Lo que se guarda en la fila es la **clave** del objeto, que por sí sola no
+ * sirve de nada: no hay dominio que la sirva. Para verlo hay que pedir el pago
+ * por una ruta que comprueba permisos.
+ *
+ * Devuelve un aviso si algo falló, o `null` si fue bien o no había nada que
+ * subir. Nunca lanza: el abono ya está registrado y no se deshace por esto.
+ */
+async function adjuntarComprobante(
+  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
+  paymentId: string,
+  fichero: FormDataEntryValue | null,
+): Promise<string | null> {
+  if (!(fichero instanceof File) || fichero.size === 0) return null;
+
+  const bucket = getBucketPrivado();
+  if (!bucket) {
+    return 'El comprobante no se pudo guardar: no hay almacenamiento privado conectado.';
+  }
+
+  const buffer = await fichero.arrayBuffer();
+
+  // Lo que decide qué es el fichero son sus bytes, no lo que declare el
+  // navegador.
+  const comprobado = storage.comprobarSubidaPrivada({
+    declaredType: fichero.type,
+    size: fichero.size,
+    bytes: new Uint8Array(buffer),
+  });
+
+  if (!comprobado.ok) return `El comprobante no se adjuntó: ${comprobado.reason}`;
+
+  const clave = storage.construirClavePrivada({
+    tipo: 'abono',
+    duenoId: paymentId,
+    extension: comprobado.extension,
+    id: crypto.randomUUID(),
+  });
+
+  try {
+    await bucket.put(clave, buffer, {
+      httpMetadata: { contentType: comprobado.type, cacheControl: 'private, no-store' },
+    });
+  } catch (error) {
+    console.error('[abonos] no se pudo guardar el comprobante', error);
+    return 'El comprobante no se pudo subir. Puedes adjuntarlo después.';
+  }
+
+  const { error } = await supabase
+    .from('payments')
+    .update({ receipt_key: clave })
+    .eq('id', paymentId);
+
+  if (error) {
+    // El objeto está en el bucket pero la fila no lo sabe: se borra para no
+    // dejar la captura de una transferencia sin nada que la referencie ni la
+    // borre después.
+    await bucket.delete(clave).catch(() => undefined);
+    console.error('[abonos] no se pudo apuntar el comprobante', error);
+    return 'El comprobante no se pudo asociar al abono.';
+  }
+
+  return null;
 }
 
 /**
@@ -117,11 +202,32 @@ export async function borrarAbono(paymentId: string, orderId: string): Promise<A
 
   const supabase = await getSupabaseServerClient();
 
+  // Se lee la clave del comprobante ANTES de borrar la fila: después ya no hay
+  // de dónde sacarla, y el objeto se quedaría en el bucket para siempre sin nada
+  // que lo referencie. Un fichero con datos bancarios que nadie sabe que existe
+  // es exactamente lo que no queremos acumular.
+  const { data: pago } = await supabase
+    .from('payments')
+    .select('receipt_key')
+    .eq('id', paymentId)
+    .maybeSingle();
+
   const problema = checkWrite(
     await supabase.from('payments').delete().eq('id', paymentId).select('id'),
   );
 
   if (problema) return problema;
+
+  // Después de borrar la fila, no antes: si el borrado falla, el comprobante
+  // tiene que seguir estando donde su abono espera encontrarlo.
+  if (pago?.receipt_key) {
+    const bucket = getBucketPrivado();
+    await bucket?.delete(pago.receipt_key).catch((error: unknown) => {
+      // No se convierte en un fallo de la acción: el abono ya no está, que era
+      // lo que se pidió. Queda en el registro para poder limpiarlo a mano.
+      console.error('[abonos] quedó un comprobante huérfano en el bucket', error);
+    });
+  }
 
   revalidatePath(`/pedidos/${orderId}`);
   return success('Abono eliminado. El saldo se recalculó solo.');

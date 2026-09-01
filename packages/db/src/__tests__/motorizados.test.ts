@@ -412,6 +412,89 @@ describeIfDb('un motorizado y el resto de la tienda', () => {
   });
 });
 
+/*
+ * La ruta que sirve los ficheros privados no comprueba permisos por su cuenta:
+ * lee la fila con el cliente de sesión y, si no hay fila, no hay clave. Así que
+ * lo que de verdad protege la foto de una entrega y el comprobante de un abono
+ * es lo que se prueba aquí — que la fila no se lee.
+ */
+describeIfDb('los ficheros privados', () => {
+  it('un motorizado no puede leer la clave del comprobante de un abono', async () => {
+    await comoMotorizado(async (db) => {
+      const { rows } = await db.query(`select receipt_key from public.payments`);
+      expect(rows).toHaveLength(0);
+    });
+  });
+
+  it('un motorizado sí ve la clave de la prueba de SU entrega', async () => {
+    await comoMotorizado(async (db) => {
+      const { rows } = await db.query<{ id: string }>(
+        `select id, delivery_proof_key from public.shipments`,
+      );
+      expect(rows.map((r) => r.id)).toEqual([envioPropio]);
+    });
+  });
+
+  it('un motorizado no alcanza la clave de la prueba de una entrega ajena', async () => {
+    await comoMotorizado(async (db) => {
+      const { rows } = await db.query(
+        `select delivery_proof_key from public.shipments where id = $1`,
+        [envioAjeno],
+      );
+      expect(rows).toHaveLength(0);
+    });
+  });
+
+  it('un cliente con sesión no alcanza ninguna de las dos', async () => {
+    await asRole(client, { role: 'authenticated', userId: CLIENTE }, async (db) => {
+      expect(await countVisible(db, 'public.shipments')).toBe(0);
+      expect(await countVisible(db, 'public.payments')).toBe(0);
+    });
+  });
+
+  /*
+   * Las dos tablas paran a un visitante anónimo, pero **no por el mismo motivo**,
+   * y la diferencia es la que explica `permisos.test.ts`:
+   *
+   *  - `shipments` no tiene ningún permiso concedido a `anon`, así que Postgres
+   *    rechaza la consulta antes de mirar ninguna política.
+   *  - `payments` sí tiene `select` concedido, y lo que devuelve cero filas es
+   *    RLS.
+   *
+   * Lo segundo es una capa menos. Funciona, pero deja a RLS sola: ver el issue
+   * del `grant` de más sobre `payments`.
+   */
+  it('a un visitante anónimo se le rechaza la consulta de envíos antes de mirar políticas', async () => {
+    await asRole(client, { role: 'anon' }, async (db) => {
+      await expect(countVisible(db, 'public.shipments')).rejects.toThrow(/permission denied/i);
+    });
+  });
+
+  it('a un visitante anónimo RLS le devuelve cero cobros', async () => {
+    await asRole(client, { role: 'anon' }, async (db) => {
+      expect(await countVisible(db, 'public.payments')).toBe(0);
+    });
+  });
+
+  /*
+   * Este es el que de verdad protege la caja. `anon` tiene `insert` concedido
+   * sobre `payments` —un permiso que sobra— así que lo único que impide que un
+   * visitante se invente un cobro de mil dólares sobre un pedido ajeno es la
+   * política. Queda fijado aquí para que nadie la relaje sin enterarse.
+   */
+  it('un visitante anónimo no puede inventarse un cobro', async () => {
+    await asRole(client, { role: 'anon' }, async (db) => {
+      await expect(
+        db.query(
+          `insert into public.payments (order_id, provider, amount, status)
+           values ($1, 'manual', 999, 'paid')`,
+          [otroPedido],
+        ),
+      ).rejects.toThrow(/row-level security/i);
+    });
+  });
+});
+
 describeIfDb('el equipo sigue viéndolo todo', () => {
   it('un administrador ve los dos envíos y las dos fichas', async () => {
     await asRole(client, { role: 'authenticated', userId: ADMIN }, async (db) => {

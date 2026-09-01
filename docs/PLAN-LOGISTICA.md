@@ -621,8 +621,9 @@ bajar en cada paso.
 - **Los recordatorios por correo antes del vencimiento**, y con ellos la tabla
   `payment_plans` (cuotas y vencimientos). Van junto a los avisos de L2: es el
   mismo trabajo de correo y conviene hacerlo de una vez.
-- **El comprobante adjunto** al registrar un abono. Necesita el mismo bucket
-  privado que la prueba de entrega, que todavía no existe.
+- ~~**El comprobante adjunto** al registrar un abono.~~ Hecho: va al bucket
+  privado, y el panel lo enseña con un enlace que solo abre el equipo. Falta
+  crear el bucket en Cloudflare, que es un comando.
 - **`valor_recaudar` de Servientrega**: con la política de contra entrega, el
   courier nacional puede cobrar el saldo en la puerta. Se conecta en L5.
 
@@ -746,9 +747,9 @@ probado nada.
 
 #### Lo que queda pendiente de esta fase
 
-- **4.b · La foto de la prueba de entrega y la firma.** La columna existe y
-  apunta a un bucket **privado** que todavía no existe. El de imágenes de
-  producto es público, y una foto de entrega es la puerta de casa de alguien.
+- **4.b · La firma en pantalla.** La foto de la prueba de entrega ya está: el
+  motorizado la sube al cerrar y va a un bucket sin dominio público. Falta la
+  firma, que necesita un lienzo táctil y es otra tarea.
 - **4.b · Funcionar sin señal.** Hoy cerrar una entrega necesita conexión. En
   reparto urbano eso no es opcional, pero es trabajo de service worker y cola
   local, y va después de que la aplicación se use y se sepa dónde falla de

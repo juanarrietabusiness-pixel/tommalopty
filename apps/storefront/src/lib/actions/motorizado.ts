@@ -7,7 +7,9 @@ import {
   validateShipmentTransition,
   isShipmentStatus,
 } from '@nebula/domain';
+import { storage } from '@nebula/integrations';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
+import { getBucketPrivado } from '@/lib/media-privada';
 
 /**
  * Mover un envío desde la aplicación del motorizado.
@@ -122,4 +124,120 @@ export async function moverMiEnvio(entrada: {
           ? 'Anotado. Quien despacha lo verá.'
           : 'Listo.',
   };
+}
+
+/**
+ * La foto de la prueba de entrega.
+ *
+ * VA A UN BUCKET PRIVADO, Y NO ES UN DETALLE DE CONFIGURACIÓN
+ *
+ * Es la puerta de casa de alguien, a veces con la persona en el encuadre. En el
+ * bucket público de las imágenes de catálogo, cualquiera con la URL la vería
+ * para siempre — y las URL se reenvían. Aquí se guarda la **clave** del objeto
+ * en la fila del envío, y esa clave no llega nunca al navegador: para ver la
+ * foto hay que pedir el envío por una ruta que comprueba permisos.
+ *
+ * SE SUBE ANTES DE CERRAR LA ENTREGA
+ *
+ * Y en ese orden a propósito. Si la subida falla, quien reparte **todavía está
+ * en la puerta** y puede repetirla o cerrar sin foto. Al revés —cerrar primero—
+ * la pantalla ya habría vuelto a la lista y la foto se perdería con la moto en
+ * marcha.
+ *
+ * De quién es el envío no se comprueba aquí: se lee con el cliente de sesión,
+ * así que si no es suyo no hay fila, y sin fila no hay subida. La misma política
+ * que decide todo lo demás.
+ */
+export async function subirPruebaDeEntrega(formData: FormData): Promise<ResultadoDeEntrega> {
+  if (!isSupabaseConfigured()) {
+    return { ok: false, mensaje: 'La tienda no está conectada a su base de datos.' };
+  }
+
+  const shipmentId = String(formData.get('shipmentId') ?? '');
+  if (!z.uuid().safeParse(shipmentId).success) {
+    return { ok: false, mensaje: 'No sabemos de qué entrega es esa foto.' };
+  }
+
+  const fichero = formData.get('foto');
+  if (!(fichero instanceof File) || fichero.size === 0) {
+    return { ok: false, mensaje: 'No llegó ninguna foto.' };
+  }
+
+  const supabase = await getSupabaseServerClient();
+
+  const { data: envio } = await supabase
+    .from('shipments')
+    .select('id')
+    .eq('id', shipmentId)
+    .maybeSingle();
+
+  if (!envio) return { ok: false, mensaje: 'Esa entrega ya no está asignada a ti.' };
+
+  const bucket = getBucketPrivado();
+  if (!bucket) {
+    return {
+      ok: false,
+      mensaje:
+        'No hay almacenamiento conectado, así que la foto no se puede guardar. ' +
+        'Puedes cerrar la entrega igual y anotarlo en la nota.',
+    };
+  }
+
+  const buffer = await fichero.arrayBuffer();
+
+  // Lo que decide qué es el fichero son sus bytes, no lo que diga el teléfono.
+  const comprobado = storage.comprobarSubidaPrivada({
+    declaredType: fichero.type,
+    size: fichero.size,
+    bytes: new Uint8Array(buffer),
+  });
+
+  if (!comprobado.ok) return { ok: false, mensaje: comprobado.reason };
+
+  const clave = storage.construirClavePrivada({
+    tipo: 'entrega',
+    duenoId: shipmentId,
+    extension: comprobado.extension,
+    id: crypto.randomUUID(),
+  });
+
+  try {
+    await bucket.put(clave, buffer, {
+      httpMetadata: {
+        contentType: comprobado.type,
+        // Nada de caché: quien la mire la pide cada vez y no se queda por el
+        // camino en ningún proxy.
+        cacheControl: 'private, no-store',
+      },
+    });
+  } catch (error) {
+    console.error('[motorizado] no se pudo guardar la prueba de entrega', error);
+    return {
+      ok: false,
+      mensaje: 'No se pudo subir la foto. Revisa tu señal e inténtalo otra vez.',
+    };
+  }
+
+  const { error } = await supabase
+    .from('shipments')
+    .update({ delivery_proof_key: clave })
+    .eq('id', shipmentId);
+
+  if (error) {
+    // El objeto ya está en el bucket pero la fila no lo sabe. Se borra: dejarlo
+    // sería una foto de la casa de alguien sin nada que la referencie, y por
+    // tanto sin nada que la borre nunca.
+    await bucket.delete(clave).catch(() => undefined);
+
+    if (error.code === '42501') {
+      return { ok: false, mensaje: 'Esa entrega no te corresponde a ti.' };
+    }
+
+    console.error('[motorizado] no se pudo apuntar la prueba de entrega', error);
+    return { ok: false, mensaje: 'La foto se subió pero no se pudo guardar. Inténtalo otra vez.' };
+  }
+
+  revalidatePath(`/motorizado/${shipmentId}`);
+
+  return { ok: true, mensaje: 'Foto guardada.' };
 }

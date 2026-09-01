@@ -162,6 +162,26 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                     render: (payment) => money(payment.amount),
                   },
                   {
+                    key: 'comprobante',
+                    header: 'Comprobante',
+                    // El enlace apunta al pago, no al fichero: la clave del
+                    // objeto no sale nunca al navegador, y quien decide si se
+                    // puede ver es la política de la fila.
+                    render: (payment) =>
+                      payment.receipt_key ? (
+                        <a
+                          href={`/api/privado/abono/${payment.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-outline btn-sm"
+                        >
+                          Ver
+                        </a>
+                      ) : (
+                        <span className="cell-muted">—</span>
+                      ),
+                  },
+                  {
                     key: 'borrar',
                     header: '',
                     align: 'right',
@@ -217,6 +237,22 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                   >
                     Ver e imprimir la guía
                   </Link>
+                  {/*
+                    La foto la subió el motorizado al cerrar la entrega. Se abre
+                    en otra pestaña y no se incrusta aquí: es la puerta de casa
+                    de alguien, y no tiene por qué estar a la vista de quien pase
+                    por delante de la pantalla del panel.
+                  */}
+                  {envio.tienePrueba ? (
+                    <a
+                      href={`/api/privado/entrega/${envio.id}`}
+                      className="btn btn-outline btn-sm"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Ver la prueba de entrega
+                    </a>
+                  ) : null}
                 </div>
               ))
             )}

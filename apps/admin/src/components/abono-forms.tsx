@@ -3,6 +3,7 @@
 import { useActionState } from 'react';
 import { money } from '@nebula/ui';
 import { POLITICA_LABELS, decidirDespacho, type ReglaDeDespacho } from '@nebula/domain';
+import { storage } from '@nebula/integrations';
 import { borrarAbono, registrarAbono } from '@/lib/actions/abonos';
 import { IDLE } from '@/lib/actions/result';
 import { FieldError, FormFeedback, SubmitButton } from './form';
@@ -105,6 +106,26 @@ export function AbonosForm({
             maxLength={120}
             placeholder="Número de transferencia, comprobante o quien lo recibió"
           />
+        </div>
+
+        {/*
+          El comprobante va a un bucket privado y su enlace solo lo abre el
+          equipo: suele ser la captura de una transferencia, con nombres y
+          saldos. Si falla la subida, el abono se registra igual —el dinero
+          entró, y eso es el hecho— y el aviso lo dice.
+        */}
+        <div className="field">
+          <label htmlFor="comprobante">Comprobante (opcional)</label>
+          <input
+            id="comprobante"
+            name="comprobante"
+            type="file"
+            accept={storage.MEDIA_ACCEPT_ATTRIBUTE}
+          />
+          <span className="field-hint">
+            Solo lo ve el equipo: se guarda aparte de las imágenes de la tienda y no tiene enlace
+            público.
+          </span>
         </div>
 
         <SubmitButton>Registrar abono</SubmitButton>

@@ -44,7 +44,7 @@ export default async function DetalleDeEntregaPage({
     .from('shipments')
     .select(
       `id, tracking_number, status, destination, latitude, longitude,
-       delivery_note, received_by, failure_reason`,
+       delivery_note, received_by, failure_reason, delivery_proof_key`,
     )
     .eq('id', id)
     .maybeSingle();
@@ -129,11 +129,17 @@ export default async function DetalleDeEntregaPage({
         </a>
       ) : null}
 
+      {/*
+        Se pasa si hay foto, no la foto. La clave del objeto no sale de aquí: el
+        motorizado no necesita verla y una clave que llega al navegador acaba en
+        una captura de pantalla.
+      */}
       <CerrarEntrega
         shipmentId={envio.id}
         estado={estado}
         recibidoPor={envio.received_by ?? ''}
         nota={envio.delivery_note ?? ''}
+        tieneFoto={Boolean(envio.delivery_proof_key)}
       />
     </div>
   );

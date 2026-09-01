@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   SHIPMENT_STATUS_LABELS,
   allowedShipmentTransitions,
   type ShipmentStatus,
 } from '@nebula/domain';
-import { moverMiEnvio } from '@/lib/actions/motorizado';
+import { storage } from '@nebula/integrations';
+import { moverMiEnvio, subirPruebaDeEntrega } from '@/lib/actions/motorizado';
 
 /**
  * Los botones con los que se cierra una entrega, hechos para la calle.
@@ -43,11 +44,14 @@ export function CerrarEntrega({
   estado,
   recibidoPor,
   nota,
+  tieneFoto,
 }: {
   shipmentId: string;
   estado: ShipmentStatus;
   recibidoPor: string;
   nota: string;
+  /** Si ya hay una prueba de entrega guardada para este envío. */
+  tieneFoto: boolean;
 }) {
   const router = useRouter();
   const [pendiente, startTransition] = useTransition();
@@ -56,6 +60,8 @@ export function CerrarEntrega({
   const [comentario, setComentario] = useState(nota);
   const [motivo, setMotivo] = useState('');
   const [aviso, setAviso] = useState<string | null>(null);
+  const foto = useRef<HTMLInputElement | null>(null);
+  const [fotoGuardada, setFotoGuardada] = useState(tieneFoto);
 
   const posibles = allowedShipmentTransitions(estado).filter((destino) =>
     LO_QUE_PUEDE_MARCAR.includes(destino),
@@ -81,6 +87,30 @@ export function CerrarEntrega({
     setAviso(null);
 
     startTransition(async () => {
+      /*
+       * La foto va PRIMERO, y si falla no se cierra la entrega.
+       *
+       * En ese orden porque, si falla, quien reparte todavía está en la puerta y
+       * puede repetirla o quitarla y cerrar sin ella. Al revés, la pantalla ya
+       * habría vuelto a la lista y la foto se perdería con la moto en marcha.
+       */
+      const elegida = foto.current?.files?.[0];
+
+      if (elegida && destino === 'entregado') {
+        const datos = new FormData();
+        datos.set('shipmentId', shipmentId);
+        datos.set('foto', elegida);
+
+        const subida = await subirPruebaDeEntrega(datos);
+
+        if (!subida.ok) {
+          setAviso(`${subida.mensaje} La entrega NO se cerró: reinténtalo o quita la foto.`);
+          return;
+        }
+
+        setFotoGuardada(true);
+      }
+
       const resultado = await moverMiEnvio({
         shipmentId,
         status: destino,
@@ -110,6 +140,29 @@ export function CerrarEntrega({
 
       {posibles.includes('entregado') ? (
         <>
+          {/*
+            `capture="environment"` abre la cámara trasera directamente en vez
+            del carrete: quien entrega quiere hacer la foto ahí mismo, no buscar
+            una que ya tenga. En un escritorio el atributo se ignora solo.
+          */}
+          <div className="field">
+            <label htmlFor="foto">
+              {fotoGuardada ? 'Cambiar la foto de la entrega' : 'Foto de la entrega (opcional)'}
+            </label>
+            <input
+              id="foto"
+              ref={foto}
+              type="file"
+              accept={storage.MEDIA_ACCEPT_ATTRIBUTE}
+              capture="environment"
+            />
+            <span className="field-hint">
+              {fotoGuardada
+                ? 'Ya hay una foto guardada. Si eliges otra, la sustituye.'
+                : 'La ve solo el equipo. No se publica en ningún sitio.'}
+            </span>
+          </div>
+
           <div className="field">
             <label htmlFor="recibidoPor">¿Quién lo recibió? (opcional)</label>
             <input

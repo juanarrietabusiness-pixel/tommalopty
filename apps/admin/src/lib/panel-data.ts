@@ -706,6 +706,8 @@ export interface EnvioDelPedido {
   carrier: string | null;
   carrierTrackingNumber: string | null;
   tieneCoordenadas: boolean;
+  /** Si el motorizado dejó foto al cerrar. No cuál: la clave no sale de aquí. */
+  tienePrueba: boolean;
   createdAt: string;
 }
 
@@ -741,7 +743,7 @@ export async function cargarEnviosDelPedido(orderId: string): Promise<{
       .from('shipments')
       .select(
         `id, tracking_number, status, assigned_to, carrier, carrier_tracking_number,
-         latitude, created_at`,
+         latitude, created_at, delivery_proof_key`,
       )
       .eq('order_id', orderId)
       .order('created_at', { ascending: false }),
@@ -763,6 +765,8 @@ export async function cargarEnviosDelPedido(orderId: string): Promise<{
       carrier: fila.carrier,
       carrierTrackingNumber: fila.carrier_tracking_number,
       tieneCoordenadas: fila.latitude !== null,
+      // Si hay prueba, no cuál: la clave del objeto no sale al navegador.
+      tienePrueba: fila.delivery_proof_key !== null,
       createdAt: fila.created_at,
     })),
     operadores: (fichas ?? [])

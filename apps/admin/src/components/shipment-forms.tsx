@@ -18,6 +18,7 @@ export interface EnvioEnPantalla {
   carrier: string | null;
   carrierTrackingNumber: string | null;
   tieneCoordenadas: boolean;
+  tienePrueba: boolean;
   createdAt: string;
 }
 

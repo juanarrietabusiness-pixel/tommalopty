@@ -1312,6 +1312,7 @@ export interface Database {
           provider: Database['public']['Enums']['payment_provider'];
           provider_payment_id: string | null;
           reference: string | null;
+          receipt_key: string | null;
           status: Database['public']['Enums']['payment_status'];
           amount: number;
           currency: string;
@@ -1327,6 +1328,7 @@ export interface Database {
           provider: Database['public']['Enums']['payment_provider'];
           provider_payment_id?: string | null;
           reference?: string | null;
+          receipt_key?: string | null;
           status?: Database['public']['Enums']['payment_status'];
           amount: number;
           currency?: string;
@@ -1342,6 +1344,7 @@ export interface Database {
           provider?: Database['public']['Enums']['payment_provider'];
           provider_payment_id?: string | null;
           reference?: string | null;
+          receipt_key?: string | null;
           status?: Database['public']['Enums']['payment_status'];
           amount?: number;
           currency?: string;
