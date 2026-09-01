@@ -12,7 +12,7 @@ import {
   type DeliveryZone,
   type LocationPrecision,
 } from '@nebula/domain';
-import { estiloDelMapa } from '@/lib/mapa';
+import { estiloDelMapa } from '@nebula/ui';
 import type { LugarEncontrado } from '@/app/api/geo/buscar/route';
 import 'maplibre-gl/dist/maplibre-gl.css';
 

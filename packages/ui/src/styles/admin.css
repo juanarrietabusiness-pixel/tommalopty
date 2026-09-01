@@ -720,3 +720,32 @@
   font-weight: 600;
   margin-bottom: 12px;
 }
+
+/* --- Editor de zonas de reparto ------------------------------------------- */
+.zona-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.zona-mapa {
+  height: 340px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: crosshair;
+}
+
+.zona-controles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.zona-botones {
+  display: flex;
+  gap: 8px;
+}

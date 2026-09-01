@@ -30,8 +30,21 @@ export const ATTRIBUTION =
  *
  * Se construye a mano en lugar de descargar un JSON de estilo porque así el
  * mapa no depende de una segunda petición a un tercero para pintarse.
+ *
+ * El tipo se declara aquí en vez de importarlo de `maplibre-gl`: este paquete
+ * lo comparten la tienda y el panel, y no debe arrastrar la librería del mapa a
+ * quien solo quiera un botón.
  */
-export function estiloDelMapa(): import('maplibre-gl').StyleSpecification {
+export interface EstiloRaster {
+  version: 8;
+  sources: Record<
+    string,
+    { type: 'raster'; tiles: string[]; tileSize: number; attribution: string }
+  >;
+  layers: { id: string; type: 'raster'; source: string }[];
+}
+
+export function estiloDelMapa(): EstiloRaster {
   return {
     version: 8,
     sources: {
