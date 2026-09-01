@@ -265,6 +265,29 @@ create policy "shipments_courier_update" on public.shipments
 
 -- --- 7. Permisos de tabla ---------------------------------------------------
 -- Explícitos aunque los `default privileges` de la 0022 ya los den: que se lea
--- aquí qué toca cada rol. `anon` fuera, como siempre.
+-- aquí qué toca cada rol.
 grant select, insert, update, delete on public.couriers to authenticated;
 grant select, insert, update, delete on public.courier_zones to authenticated;
+
+-- --- 8. Y a `anon` se le quita lo que Supabase le da por su cuenta ----------
+-- ESTO NO SOBRA, Y AVERIGUARLO COSTÓ UNA EJECUCIÓN DE CI.
+--
+-- La migración 0022 dice que `anon` «se deja fuera» de las tablas nuevas porque
+-- sus `alter default privileges` solo nombran a `authenticated` y a
+-- `service_role`. **Eso no es lo que pasa en un Supabase de verdad.** El arranque
+-- de Supabase declara sus propios `alter default privileges` concediendo a
+-- `anon`, y los suyos también aplican: cualquier tabla creada después nace con
+-- `select, insert, update, delete` **y `truncate`** para el público.
+--
+-- Se comprobó contra el Supabase real que levanta CI: `anon` podía consultar
+-- `shipments`, creada dos migraciones antes que ésta y con el mismo cuidado.
+--
+-- Con RLS bien puesta, `select`, `insert`, `update` y `delete` no devuelven ni
+-- tocan nada. **`truncate` sí**: no está sujeto a políticas de fila, así que el
+-- privilegio es lo único que separa a un anónimo de vaciar la tabla. Hoy no se
+-- llega a él desde la API REST —PostgREST no expone `truncate`— pero eso es una
+-- propiedad de la capa de arriba, no de la base.
+--
+-- Así que aquí se revoca de verdad, en vez de confiar en que no se concedió.
+revoke all on public.couriers from anon;
+revoke all on public.courier_zones from anon;

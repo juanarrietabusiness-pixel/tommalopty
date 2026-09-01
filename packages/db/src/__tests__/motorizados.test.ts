@@ -453,26 +453,44 @@ describeIfDb('los ficheros privados', () => {
   });
 
   /*
-   * Las dos tablas paran a un visitante anónimo, pero **no por el mismo motivo**,
-   * y la diferencia es la que explica `permisos.test.ts`:
+   * A un visitante anónimo lo paran las dos tablas, pero **RLS a solas**, sin la
+   * capa de permisos por debajo. Y eso NO es lo que el repositorio creía.
    *
-   *  - `shipments` no tiene ningún permiso concedido a `anon`, así que Postgres
-   *    rechaza la consulta antes de mirar ninguna política.
-   *  - `payments` sí tiene `select` concedido, y lo que devuelve cero filas es
-   *    RLS.
+   * La migración 0022 dice que `anon` «se deja fuera» de las tablas nuevas
+   * porque sus `alter default privileges` solo nombran a `authenticated` y
+   * `service_role`. Pero el arranque de Supabase declara los suyos concediendo a
+   * `anon`, y los suyos también aplican: `shipments` y `payments` nacieron con
+   * permisos para el público, y lo único que las protege es la política.
    *
-   * Lo segundo es una capa menos. Funciona, pero deja a RLS sola: ver el issue
-   * del `grant` de más sobre `payments`.
+   * Se descubrió porque este test, escrito contra un Postgres pelado donde esos
+   * privilegios por omisión no existen, esperaba «permission denied» y en CI
+   * —Supabase de verdad— devolvió cero filas. Queda escrito así para que nadie
+   * vuelva a leer el comentario de la 0022 y se lo crea.
    */
-  it('a un visitante anónimo se le rechaza la consulta de envíos antes de mirar políticas', async () => {
+  it('a un visitante anónimo RLS le devuelve cero envíos y cero cobros', async () => {
     await asRole(client, { role: 'anon' }, async (db) => {
-      await expect(countVisible(db, 'public.shipments')).rejects.toThrow(/permission denied/i);
+      expect(await countVisible(db, 'public.shipments')).toBe(0);
+      expect(await countVisible(db, 'public.payments')).toBe(0);
     });
   });
 
-  it('a un visitante anónimo RLS le devuelve cero cobros', async () => {
+  /*
+   * Las dos tablas de esta fase sí revocan a `anon` explícitamente, en vez de
+   * confiar en que no se le concedió. Aquí la consulta ni siquiera llega a mirar
+   * políticas, que es una capa más de la que tienen las tablas anteriores.
+   *
+   * Importa por `truncate`: no está sujeto a RLS, así que el privilegio es lo
+   * único que separa a un anónimo de vaciar la tabla.
+   */
+  it('a un visitante anónimo se le rechaza la consulta de motorizados antes de mirar políticas', async () => {
     await asRole(client, { role: 'anon' }, async (db) => {
-      expect(await countVisible(db, 'public.payments')).toBe(0);
+      await expect(countVisible(db, 'public.couriers')).rejects.toThrow(/permission denied/i);
+    });
+  });
+
+  it('un visitante anónimo tampoco puede vaciar la tabla de motorizados', async () => {
+    await asRole(client, { role: 'anon' }, async (db) => {
+      await expect(db.query('truncate public.courier_zones')).rejects.toThrow(/permission denied/i);
     });
   });
 

@@ -311,10 +311,31 @@ Postgres real cada consulta que las aplicaciones hacen, con el rol que la hará.
 
 ### `grant ... on all tables` solo alcanza a lo que ya existe
 
-Una tabla creada después nace sin privilegios. Está declarado
+Una tabla creada después nace sin privilegios de los nuestros. Está declarado
 `alter default privileges` para `authenticated` y `service_role`, que sí alcanza
-al futuro. `anon` se deja fuera a propósito: una tabla nueva no debería quedar
-expuesta al público por omisión, sino porque alguien lo escribió.
+al futuro.
+
+**Y lo que decía aquí sobre `anon` era falso.** Decía que se dejaba fuera a
+propósito, y que por tanto una tabla nueva no quedaba expuesta al público. No es
+así: **el arranque de Supabase declara sus propios `alter default privileges`
+concediendo a `anon`**, y los suyos también aplican. Toda tabla creada en
+`public` nace con `select, insert, update, delete` **y `truncate`** para el
+público, digamos aquí lo que digamos.
+
+Se descubrió en CI, con un test que esperaba «permission denied» sobre
+`shipments` y recibió cero filas: contra un Postgres pelado el permiso no
+existía; contra el Supabase de verdad, sí.
+
+Con RLS bien puesta, las cuatro primeras no devuelven ni tocan nada. **`truncate`
+es la excepción y la que importa**: no está sujeto a políticas de fila, así que
+el privilegio es lo único que separa a un anónimo de vaciar una tabla. Hoy no se
+llega a él desde la API REST —PostgREST no lo expone— pero eso es una propiedad
+de la capa de arriba, no de la base.
+
+**La conclusión práctica:** una tabla nueva se revoca a `anon` explícitamente, en
+su propia migración, en vez de confiar en que no se le concedió. Las de la fase
+L4 lo hacen y tienen tests que lo fijan. Las anteriores no: [issue
+#24](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/24).
 
 ### Un test que no puede fallar no prueba nada
 
