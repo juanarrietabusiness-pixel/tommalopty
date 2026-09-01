@@ -32,10 +32,19 @@ Configuración necesaria, ya puesta (Settings → Secrets and variables → Acti
 | Variable | `STAGING_SUPABASE_URL`, `STAGING_SUPABASE_ANON_KEY` | Conexión pública a Supabase                  |
 | Variable | `STAGING_SITE_URL`, `STAGING_ADMIN_URL`             | Que cada aplicación sepa su propia URL       |
 | Variable | `R2_PUBLIC_URL`                                     | Dominio público de las imágenes              |
+| Secret   | `STAGING_RESEND_API_KEY`                            | Correo transaccional. **Aún sin poner**      |
+| Variable | `STAGING_EMAIL_FROM`, `STAGING_EMAIL_REPLY_TO`      | Remitente del correo. **Aún sin poner**      |
 
 La anon key va como **variable y no como secreto** a propósito: viaja en el
 navegador de cualquiera que abra la tienda. Lo que protege los datos es RLS, no
 el secreto de esa clave.
+
+Las tres del correo **todavía no están puestas, y no es un olvido**: `EMAIL_FROM`
+necesita un dominio verificado en Resend, y el dominio es el P1 número 2. El
+despliegue ya sabe leerlas y cargarlas en el Worker; mientras falten, lo dice en
+su resumen y la tienda funciona igual, solo que sin avisar a nadie. Los pasos de
+instalación, cuando haya dominio, están en
+[`PLAN-LOGISTICA.md` § 2.e](PLAN-LOGISTICA.md).
 
 ### Cómo entra el primer administrador
 

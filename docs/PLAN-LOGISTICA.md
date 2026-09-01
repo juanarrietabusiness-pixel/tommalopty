@@ -473,7 +473,10 @@ en dos toques.
 
 - **2.e · Los avisos automáticos.** Los correos que ya existen no se han
   ampliado a los estados de envío (despachado, en camino, entregado). Es lo
-  único de L2 sin empezar.
+  único de L2 sin empezar, y **está bloqueado por el dominio, no por el
+  código** — ver el apartado de abajo. Con ellos van los recordatorios de
+  vencimiento de L3: es el mismo trabajo de correo y conviene hacerlo de una
+  vez.
 - **La posición del motorizado en el mapa** durante la ruta. Necesita que exista
   la aplicación del motorizado, que es la fase L4.
 - **La prueba de entrega con foto.** La columna está y apunta a un bucket
@@ -481,6 +484,58 @@ en dos toques.
   público y una foto de entrega es la puerta de casa de alguien.
 - **El saldo pendiente en la guía** hoy es el total si el pedido no está pagado.
   Cuando existan los abonos (L3) pasará a ser el saldo real.
+
+#### 2.e · Por qué el correo espera al dominio, y qué hay que hacer cuando llegue
+
+El código de envío **ya está y no necesita credenciales**: `resendProvider.send()`
+es una llamada HTTP a `api.resend.com` que lee dos variables del entorno. Sin
+ellas devuelve `{ sent: false, reason: 'email_not_configured' }`, y quien llama ya
+trata ese caso como normal y no lo registra como error. La tienda funciona sin
+correo y empieza a mandarlo el día que existan las variables, sin desplegar nada
+distinto.
+
+Lo que bloquea no es la clave: es que **`EMAIL_FROM` necesita un dominio
+verificado en Resend**. Sin dominio propio, Resend solo deja enviar desde
+`onboarding@resend.dev` y **solo a la dirección de la propia cuenta**. Sirve para
+comprobar que el código funciona; no sirve para avisar a un cliente. Es el mismo
+P1 que bloquea las pasarelas: el dominio.
+
+**Instalación, cuando haya dominio.** Cuatro pasos, y ninguno es de programación:
+
+1. **En Resend, con la cuenta que vaya a ser la definitiva.** Si la tienda es de
+   la clienta, la cuenta es suya: una clave creada en la cuenta personal de otra
+   persona significa que el día que ella se lleve la tienda, el correo se queda
+   atrás.
+2. **Añadir el dominio y verificarlo.** Resend da los registros DNS (SPF, DKIM y
+   el de retorno) para pegar donde esté el dominio. Hasta que no aparezcan los
+   tres en verde, no sale nada.
+3. **Crear una API key con permiso de solo envío** («Sending access»). No hace
+   falta ninguno más, y una clave con menos permisos es una clave que hace menos
+   daño si se filtra.
+4. **Pegar los valores en GitHub → Settings → Secrets and variables → Actions**,
+   con la convención que ya usa el repositorio:
+
+   | Tipo         | Nombre                   | Valor                         |
+   | ------------ | ------------------------ | ----------------------------- |
+   | **Secret**   | `STAGING_RESEND_API_KEY` | la clave, `re_…`              |
+   | **Variable** | `STAGING_EMAIL_FROM`     | `Nombre <hola@tudominio.com>` |
+   | **Variable** | `STAGING_EMAIL_REPLY_TO` | `hola@tudominio.com`          |
+
+   La clave va como **secreto** y las otras dos como **variables**: la clave
+   manda correo en nombre del dominio, y las otras dos aparecen en la cabecera de
+   cada mensaje que se envía. El despliegue ya está preparado para leerlas y
+   pasárselas al Worker, igual que hace con la service-role de Supabase.
+
+Para probar en local antes, las mismas tres en un `.env.local`, que está en
+`.gitignore`. **La clave no se pega nunca en un chat, en un commit ni en un
+issue.**
+
+Cuando estén puestas, lo que queda por escribir es un aviso por cada movimiento
+del envío —despachado, en camino, entregado, fallido— con el enlace de
+seguimiento, y el correo de abono registrado con el saldo que queda. Las
+plantillas y el patrón de disparo ya existen (`email/templates.ts` y
+`email/notificaciones.ts`); el disparo va en `apps/admin/src/lib/actions/logistica.ts`,
+dentro de `after()`, que es donde ya se hace para el estado del pedido.
 
 ---
 
