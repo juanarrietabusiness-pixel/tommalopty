@@ -3,6 +3,7 @@ export * from './pricing';
 export * from './stock';
 export * from './order-state';
 export * from './shipment-state';
+export * from './abonos';
 export * from './menu';
 export * from './variant';
 export * from './geo';

@@ -1105,6 +1105,9 @@ export interface Database {
           tax_total: number;
           total: number;
           discount_code: string | null;
+          amount_paid: number;
+          /** Columna generada: la base la calcula, no se escribe. */
+          balance_due: number | null;
           shipping_address: Json | null;
           billing_address: Json | null;
           shipping_method: Json | null;
@@ -1133,6 +1136,7 @@ export interface Database {
           tax_total?: number;
           total?: number;
           discount_code?: string | null;
+          amount_paid?: number;
           shipping_address?: Json | null;
           billing_address?: Json | null;
           shipping_method?: Json | null;
@@ -1161,6 +1165,7 @@ export interface Database {
           tax_total?: number;
           total?: number;
           discount_code?: string | null;
+          amount_paid?: number;
           shipping_address?: Json | null;
           billing_address?: Json | null;
           shipping_method?: Json | null;
@@ -2008,7 +2013,15 @@ export interface Database {
       lead_status: 'new' | 'contacted' | 'qualified' | 'converted' | 'lost';
       order_status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded';
       payment_provider: 'paypal' | 'wompi' | 'paguelofacil' | 'yappy' | 'manual';
-      payment_status: 'pending' | 'authorized' | 'paid' | 'partially_refunded' | 'refunded' | 'failed' | 'cancelled';
+      payment_status:
+        | 'pending'
+        | 'authorized'
+        | 'partially_paid'
+        | 'paid'
+        | 'partially_refunded'
+        | 'refunded'
+        | 'failed'
+        | 'cancelled';
       product_status: 'draft' | 'active' | 'archived';
       review_status: 'pending' | 'approved' | 'rejected';
       user_role: 'customer' | 'operator' | 'admin' | 'superadmin';

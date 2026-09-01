@@ -86,7 +86,10 @@ const CONSULTAS_DEL_PANEL: { nombre: string; sql: string }[] = [
           left join public.inventory i on i.variant_id = v.id
           limit 1`,
   },
-  { nombre: 'los pedidos', sql: 'select id, order_number, total from public.orders limit 1' },
+  {
+    nombre: 'los pedidos con su saldo',
+    sql: 'select id, order_number, total, amount_paid, balance_due from public.orders limit 1',
+  },
   {
     nombre: 'las líneas del pedido',
     sql: 'select id, product_title from public.order_items limit 1',
