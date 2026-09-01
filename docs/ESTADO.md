@@ -59,6 +59,11 @@ disparador de alta. Ver migración `20260901020000`.
 - **Fase L1 completa**: la dirección del checkout captura coordenada,
   procedencia del punto, referencia e instrucciones de entrega, y todo eso viaja
   hasta quedar grabado en el pedido.
+- **El punto del mapa rellena la dirección**: marcado el punto —con el pin, con
+  el buscador o con el GPS— se resuelve qué dirección hay ahí y se vuelca en
+  dirección, ciudad y provincia. Lo que se escriba a mano manda: ese campo deja
+  de tocarse. Dos tests end-to-end lo vigilan, comprobados en rojo sin el
+  arreglo.
 - **Fase L3 casi completa**: se cobran abonos desde el panel, el saldo lo lleva
   la base de datos, y una regla configurable decide si un pedido con saldo puede
   salir del almacén. Falta solo los recordatorios por correo.
@@ -93,22 +98,22 @@ funcionando.
 
 ### 🔴 P1 · Impide abrir al público
 
-| #   | Qué falta                                           | Por qué es crítico                                                                                                                                                          | Quién puede hacerlo                            |
-| --- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| 1   | **El mapa del checkout no muestra las imágenes**    | Es la pieza de más impacto de todo el proyecto y la que la clienta pidió primero. La coordenada **sí se captura** y llega al pedido, pero el cliente marca su casa a ciegas | Desarrollo. Diagnóstico completo abajo         |
-| 2   | **Dominio propio** y los dos Workers apuntados a él | Hoy las URL son `workers.dev`. No se puede dar a clientes reales, ni cobrar, ni pasar la revisión de una pasarela                                                           | La dueña (comprar el dominio) + desarrollo     |
-| 3   | **Páginas legales** completadas y revisadas         | Términos, privacidad, envíos y devoluciones son plantillas. Sin ellas no se puede vender legalmente en Panamá, y ninguna pasarela aprueba el comercio                       | La dueña + alguien que conozca la ley panameña |
-| 4   | **Proveedor de teselas del mapa con plan**          | Hoy se usa CARTO sin clave. Su cuota razonable no cubre una tienda en producción                                                                                            | Decisión de la dueña (coste) + desarrollo      |
+| #     | Qué falta                                            | Por qué es crítico                                                                                                                                    | Quién puede hacerlo                            |
+| ----- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| ~~1~~ | ~~**El mapa del checkout no muestra las imágenes**~~ | **Resuelto.** El mapa se previsualiza, y desde hoy además rellena la dirección sola. Queda un matiz de proveedor: ver 3.1                             | —                                              |
+| 2     | **Dominio propio** y los dos Workers apuntados a él  | Hoy las URL son `workers.dev`. No se puede dar a clientes reales, ni cobrar, ni pasar la revisión de una pasarela                                     | La dueña (comprar el dominio) + desarrollo     |
+| 3     | **Páginas legales** completadas y revisadas          | Términos, privacidad, envíos y devoluciones son plantillas. Sin ellas no se puede vender legalmente en Panamá, y ninguna pasarela aprueba el comercio | La dueña + alguien que conozca la ley panameña |
+| 4     | **Proveedor de teselas del mapa con plan**           | Hoy se usa CARTO sin clave. Su cuota razonable no cubre una tienda en producción                                                                      | Decisión de la dueña (coste) + desarrollo      |
 
 ### 🟠 P2 · Se puede abrir sin ello, pero duele pronto
 
-| #   | Qué falta                                                                                                          | Qué pasa si no está                                                                                                                                                         |
-| --- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 5   | **Los avisos automáticos por correo** (L2 2.e y L3): despachado, en camino, entregado, recordatorio de vencimiento | El cliente llama por teléfono para preguntar dónde está su pedido. Es el trabajo manual que la plataforma existía para quitar                                               |
-| 6   | **Cloudflare Access sobre el panel**                                                                               | El panel administrativo es alcanzable por cualquiera que sepa la URL. RLS protege los datos, pero la pantalla de acceso queda expuesta a fuerza bruta                       |
-| 7   | **Backups de Supabase con retención definida**                                                                     | Un borrado accidental no tiene vuelta atrás                                                                                                                                 |
-| 8   | **Bucket privado** para la foto de prueba de entrega y el comprobante del abono                                    | Ambas funciones están a medias. El bucket que existe es **público**, y una foto de entrega es la puerta de casa de alguien: no sirve                                        |
-| 9   | **Pasarela de pago real conectada**                                                                                | Hoy los pedidos se registran pero no se cobran en línea. Los abonos manuales sí funcionan. Es una decisión de negocio pendiente ([ADR 0006](adr/0006-pasarela-al-final.md)) |
+| #   | Qué falta                                                                                                          | Qué pasa si no está                                                                                                                                                                                                                                                                       |
+| --- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 5   | **Los avisos automáticos por correo** (L2 2.e y L3): despachado, en camino, entregado, recordatorio de vencimiento | El cliente llama por teléfono para preguntar dónde está su pedido. Es el trabajo manual que la plataforma existía para quitar                                                                                                                                                             |
+| 6   | **Cloudflare Access sobre el panel**                                                                               | El panel administrativo es alcanzable por cualquiera que sepa la URL. RLS protege los datos, pero la pantalla de acceso queda expuesta a fuerza bruta                                                                                                                                     |
+| 7   | **Backups de Supabase con retención definida**                                                                     | Un borrado accidental no tiene vuelta atrás                                                                                                                                                                                                                                               |
+| 8   | **Bucket privado** para la foto de prueba de entrega y el comprobante del abono                                    | Ambas funciones están a medias. El bucket que existe es **público**, y una foto de entrega es la puerta de casa de alguien: no sirve                                                                                                                                                      |
+| 9   | **Pasarela de pago real conectada**                                                                                | Hoy los pedidos se registran pero no se cobran en línea. Los abonos manuales sí funcionan. De Yappy falta **solo el Botón de Pago**, y falta porque falta su especificación: ver [`YAPPY.md`](YAPPY.md). Es una decisión de negocio pendiente ([ADR 0006](adr/0006-pasarela-al-final.md)) |
 
 ### 🟡 P3 · Deuda conocida, sin urgencia
 
@@ -123,41 +128,44 @@ funcionando.
 
 ---
 
-## 3.1 · El fallo del mapa, con todo lo que ya se descartó
+## 3.1 · El mapa: lo que se resolvió y lo que queda
 
-Es el P1 número 1 y el que más tiempo ha costado, así que aquí está todo lo
-averiguado para que nadie repita el camino.
+**Resuelto: el recuadro salía vacío.** Lo causaba una colisión de CSS. MapLibre
+le pone al contenedor su clase `.maplibregl-map`, que trae `position: relative`
+y anulaba el `inset: 0` del que dependía el alto: el mapa se construía entero
+—lienzo, controles, atribución— dentro de una caja de cero píxeles. Se arregló
+con mayor especificidad más alto y ancho explícitos, y hay un test end-to-end
+que **falla sin el arreglo**. Confirmado: el mapa se previsualiza.
 
-**Qué se ve:** el recuadro del mapa sale vacío. El pin y el botón «Usar mi
-ubicación» sí aparecen porque son elementos propios, no del mapa.
+**Resuelto: marcar el punto no rellenaba nada.** La coordenada se capturaba y
+llegaba al pedido, así que nada parecía roto — pero quien marcaba su casa en el
+mapa tenía que escribir después la misma dirección a mano, que era justo el
+trabajo que el mapa venía a quitarle. Ahora el punto resuelve su dirección
+(`/api/geo/inverso`, Nominatim por el servidor y cacheado) y la vuelca en los
+tres campos. Detalles que importan y ya están decididos:
 
-**Qué SÍ funciona, comprobado y no supuesto:**
+- La dirección sale **siempre del punto final**, nunca del resultado de búsqueda
+  que llevó hasta él. El pin es la verdad. Usar las dos fuentes daba textos que
+  cambiaban solos al asentarse el mapa.
+- **Lo escrito a mano manda.** En cuanto alguien toca un campo, ese campo es
+  suyo y ningún movimiento posterior del pin lo vuelve a tocar.
+- El reparto de la respuesta de OpenStreetMap a los tres campos es puro y está
+  en `packages/domain/src/direccion.ts`. La jerarquía panameña —provincia,
+  distrito, corregimiento— no cae siempre en las mismas claves de OSM, así que
+  **cuando una dirección real salga mal repartida, el arreglo empieza por pegar
+  su respuesta en `direccion.test.ts`.**
 
-- MapLibre arranca y responde: al mover el recuadro, el estado cambia a «Marcada
-  en el mapa», texto que solo se escribe desde su evento `moveend`.
-- La coordenada se captura, se guarda con su procedencia y llega al pedido.
-- WebGL está disponible en el navegador donde se reprodujo (`true` en consola).
-- La hoja de estilos de MapLibre se sirve completa: 69 KB, 62 reglas.
-- El lienzo se crea con el tamaño correcto y los dos controles existen en el DOM.
+**Lo que queda, y es de la dueña, no de programación:** el proveedor de teselas
+(P1 número 4). Hoy es CARTO sin clave, y su cuota razonable no cubre una tienda
+abierta.
 
-**Lo ya arreglado y verificado en producción:** el contenedor colapsaba a altura
-cero por una colisión de CSS con `.maplibregl-map`, que trae `position: relative`
-y anulaba el `inset: 0`. Resuelto con mayor especificidad más alto y ancho
-explícitos, y hay un test end-to-end que **falla sin el arreglo**.
-
-**Lo que queda por confirmar:** tras ese arreglo la última comprobación seguía
-sin ver el mapa, pero no se confirmó que se hubiera recargado sobre el despliegue
-nuevo. El CSS corregido sí está publicado.
-
-**Por dónde seguir, en este orden:**
-
-1. Recargar forzando caché (`Ctrl+Shift+R`) y mirar si aparece alguno de los tres
-   mensajes de fallo que el componente ya distingue: sin WebGL / no cargó la
-   librería / no llegan las imágenes.
-2. En **Network**, filtrar por `cartocdn` y mirar el código de respuesta. Un
-   `403` es bloqueo del proveedor; `ERR_BLOCKED_BY_CLIENT` es una extensión.
-3. Probar en incógnito y desde un teléfono. Los bloqueadores de rastreo incluyen
-   dominios de mapas en sus listas, y eso le pasará también a clientes reales.
+**Un dato que ahorra media tarde a quien depure esto:** hay entornos que
+bloquean `basemaps.cartocdn.com` por política de red —el sandbox de desarrollo
+de este proyecto lo hace, y algunos bloqueadores de rastreo también—. El síntoma
+es idéntico al fallo de CSS ya resuelto: recuadro vacío. Se distinguen en la
+pestaña **Network**: si las peticiones a `cartocdn` no salen o vuelven con 403,
+es la red, no el código, y el componente lo dice con su propio mensaje («no
+pudimos cargar las imágenes del mapa»).
 
 ## 4. Lo que se aprendió por las malas
 
@@ -214,15 +222,15 @@ paquete de producción. **Comprobar siempre que el test falla sin el arreglo.**
 
 **Las siete preguntas de la clienta, hoy:**
 
-| Pregunta                                       | Estado                                                              |
-| ---------------------------------------------- | ------------------------------------------------------------------- |
-| ¿Podrá seguir sus pedidos?                     | ✅ Con línea de tiempo, y sin registrarse                           |
-| ¿La dirección se marca en un mapa?             | 🔶 La coordenada se captura y llega al pedido; **el mapa no se ve** |
-| ¿La guía lleva QR que abra Waze y Maps?        | ✅ Guía imprimible en 4×6" con su QR                                |
-| ¿Puede recibir abonos y despachar al cuadrar?  | ✅ Con tres reglas de despacho a elegir                             |
-| ¿Hay panel de cliente? ¿Se puede sin registro? | ✅ Las dos cosas                                                    |
-| ¿Cómo entran sus motorizados?                  | 🔲 Fase L4                                                          |
-| ¿Y Servientrega y Dropi?                       | 🔲 Fase L5, con la investigación hecha                              |
+| Pregunta                                       | Estado                                                   |
+| ---------------------------------------------- | -------------------------------------------------------- |
+| ¿Podrá seguir sus pedidos?                     | ✅ Con línea de tiempo, y sin registrarse                |
+| ¿La dirección se marca en un mapa?             | ✅ Se ve, se marca, y el punto rellena la dirección solo |
+| ¿La guía lleva QR que abra Waze y Maps?        | ✅ Guía imprimible en 4×6" con su QR                     |
+| ¿Puede recibir abonos y despachar al cuadrar?  | ✅ Con tres reglas de despacho a elegir                  |
+| ¿Hay panel de cliente? ¿Se puede sin registro? | ✅ Las dos cosas                                         |
+| ¿Cómo entran sus motorizados?                  | 🔲 Fase L4                                               |
+| ¿Y Servientrega y Dropi?                       | 🔲 Fase L5, con la investigación hecha                   |
 
 **Lo siguiente del plan es la fase L4**, la comunidad de motorizados. Desbloquea
 tres cosas que hoy están a medias: la posición en ruta, la prueba de entrega con
@@ -231,6 +239,18 @@ foto y la liquidación de lo cobrado contra entrega.
 **Pero antes conviene cerrar el P1.** Un dominio propio y unas páginas legales no
 son trabajo de programación y dependen de decisiones de la dueña: cuanto antes se
 pidan, antes dejan de bloquear.
+
+### Lo que hay pedido a terceros
+
+Dos cosas están escritas y esperando una respuesta de fuera. Conviene pedirlas ya,
+porque no dependen de nosotros:
+
+| A quién                         | Qué se pide                                                               | Qué desbloquea                       |
+| ------------------------------- | ------------------------------------------------------------------------- | ------------------------------------ |
+| `integracionesdev@yappy.com.pa` | El **host** de la API de integración (la especificación trae un marcador) | La conciliación automática de cobros |
+| `botondepagoyappy@bgeneral.com` | La **especificación del Botón de Pago**                                   | Cobrar con Yappy en el checkout      |
+
+Todo lo demás de Yappy está hecho: ver [`YAPPY.md`](YAPPY.md).
 
 El detalle de cada fase, con criterios de aceptación, está en
 [`PLAN-LOGISTICA.md`](PLAN-LOGISTICA.md).

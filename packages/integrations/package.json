@@ -8,16 +8,19 @@
     ".": "./src/index.ts",
     "./payments": "./src/payments/index.ts",
     "./meta": "./src/meta/index.ts",
-    "./email": "./src/email/index.ts"
+    "./email": "./src/email/index.ts",
+    "./yappy": "./src/yappy/index.ts"
   },
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "yappy:validar": "tsx src/yappy/validar.ts"
   },
   "devDependencies": {
     "@nebula/config": "workspace:*",
     "eslint": "^9.39.5",
+    "tsx": "^4.20.6",
     "typescript": "~5.9.3",
     "vitest": "^4.1.11"
   }
