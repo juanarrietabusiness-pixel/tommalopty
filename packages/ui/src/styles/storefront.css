@@ -1409,3 +1409,11 @@
     height: 260px;
   }
 }
+
+.checkout-subtitulo {
+  margin: 26px 0 10px;
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text);
+}

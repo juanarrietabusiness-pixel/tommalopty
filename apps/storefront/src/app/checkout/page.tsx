@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { listDeliveryZones } from '@nebula/db';
+import type { DeliveryZone } from '@nebula/domain';
 import { payments } from '@nebula/integrations';
 import { CheckoutForm, type ShippingMethodOption } from '@/components/checkout-form';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
@@ -40,8 +42,31 @@ async function loadShippingMethods(): Promise<ShippingMethodOption[]> {
   }));
 }
 
+/**
+ * Zonas de cobertura, para poder decir «hasta ahí no llegamos» antes de cobrar
+ * y no después.
+ *
+ * Si la consulta falla se devuelve una lista vacía en vez de propagar el error:
+ * sin zonas el selector deja de opinar sobre la cobertura, pero se puede seguir
+ * comprando. Que no se pueda dibujar un aviso no es motivo para tumbar una venta.
+ */
+async function loadDeliveryZones(): Promise<DeliveryZone[]> {
+  if (!isSupabaseConfigured()) return [];
+
+  try {
+    const client = await getSupabaseServerClient();
+    return await listDeliveryZones(client);
+  } catch (error) {
+    console.error('[checkout] No se pudieron leer las zonas de reparto:', error);
+    return [];
+  }
+}
+
 export default async function CheckoutPage() {
-  const shippingMethods = await loadShippingMethods();
+  const [shippingMethods, deliveryZones] = await Promise.all([
+    loadShippingMethods(),
+    loadDeliveryZones(),
+  ]);
 
   // Qué pasarelas se ofrecen lo decide el registro, no esta página.
   const paymentOptions = payments.listAvailableProviders().map((provider) => ({
@@ -57,7 +82,11 @@ export default async function CheckoutPage() {
         Finalizar compra
       </h1>
       <p className="page-subtitle">Revisa tus datos antes de confirmar el pedido.</p>
-      <CheckoutForm shippingMethods={shippingMethods} paymentOptions={paymentOptions} />
+      <CheckoutForm
+        shippingMethods={shippingMethods}
+        paymentOptions={paymentOptions}
+        deliveryZones={deliveryZones}
+      />
     </div>
   );
 }
