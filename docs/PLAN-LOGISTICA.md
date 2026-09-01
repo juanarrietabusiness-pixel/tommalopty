@@ -630,6 +630,10 @@ bajar en cada paso.
 
 ### Fase L4 · La comunidad de motorizados dentro de la plataforma
 
+> **Estado: L4.1 construida.** Rol, fichas, permisos, alta desde el panel,
+> asignación y la aplicación del motorizado con sus tres pantallas. Falta L4.2:
+> rutas, mapa en vivo y liquidaciones. Al final está lo que se hizo y lo que no.
+
 Es la fase más grande y la que más valor propio aporta: es el activo de la
 clienta, y ningún courier externo se lo replica.
 
@@ -689,6 +693,71 @@ día cuadra en el panel sin que nadie toque una hoja de cálculo.
 **Duración estimada:** 4–5 semanas. Es la fase más grande, y conviene partirla:
 primero rol + app básica + asignación manual (L4.1), después rutas y
 liquidaciones (L4.2).
+
+#### Lo que se construyó en L4.1
+
+- **Migraciones 0030 y 0031.** El rol `courier` va solo en la 0030 porque
+  Postgres no deja usar un valor nuevo de un `enum` en la misma transacción que
+  lo añade. `is_staff()` **no se tocó**: un motorizado no es del equipo, y esa
+  función gobierna medio esquema.
+- **`couriers` y `courier_zones`.** Las zonas en tabla de unión y no en un
+  `uuid[]`: con un array, borrar una zona deja identificadores apuntando a nada
+  y nadie se entera hasta que el reparto propone una zona que no existe.
+- **Los permisos se decidieron en la base, no en las pantallas.** Un motorizado
+  ve los envíos con `assigned_to = auth.uid()` y su propia ficha. Ni pedidos, ni
+  clientes, ni catálogo, ni cobros. No se revocó **ningún** permiso de tabla: un
+  motorizado también es `authenticated`, y lo que se le quitara por columna se le
+  quitaría igual a la dueña — la lección de los once días de catálogo ilegible.
+- **`guard_courier_shipment_update`.** RLS decide filas, no columnas. Sin este
+  disparador, un motorizado podía reasignarse el envío de otro, cambiarle el
+  destino, moverlo a otro pedido o falsear la hora de entrega, y todo eso pasaba
+  la política sin despeinarse. Es la pieza que hay que leer con más cuidado de
+  toda la fase.
+- **Tres situaciones y no dos.** `pausa` no es un grado de `inactivo`: a quien
+  está en pausa no se le asignan entregas nuevas pero **entra y cierra las que ya
+  lleva encima**. Pausar a alguien a media tarde no puede dejarle tres paquetes
+  sin poder marcar.
+- **El alta no crea cuentas.** La persona se registra en la tienda como
+  cualquiera y desde el panel se la convierte en motorizado. Crear cuentas desde
+  el panel obliga a inventarle una contraseña a alguien y a hacérsela llegar, que
+  es exactamente como se filtran las credenciales de reparto.
+- **La baja no borra.** Pone `inactivo` y devuelve el rol a `customer`. Borrar la
+  ficha dejaría los envíos que llevó apuntando a una cuenta sin ficha, y la
+  pregunta «quién entregó esto» se quedaría sin respuesta justo cuando alguien la
+  hace. Y no deja dar de baja a quien todavía lleva envíos encima.
+- **`/motorizado` en la tienda**, no en el panel: el panel es de la oficina y
+  trae el catálogo, los clientes y los cobros. Tres pantallas —mis entregas, el
+  detalle con Waze y Maps, y el cierre— con todo lo que se toca a 56 px, porque
+  se usa de pie y con una mano.
+- **El selector de «quién lo lleva» pasó a ser de motorizados.** Antes eran los
+  operadores del panel, que era lo único que había; asignarle un envío a un
+  administrador significaría que ese envío no aparece en la aplicación de nadie.
+
+**Un agujero que esta fase abría, cerrado de paso.** La puerta del panel decía
+«cualquiera menos `customer`». Funcionó mientras `customer` era el único rol de
+fuera del equipo; en cuanto existe `courier`, lo dejaba entrar. Ahora es una
+lista de admitidos, así que el rol que se invente mañana queda fuera por omisión.
+
+**Verificación:** 21 tests nuevos contra Postgres real. Los cuatro que cubren la
+guardia de columnas se comprobaron **rojos sin el disparador**, y el de «mover mi
+envío a otro pedido» usa un pedido que existe de verdad — con un identificador
+inventado lo rechazaba la clave foránea y el test pasaba en verde sin haber
+probado nada.
+
+#### Lo que queda pendiente de esta fase
+
+- **4.b · La foto de la prueba de entrega y la firma.** La columna existe y
+  apunta a un bucket **privado** que todavía no existe. El de imágenes de
+  producto es público, y una foto de entrega es la puerta de casa de alguien.
+- **4.b · Funcionar sin señal.** Hoy cerrar una entrega necesita conexión. En
+  reparto urbano eso no es opcional, pero es trabajo de service worker y cola
+  local, y va después de que la aplicación se use y se sepa dónde falla de
+  verdad.
+- **4.c · Rutas y mapa en vivo.** La pantalla de despacho con asignación
+  sugerida, la optimización de ruta y la posición del motorizado. Es L4.2.
+- **4.d · Liquidaciones.** Depende de **D5**: si los motorizados cobran contra
+  entrega o van por tarifa variable. La tarifa por entrega ya se guarda en la
+  ficha, que es la mitad del dato.
 
 ---
 

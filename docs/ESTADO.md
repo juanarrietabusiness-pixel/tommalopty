@@ -79,7 +79,12 @@ disparador de alta. Ver migración `20260901020000`.
 - **Fase L2 casi completa**: los envíos son una entidad propia con su máquina de
   estados, el panel los crea y los mueve, la guía se imprime en 4×6" con su QR,
   la página que abre ese QR funciona en la calle, y quien compró sigue su pedido
-  sin registrarse. Falta solo 2.e, los avisos automáticos por correo.
+  sin registrarse. Falta solo 2.e, los avisos automáticos por correo, y falta
+  por el dominio: ver el punto 1.
+- **Fase L4.1 completa**: los motorizados tienen rol propio, ficha, zonas y
+  permisos comprobados contra Postgres real. El panel los da de alta y les asigna
+  envíos; ellos entran en `/motorizado` desde la tienda y ven **solo** lo que
+  llevan encima. Falta L4.2: rutas, mapa en vivo y liquidaciones.
 
 ### Cómo probar la fase L2 sin datos propios
 
@@ -130,7 +135,7 @@ funcionando.
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 10  | **La URL pública de R2 sigue en `r2.dev`**: hay que pasarla a dominio propio antes de producción                                                                                                               |
 | 11  | **`http://localhost:3000/**` falta en las Redirect URLs de Supabase**: sin eso, registrarse desde el entorno de desarrollo no confirma cuentas                                                                 |
-| 12  | **La posición del motorizado en ruta** en el seguimiento: depende de que exista su aplicación (fase L4)                                                                                                        |
+| 12  | **La posición del motorizado en ruta** en el seguimiento: la aplicación ya existe (L4.1), falta enviar y pintar la posición (L4.2)                                                                             |
 | 13  | **`/cuenta/direcciones` es solo lectura**: no se pueden guardar ni reutilizar direcciones con su punto                                                                                                         |
 | 14  | **La cabecera de la tienda se esconde con `:has()`** en la página del motorizado, en vez de mover las rutas a un grupo con su propio layout. Atajo consciente; se borra cuando alguien haga esa reorganización |
 | 15  | **La pantalla de integraciones lee `NEXT_PUBLIC_META_PIXEL_ID` de forma dinámica**, así que dirá «pendiente» aunque esté configurada. Cosmético, afecta a una fila                                             |
@@ -238,12 +243,16 @@ paquete de producción. **Comprobar siempre que el test falla sin el arreglo.**
 | ¿La guía lleva QR que abra Waze y Maps?        | ✅ Guía imprimible en 4×6" con su QR                     |
 | ¿Puede recibir abonos y despachar al cuadrar?  | ✅ Con tres reglas de despacho a elegir                  |
 | ¿Hay panel de cliente? ¿Se puede sin registro? | ✅ Las dos cosas                                         |
-| ¿Cómo entran sus motorizados?                  | 🔲 Fase L4                                               |
+| ¿Cómo entran sus motorizados?                  | ✅ Con su cuenta, en `/motorizado`. Ven solo lo suyo     |
 | ¿Y Servientrega y Dropi?                       | 🔲 Fase L5, con la investigación hecha                   |
 
-**Lo siguiente del plan es la fase L4**, la comunidad de motorizados. Desbloquea
-tres cosas que hoy están a medias: la posición en ruta, la prueba de entrega con
-foto y la liquidación de lo cobrado contra entrega.
+**Lo siguiente del plan es la fase L4.2**: la pantalla de despacho con rutas, la
+posición en vivo y las liquidaciones. La L4.1 —rol, fichas, permisos, asignación
+y la aplicación— ya está.
+
+Dos cosas de L4 siguen atadas al **bucket privado**, que no existe: la foto de la
+prueba de entrega y el comprobante del abono. Es el punto 8 de la lista de
+arriba, y son la misma tarea.
 
 **Pero antes conviene cerrar el P1.** Un dominio propio y unas páginas legales no
 son trabajo de programación y dependen de decisiones de la dueña: cuanto antes se

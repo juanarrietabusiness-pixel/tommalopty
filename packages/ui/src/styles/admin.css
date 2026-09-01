@@ -792,6 +792,47 @@
   font-size: 1.05rem;
 }
 
+/* --- Motorizados ----------------------------------------------------------- */
+
+/* La etiqueta de un grupo de casillas. No es un `<label>` —no apunta a un solo
+   control— así que lleva su propia clase en vez de heredar la de `.field label`. */
+.field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* `auto-fill` y no un número de columnas: las zonas de reparto son tres en un
+   negocio que empieza y quince en uno que crece, y la cuadrícula se ajusta sola
+   sin que nadie vuelva aquí. */
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.checkbox-item:hover {
+  background: var(--color-surface);
+}
+
+.checkbox-item input {
+  width: auto;
+  margin: 0;
+}
+
 /* --- Abonos y saldo -------------------------------------------------------- */
 .abono-resumen {
   display: grid;

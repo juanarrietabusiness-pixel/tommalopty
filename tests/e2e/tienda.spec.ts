@@ -390,6 +390,32 @@ test.describe('acceso y registro', () => {
   }
 });
 
+/**
+ * La aplicación del motorizado (fase L4).
+ *
+ * Sin sesión no se entra, y sin base de datos tampoco. Lo que se prueba aquí no
+ * es la lista de entregas —para eso hace falta un motorizado de verdad y sus
+ * permisos, y eso vive en los tests de RLS contra Postgres— sino que la puerta
+ * está cerrada y que cerrarla no significa una pantalla en blanco ni un 500.
+ */
+test.describe('la aplicación del motorizado', () => {
+  test('sin sesión manda a entrar, no a una pantalla vacía', async ({ page }) => {
+    await page.goto('/motorizado');
+
+    await expect(page).toHaveURL(/\/entrar/);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  });
+
+  test('el detalle de una entrega responde 404, no un error del servidor', async ({ page }) => {
+    // 404 y no 500: sin base de datos no hay envío que enseñar, y eso es «no
+    // existe», no «se rompió». La diferencia importa porque un 500 en esta ruta
+    // sería la misma clase de fallo que dejó el panel entero devolviendo errores
+    // en modo demostración.
+    const respuesta = await page.goto('/motorizado/00000000-0000-4000-8000-000000000001');
+    expect(respuesta?.status()).toBe(404);
+  });
+});
+
 test.describe('páginas legales', () => {
   // No son enlaces decorativos: la Ley 81 de 2019 obliga a informar del
   // tratamiento de datos, y ninguna pasarela aprueba un comercio sin términos,

@@ -99,6 +99,11 @@ export function EnvioForm({
               </option>
             ))}
           </select>
+          <span className="field-hint">
+            {operadores.length === 0
+              ? 'No hay motorizados dados de alta. Se añaden en «Motorizados».'
+              : 'En cuanto se lo asignes, le aparece en su aplicación.'}
+          </span>
         </div>
       </div>
 
