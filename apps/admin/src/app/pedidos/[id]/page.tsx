@@ -145,7 +145,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                     key: 'ref',
                     header: 'Referencia',
                     render: (payment) => (
-                      <span className="cell-muted">{payment.provider_payment_id ?? '—'}</span>
+                      <span className="cell-muted">
+                        {payment.reference ?? payment.provider_payment_id ?? '—'}
+                      </span>
                     ),
                   },
                   {

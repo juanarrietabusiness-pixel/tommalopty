@@ -1248,6 +1248,7 @@ export interface Database {
           order_id: string;
           provider: Database['public']['Enums']['payment_provider'];
           provider_payment_id: string | null;
+          reference: string | null;
           status: Database['public']['Enums']['payment_status'];
           amount: number;
           currency: string;
@@ -1262,6 +1263,7 @@ export interface Database {
           order_id: string;
           provider: Database['public']['Enums']['payment_provider'];
           provider_payment_id?: string | null;
+          reference?: string | null;
           status?: Database['public']['Enums']['payment_status'];
           amount: number;
           currency?: string;
@@ -1276,6 +1278,7 @@ export interface Database {
           order_id?: string;
           provider?: Database['public']['Enums']['payment_provider'];
           provider_payment_id?: string | null;
+          reference?: string | null;
           status?: Database['public']['Enums']['payment_status'];
           amount?: number;
           currency?: string;

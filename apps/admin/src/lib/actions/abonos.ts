@@ -84,7 +84,11 @@ export async function registrarAbono(
     status: 'paid',
     amount: parsed.data.amount,
     processed_at: new Date().toISOString(),
-    provider_payment_id: parsed.data.reference || null,
+    // En `reference`, no en `provider_payment_id`: esa columna tiene índice
+    // único por proveedor, para que la misma confirmación de una pasarela no
+    // entre dos veces. Una referencia escrita a mano —«efectivo», el nombre de
+    // quien cobró— se repite todos los días, y chocaba. Ver migración 0029.
+    reference: parsed.data.reference || null,
   });
 
   if (error) return fromDatabaseError(error);

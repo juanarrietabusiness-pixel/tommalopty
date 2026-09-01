@@ -341,6 +341,7 @@ export const PAGOS_DEMO: Tables<'payments'>[] = [
     order_id: PEDIDOS_DEMO[0]!.id,
     provider: 'manual',
     provider_payment_id: null,
+    reference: 'Efectivo en tienda',
     status: 'paid',
     amount: 43.4,
     currency: 'USD',
