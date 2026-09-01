@@ -96,6 +96,36 @@ export interface Database {
           },
         ];
       };
+      admin_bootstrap: {
+        Row: {
+          email: string;
+          role: Database['public']['Enums']['user_role'];
+          note: string | null;
+          created_at: string;
+          expires_at: string;
+          used_at: string | null;
+          used_by: string | null;
+        };
+        Insert: {
+          email: string;
+          role: Database['public']['Enums']['user_role'];
+          note?: string | null;
+          created_at?: string;
+          expires_at?: string;
+          used_at?: string | null;
+          used_by?: string | null;
+        };
+        Update: {
+          email?: string;
+          role?: Database['public']['Enums']['user_role'];
+          note?: string | null;
+          created_at?: string;
+          expires_at?: string;
+          used_at?: string | null;
+          used_by?: string | null;
+        };
+        Relationships: [];
+      };
       audit_log: {
         Row: {
           id: number;

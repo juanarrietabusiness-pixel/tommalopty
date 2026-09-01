@@ -131,6 +131,39 @@ describeSiHayBase('permisos de tabla', () => {
   });
 
   /**
+   * La lista de invitaciones con la que nace el primer administrador es la
+   * tabla más delicada del esquema: quien pueda escribir en ella se nombra
+   * superadministrador a sí mismo. Su protección no es RLS —es no tener ni un
+   * privilegio concedido— y eso hay que vigilarlo, porque un `grant on all
+   * tables` despistado la volvería a abrir sin que nada más se rompiera.
+   */
+  describe('la lista de invitaciones no la alcanza nadie', () => {
+    for (const rol of ['anon', 'authenticated', 'service_role']) {
+      it(`${rol} no puede leerla ni escribirla`, async () => {
+        const { rows } = await client.query<{
+          leer: boolean;
+          insertar: boolean;
+          actualizar: boolean;
+          borrar: boolean;
+        }>(
+          `select has_table_privilege($1, 'public.admin_bootstrap', 'SELECT') as leer,
+                  has_table_privilege($1, 'public.admin_bootstrap', 'INSERT') as insertar,
+                  has_table_privilege($1, 'public.admin_bootstrap', 'UPDATE') as actualizar,
+                  has_table_privilege($1, 'public.admin_bootstrap', 'DELETE') as borrar`,
+          [rol],
+        );
+
+        expect(rows[0]).toEqual({
+          leer: false,
+          insertar: false,
+          actualizar: false,
+          borrar: false,
+        });
+      });
+    }
+  });
+
+  /**
    * `service_role` es el rol del servidor: salta RLS y solo se usa con la clave
    * secreta. Estuvo sin un solo privilegio de tabla desde el principio, y no se
    * notó porque `create_order` es `security definer` y corre como su dueño. Lo
