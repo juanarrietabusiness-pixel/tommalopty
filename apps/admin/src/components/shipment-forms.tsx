@@ -18,6 +18,7 @@ export interface EnvioEnPantalla {
   carrier: string | null;
   carrierTrackingNumber: string | null;
   tieneCoordenadas: boolean;
+  tienePrueba: boolean;
   createdAt: string;
 }
 
@@ -99,6 +100,11 @@ export function EnvioForm({
               </option>
             ))}
           </select>
+          <span className="field-hint">
+            {operadores.length === 0
+              ? 'No hay motorizados dados de alta. Se añaden en «Motorizados».'
+              : 'En cuanto se lo asignes, le aparece en su aplicación.'}
+          </span>
         </div>
       </div>
 

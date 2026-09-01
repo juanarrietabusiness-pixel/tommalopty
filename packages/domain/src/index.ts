@@ -7,3 +7,5 @@ export * from './abonos';
 export * from './menu';
 export * from './variant';
 export * from './geo';
+export * from './direccion';
+export * from './motorizado';

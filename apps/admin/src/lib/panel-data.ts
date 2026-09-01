@@ -2,6 +2,7 @@ import {
   REGLA_POR_DEFECTO,
   isPoliticaDeDespacho,
   isShipmentStatus,
+  type DeliveryZone,
   type ReglaDeDespacho,
   type ShipmentStatus,
 } from '@nebula/domain';
@@ -20,8 +21,11 @@ import {
   listOrderEvents,
   listOrders,
   listPayments,
+  listCouriers,
+  listDeliveryZones,
+  type Motorizado,
 } from '@nebula/db';
-import { getSupabaseServerClient } from './supabase';
+import { getSupabaseServerClient, isSupabaseConfigured } from './supabase';
 import { esModoDemostracion } from './demo-mode';
 import * as demo from './demo-data';
 
@@ -702,14 +706,29 @@ export interface EnvioDelPedido {
   carrier: string | null;
   carrierTrackingNumber: string | null;
   tieneCoordenadas: boolean;
+  /** Si el motorizado dejó foto al cerrar. No cuál: la clave no sale de aquí. */
+  tienePrueba: boolean;
   createdAt: string;
 }
 
 /**
- * Los envíos de un pedido, y quién puede llevarlos.
+ * Los envíos de un pedido, y a quién se le pueden asignar.
  *
- * Las dos consultas van juntas porque se pintan juntas: la lista de operadores
- * solo existe para llenar el selector de «quién lo lleva» de cada envío.
+ * Las dos consultas van juntas porque se pintan juntas: la lista solo existe
+ * para llenar el selector de «quién lo lleva» de cada envío.
+ *
+ * DESDE LA FASE L4, LA LISTA SON LOS MOTORIZADOS
+ *
+ * Antes eran los operadores del panel, que era lo único que había. Ahora quien
+ * reparte tiene ficha propia, y asignarle un envío a un administrador
+ * significaría que ese envío no aparece en la aplicación de nadie: `/motorizado`
+ * lista los envíos de quien tiene ficha, y un administrador no la tiene.
+ *
+ * Solo los que están en **activo**: a quien está en pausa no se le asignan
+ * entregas nuevas, aunque siga entrando a cerrar las que ya lleva. Los que ya
+ * tuviera asignados se siguen viendo, porque se añaden aparte más abajo — si no,
+ * pausar a alguien vaciaría el selector del envío que lleva encima y la pantalla
+ * diría «sin asignar» sobre un envío que sí lo está.
  */
 export async function cargarEnviosDelPedido(orderId: string): Promise<{
   envios: EnvioDelPedido[];
@@ -719,22 +738,23 @@ export async function cargarEnviosDelPedido(orderId: string): Promise<{
 
   const supabase = await getSupabaseServerClient();
 
-  const [{ data: envios }, { data: perfiles }] = await Promise.all([
+  const [{ data: envios }, { data: fichas }] = await Promise.all([
     supabase
       .from('shipments')
       .select(
         `id, tracking_number, status, assigned_to, carrier, carrier_tracking_number,
-         latitude, created_at`,
+         latitude, created_at, delivery_proof_key`,
       )
       .eq('order_id', orderId)
       .order('created_at', { ascending: false }),
     supabase
-      .from('profiles')
-      .select('id, full_name, email, role')
-      .in('role', ['operator', 'admin', 'superadmin'])
-      .eq('is_active', true)
-      .order('full_name'),
+      .from('couriers')
+      .select('profile_id, display_name, status')
+      .neq('status', 'inactivo')
+      .order('display_name'),
   ]);
+
+  const asignados = new Set((envios ?? []).map((fila) => fila.assigned_to).filter(Boolean));
 
   return {
     envios: (envios ?? []).map((fila) => ({
@@ -745,12 +765,16 @@ export async function cargarEnviosDelPedido(orderId: string): Promise<{
       carrier: fila.carrier,
       carrierTrackingNumber: fila.carrier_tracking_number,
       tieneCoordenadas: fila.latitude !== null,
+      // Si hay prueba, no cuál: la clave del objeto no sale al navegador.
+      tienePrueba: fila.delivery_proof_key !== null,
       createdAt: fila.created_at,
     })),
-    operadores: (perfiles ?? []).map((perfil) => ({
-      id: perfil.id,
-      nombre: perfil.full_name ?? perfil.email,
-    })),
+    operadores: (fichas ?? [])
+      .filter((ficha) => ficha.status === 'activo' || asignados.has(ficha.profile_id))
+      .map((ficha) => ({
+        id: ficha.profile_id,
+        nombre: ficha.status === 'activo' ? ficha.display_name : `${ficha.display_name} (en pausa)`,
+      })),
   };
 }
 
@@ -784,4 +808,49 @@ export async function cargarReglaDeDespacho(): Promise<ReglaDeDespacho> {
       : REGLA_POR_DEFECTO.umbralPorcentaje;
 
   return { politica, umbralPorcentaje: umbral };
+}
+
+/* --- Motorizados ----------------------------------------------------------- */
+
+export interface DatosDeMotorizados {
+  motorizados: Motorizado[];
+  zonas: DeliveryZone[];
+  /**
+   * Cuentas a las que se puede convertir en motorizado.
+   *
+   * Solo clientes: quien ya es del equipo tiene otro trabajo, y convertir a un
+   * administrador en motorizado le quitaría el panel sin avisar. Y solo cuentas
+   * activas, porque dar de alta a alguien desactivado crea una ficha que no
+   * puede entrar.
+   */
+  candidatos: { id: string; email: string; fullName: string | null }[];
+}
+
+export async function cargarMotorizados(): Promise<DatosDeMotorizados> {
+  if (esModoDemostracion() || !isSupabaseConfigured()) {
+    return { motorizados: [], zonas: [], candidatos: [] };
+  }
+
+  const supabase = await getSupabaseServerClient();
+
+  const [motorizados, zonas, perfiles] = await Promise.all([
+    listCouriers(supabase),
+    listDeliveryZones(supabase, { soloActivas: false }),
+    supabase
+      .from('profiles')
+      .select('id, email, full_name')
+      .eq('role', 'customer')
+      .eq('is_active', true)
+      .order('email'),
+  ]);
+
+  return {
+    motorizados,
+    zonas,
+    candidatos: (perfiles.data ?? []).map((fila) => ({
+      id: fila.id,
+      email: fila.email,
+      fullName: fila.full_name,
+    })),
+  };
 }

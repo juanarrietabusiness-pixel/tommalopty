@@ -1,0 +1,25 @@
+-- =============================================================================
+-- 0030 · El rol `courier` existe
+-- =============================================================================
+-- Fase L4 del plan de logística.
+--
+-- POR QUÉ ESTA MIGRACIÓN NO HACE NADA MÁS
+--
+-- Postgres no deja usar un valor nuevo de un `enum` en la misma transacción que
+-- lo añade, y cada archivo de migración es una transacción. Así que el valor va
+-- solo aquí, y todo lo que lo usa —la tabla, las políticas, las funciones— va en
+-- la siguiente. Es la misma razón por la que `partially_paid` tuvo la suya en la
+-- fase L3.
+--
+-- POR QUÉ UN ROL PROPIO Y NO «OPERADOR CON MENOS PERMISOS»
+--
+-- Un motorizado no es una versión reducida del equipo: es alguien de fuera de la
+-- oficina que ve exactamente los envíos que lleva encima y nada más. Ni el
+-- catálogo, ni los otros pedidos, ni los clientes. Colgarlo de `operator` habría
+-- significado que cada permiso nuevo del panel se le concede sin querer.
+--
+-- `is_staff()` NO se toca: sigue siendo operator/admin/superadmin. Un motorizado
+-- no es staff, y esa función gobierna medio esquema.
+-- =============================================================================
+
+alter type public.user_role add value if not exists 'courier';

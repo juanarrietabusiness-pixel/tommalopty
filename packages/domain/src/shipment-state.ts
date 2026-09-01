@@ -92,6 +92,34 @@ export const ESTADOS_DESDE_LA_CALLE = [
   'fallido',
 ] as const satisfies readonly ShipmentStatus[];
 
+/**
+ * Lo que puede marcar un motorizado identificado, desde su aplicación.
+ *
+ * Son más que los de arriba, y la diferencia no es de comodidad sino de quién
+ * está al otro lado. `ESTADOS_DESDE_LA_CALLE` los marca **cualquiera que tenga
+ * el papel en la mano**: el QR no pide sesión, y con razón —quien recibe puede
+ * no ser quien lleva—. Esta lista la marca alguien con cuenta, con nombre y con
+ * una ficha de motorizado detrás, así que también puede decir que recogió el
+ * paquete y que va en camino.
+ *
+ * Lo que sigue fuera para los dos: asignar y devolver. Son decisiones de quien
+ * despacha, y se toman desde el panel.
+ *
+ * **Esta lista está repetida en `guard_courier_shipment_update`** (migración
+ * 0031). La de aquí es para que la pantalla no ofrezca lo que no puede; la de
+ * allí es la que de verdad no se puede saltar. Si se toca una, se toca la otra.
+ */
+export const ESTADOS_DEL_MOTORIZADO = [
+  'recogido',
+  'en_ruta',
+  'entregado',
+  'fallido',
+] as const satisfies readonly ShipmentStatus[];
+
+export function esEstadoDelMotorizado(value: string): boolean {
+  return (ESTADOS_DEL_MOTORIZADO as readonly string[]).includes(value);
+}
+
 export interface ShipmentTransitionError {
   from: ShipmentStatus;
   to: ShipmentStatus;

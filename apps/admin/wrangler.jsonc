@@ -9,25 +9,39 @@
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": ".open-next/assets",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
   },
   "observability": {
-    "enabled": true
+    "enabled": true,
   },
-  // Acceso al bucket de imágenes sin credenciales: el Worker puede escribir en
-  // él porque está declarado aquí, así que no hay claves que rotar ni filtrar.
-  // Ver docs/adr/0007-media-en-cloudflare.md
+  // Acceso a los buckets de R2 sin credenciales: el Worker puede escribir en
+  // ellos porque están declarados aquí, así que no hay claves que rotar ni
+  // filtrar. Ver docs/adr/0007-media-en-cloudflare.md
+  //
+  // Son DOS y la diferencia importa:
+  //
+  //  - `MEDIA` es el bucket PÚBLICO de las imágenes de catálogo. Se sirve por su
+  //    dominio propio (`R2_PUBLIC_URL`) sin pasar por el Worker.
+  //  - `MEDIA_PRIVADA` no tiene dominio público ni debe tenerlo. Guarda fotos de
+  //    prueba de entrega y comprobantes de abono: la puerta de casa de alguien y
+  //    la captura de una transferencia. Sus bytes solo salen por una ruta que
+  //    comprueba permisos, y su clave nunca llega al navegador.
   "r2_buckets": [
     {
       "binding": "MEDIA",
       "bucket_name": "nebula-media",
-      "preview_bucket_name": "nebula-media"
-    }
+      "preview_bucket_name": "nebula-media",
+    },
+    {
+      "binding": "MEDIA_PRIVADA",
+      "bucket_name": "nebula-media-privada",
+      "preview_bucket_name": "nebula-media-privada",
+    },
   ],
   // Habilita las URL de previsualización por versión y por rama. Es lo que
   // permite abrir cada PR en un enlace propio antes de mergear.
   // Wrangler 4.44+ las hace coincidir con `workers_dev` si no se declara.
-  "preview_urls": true
+  "preview_urls": true,
   // Sin `vars` a propósito: las variables NEXT_PUBLIC_* las incrusta Next en
   // tiempo de build, no en tiempo de ejecución. Se pasan al construir (ver
   // docs/DESPLIEGUE.md). Los secretos van con `wrangler secret put`.

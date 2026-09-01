@@ -342,6 +342,9 @@ export const PAGOS_DEMO: Tables<'payments'>[] = [
     provider: 'manual',
     provider_payment_id: null,
     reference: 'Efectivo en tienda',
+    // Sin comprobante: en el recorrido de demostración no hay bucket, y una
+    // clave inventada daría un enlace roto en vez de la ausencia de enlace.
+    receipt_key: null,
     status: 'paid',
     amount: 43.4,
     currency: 'USD',

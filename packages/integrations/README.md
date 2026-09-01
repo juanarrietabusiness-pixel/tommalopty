@@ -37,6 +37,21 @@ Para implementar uno:
 - `verifyWebhook` debe verificar la firma **siempre** y ser idempotente: las
   pasarelas reintentan.
 
+## Yappy Comercial (`src/yappy/`) — no es la pasarela
+
+Ojo: **son dos productos con el mismo nombre**. El adaptador de `payments/` es
+el _Botón de Pago_, que cobra. Esto otro es la _Integración Core_ o
+«Apificación», que **no cobra**: abre sesión y lee los movimientos ya cobrados
+para conciliarlos con los pedidos.
+
+```bash
+YAPPY_API_URL=… YAPPY_API_KEY=… YAPPY_API_SECRET_KEY=… \
+  pnpm --filter @nebula/integrations yappy:validar
+```
+
+Ese comando hace las tres llamadas en orden y dice cuál falló primero. No
+escribe nada. El detalle completo está en [`docs/YAPPY.md`](../../docs/YAPPY.md).
+
 ## Meta (Pixel + Conversions API)
 
 `sendConversionEvent()` envía eventos desde el servidor, lo que evita la pérdida

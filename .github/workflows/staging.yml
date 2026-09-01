@@ -36,6 +36,7 @@ jobs:
       cloudflare: ${{ steps.check.outputs.cloudflare }}
       supabase: ${{ steps.check.outputs.supabase }}
       service_role: ${{ steps.check.outputs.service_role }}
+      correo: ${{ steps.check.outputs.correo }}
     steps:
       - id: check
         env:
@@ -44,6 +45,8 @@ jobs:
           SB_URL: ${{ vars.STAGING_SUPABASE_URL }}
           SB_ANON: ${{ vars.STAGING_SUPABASE_ANON_KEY }}
           SB_SERVICE: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND: ${{ secrets.STAGING_RESEND_API_KEY }}
+          FROM: ${{ vars.STAGING_EMAIL_FROM }}
         run: |
           if [ -n "$CF_TOKEN" ] && [ -n "$CF_ACCOUNT" ]; then
             echo "cloudflare=si" >> "$GITHUB_OUTPUT"
@@ -64,6 +67,16 @@ jobs:
             echo "service_role=si" >> "$GITHUB_OUTPUT"
           else
             echo "service_role=no" >> "$GITHUB_OUTPUT"
+          fi
+
+          # El correo transaccional necesita las dos: la clave para poder
+          # enviar, y el remitente porque Resend rechaza un envío sin `from`
+          # verificado. Con una sola de las dos no se manda nada, así que se
+          # comprueban juntas y no por separado.
+          if [ -n "$RESEND" ] && [ -n "$FROM" ]; then
+            echo "correo=si" >> "$GITHUB_OUTPUT"
+          else
+            echo "correo=no" >> "$GITHUB_OUTPUT"
           fi
 
   publicar:
@@ -124,6 +137,7 @@ jobs:
             echo "::notice::El Worker aún no existe; el secreto se carga tras el primer despliegue."
           fi
 
+
       - name: Desplegar
         id: desplegar
         working-directory: apps/${{ matrix.app }}
@@ -145,11 +159,41 @@ jobs:
           SERVICE_ROLE: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
         run: printf '%s' "$SERVICE_ROLE" | pnpm exec wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 
+      # Va después de desplegar y no antes, como el resto de secretos de
+      # ejecución: `wrangler secret put` sobre un Worker que todavía no existe
+      # falla, y aquí ya existe seguro.
+      #
+      # Los tres se cargan como secretos del Worker aunque solo la clave lo sea.
+      # En un Worker las `vars` son valores estáticos del `wrangler.jsonc` —es
+      # decir, comprometidos en el repositorio— y el remitente cambia por
+      # entorno. La distinción sí se respeta del lado de GitHub, que es donde
+      # importa: la clave se enmascara en los registros y las otras dos no.
+      #
+      # Sin estas variables la tienda funciona entera: `resendProvider` devuelve
+      # `email_not_configured` y quien llama lo trata como caso normal. Por eso
+      # esto no bloquea el despliegue.
+      - name: Cargar la configuración de correo
+        if: needs.requisitos.outputs.correo == 'si'
+        working-directory: apps/${{ matrix.app }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          RESEND_API_KEY: ${{ secrets.STAGING_RESEND_API_KEY }}
+          EMAIL_FROM: ${{ vars.STAGING_EMAIL_FROM }}
+          EMAIL_REPLY_TO: ${{ vars.STAGING_EMAIL_REPLY_TO }}
+        run: |
+          printf '%s' "$RESEND_API_KEY" | pnpm exec wrangler secret put RESEND_API_KEY
+          printf '%s' "$EMAIL_FROM" | pnpm exec wrangler secret put EMAIL_FROM
+          if [ -n "$EMAIL_REPLY_TO" ]; then
+            printf '%s' "$EMAIL_REPLY_TO" | pnpm exec wrangler secret put EMAIL_REPLY_TO
+          fi
+
       - name: Resumen
         env:
           APP: ${{ matrix.app }}
           URL: ${{ steps.desplegar.outputs.url }}
           SERVICE: ${{ needs.requisitos.outputs.service_role }}
+          CORREO: ${{ needs.requisitos.outputs.correo }}
         run: |
           {
             echo "## ${APP} publicado en staging"
@@ -165,6 +209,13 @@ jobs:
               echo
               echo "> Falta el secreto \`STAGING_SUPABASE_SERVICE_ROLE_KEY\`."
               echo "> Todo funciona salvo confirmar un pedido en el checkout."
+            fi
+            if [ "$CORREO" != "si" ]; then
+              echo
+              echo "> Sin correo transaccional: faltan \`STAGING_RESEND_API_KEY\` (secreto)"
+              echo "> y \`STAGING_EMAIL_FROM\` (variable). Necesitan un dominio verificado"
+              echo "> en Resend; los pasos están en \`docs/PLAN-LOGISTICA.md\` § 2.e."
+              echo "> La tienda funciona: simplemente no avisa a nadie."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 

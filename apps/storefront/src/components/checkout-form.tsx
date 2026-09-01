@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import type { DeliveryZone } from '@nebula/domain';
+import type { DeliveryZone, DireccionAproximada } from '@nebula/domain';
 import { money, useCart } from '@nebula/ui';
 import { SelectorDeUbicacion, type UbicacionElegida } from '@/components/selector-de-ubicacion';
 import type { Cotizacion } from '@/app/api/checkout/cotizar/route';
@@ -65,6 +65,43 @@ export function CheckoutForm({
   // cupón— reiniciaría ese efecto.
   const recibirUbicacion = useCallback((valor: UbicacionElegida | null) => {
     setUbicacion(valor);
+  }, []);
+
+  /*
+   * LOS CAMPOS DE DIRECCIÓN LOS ESCRIBE EL MAPA, Y LOS CORRIGE QUIEN COMPRA
+   *
+   * Dejaron de ser campos sin control porque el mapa tiene que poder rellenarlos.
+   * Pero rellenar no es imponer: en cuanto alguien escribe en uno, ese campo pasa
+   * a ser suyo y ningún movimiento posterior del pin lo vuelve a tocar. Sin esa
+   * regla, corregir «Bella Vista» por el nombre real de la barriada y mover
+   * después el mapa un metro te borraba la corrección, y eso se siente como que
+   * la página pelea contigo.
+   *
+   * Se lleva en un `ref` y no en estado porque no cambia lo que se pinta: solo
+   * decide si el siguiente volcado puede tocar el campo.
+   */
+  const [direccion, setDireccion] = useState({ line1: '', city: '', province: '' });
+  const escritosAMano = useRef(new Set<string>());
+  const [rellenadaDesdeElMapa, setRellenadaDesdeElMapa] = useState(false);
+
+  function editarCampo(campo: 'line1' | 'city' | 'province', valor: string) {
+    escritosAMano.current.add(campo);
+    setDireccion((actual) => ({ ...actual, [campo]: valor }));
+  }
+
+  const recibirDireccion = useCallback((sugerida: DireccionAproximada) => {
+    setDireccion((actual) => {
+      const tomar = (campo: 'line1' | 'city' | 'province') =>
+        escritosAMano.current.has(campo) ? actual[campo] : (sugerida[campo] ?? actual[campo]);
+
+      return {
+        line1: tomar('line1'),
+        city: tomar('city'),
+        province: tomar('province'),
+      };
+    });
+
+    setRellenadaDesdeElMapa(true);
   }, []);
 
   // Los totales los calcula el servidor, nunca este componente: aquí no se
@@ -230,7 +267,13 @@ export function CheckoutForm({
             </div>
             <div className="field">
               <label htmlFor="line1">Dirección</label>
-              <input id="line1" name="line1" required />
+              <input
+                id="line1"
+                name="line1"
+                required
+                value={direccion.line1}
+                onChange={(evento) => editarCampo('line1', evento.target.value)}
+              />
             </div>
             <div className="field">
               <label htmlFor="line2">Apartamento, casa, referencia (opcional)</label>
@@ -239,20 +282,48 @@ export function CheckoutForm({
             <div className="field-row">
               <div className="field">
                 <label htmlFor="city">Ciudad</label>
-                <input id="city" name="city" required />
+                <input
+                  id="city"
+                  name="city"
+                  required
+                  value={direccion.city}
+                  onChange={(evento) => editarCampo('city', evento.target.value)}
+                />
               </div>
               <div className="field">
                 <label htmlFor="province">Provincia</label>
-                <input id="province" name="province" />
+                <input
+                  id="province"
+                  name="province"
+                  value={direccion.province}
+                  onChange={(evento) => editarCampo('province', evento.target.value)}
+                />
               </div>
             </div>
+
+            {/*
+              Se dice solo cuando ha pasado. Un aviso permanente de «esto se
+              rellena solo» delante de tres campos vacíos es una promesa que la
+              pantalla todavía no ha cumplido.
+            */}
+            {rellenadaDesdeElMapa ? (
+              <p className="field-hint" data-testid="aviso-autocompletado" role="status">
+                Completamos estos campos con el punto que marcaste. Corrígelos si no cuadran: lo que
+                escribas tú manda.
+              </p>
+            ) : null}
 
             <h3 className="checkout-subtitulo">Marca el punto exacto de entrega</h3>
             <p className="field-hint" style={{ marginTop: -6, marginBottom: 12 }}>
               En Panamá la dirección escrita casi nunca basta para encontrar una puerta. El punto
-              del mapa es lo que ve quien te lleva el pedido.
+              del mapa es lo que ve quien te lleva el pedido, y con él rellenamos la dirección de
+              arriba.
             </p>
-            <SelectorDeUbicacion zonas={deliveryZones} onCambio={recibirUbicacion} />
+            <SelectorDeUbicacion
+              zonas={deliveryZones}
+              onCambio={recibirUbicacion}
+              onDireccion={recibirDireccion}
+            />
           </section>
 
           <section className="checkout-block">

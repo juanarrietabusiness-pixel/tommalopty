@@ -32,6 +32,8 @@ const PANTALLAS = [
   { nombre: 'editar página', ruta: `/contenido/paginas/${ID('g1')}` },
   { nombre: 'reportes', ruta: '/reportes' },
   { nombre: 'usuarios', ruta: '/usuarios' },
+  { nombre: 'reparto y despacho', ruta: '/configuracion/zonas' },
+  { nombre: 'motorizados', ruta: '/motorizados' },
   { nombre: 'integraciones', ruta: '/configuracion' },
 ] as const;
 

@@ -9,15 +9,27 @@
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": ".open-next/assets",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
   },
   "observability": {
-    "enabled": true
+    "enabled": true,
   },
+  // Solo el bucket PRIVADO, y solo porque el motorizado sube desde aquí la foto
+  // de la prueba de entrega. El bucket público de imágenes de catálogo no hace
+  // falta: se sirve por su propio dominio (`R2_PUBLIC_URL`) sin pasar por este
+  // Worker, y enlazarlo sería darle permiso de escritura a la tienda sobre las
+  // imágenes del catálogo sin ninguna razón.
+  "r2_buckets": [
+    {
+      "binding": "MEDIA_PRIVADA",
+      "bucket_name": "nebula-media-privada",
+      "preview_bucket_name": "nebula-media-privada",
+    },
+  ],
   // Habilita las URL de previsualización por versión y por rama. Es lo que
   // permite abrir cada PR en un enlace propio antes de mergear.
   // Wrangler 4.44+ las hace coincidir con `workers_dev` si no se declara.
-  "preview_urls": true
+  "preview_urls": true,
   // Sin `vars` a propósito: las variables NEXT_PUBLIC_* las incrusta Next en
   // tiempo de build, no en tiempo de ejecución. Se pasan al construir (ver
   // docs/DESPLIEGUE.md). Los secretos van con `wrangler secret put`.

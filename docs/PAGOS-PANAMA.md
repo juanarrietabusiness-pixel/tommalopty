@@ -41,6 +41,11 @@ PAYMENTS_ENABLED_PROVIDERS=paypal,wompi
 Yappy es un buen tercer método si el público es mayoritariamente local; ya tiene
 su adaptador preparado, basta con añadirlo a la lista.
 
+> **Yappy son dos productos distintos con el mismo nombre**, y confundirlos
+> cuesta un día. El _Botón de Pago_ cobra en el checkout; la _Integración Core_
+> solo lee los movimientos ya cobrados, para conciliarlos. Cuál es cuál, qué
+> credenciales lleva cada uno y qué está implementado: [`YAPPY.md`](YAPPY.md).
+
 ## Estado de la implementación
 
 Los cuatro adaptadores existen con su interfaz completa y su documentación de

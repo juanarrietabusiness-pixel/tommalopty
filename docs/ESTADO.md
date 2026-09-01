@@ -32,10 +32,104 @@ Configuración necesaria, ya puesta (Settings → Secrets and variables → Acti
 | Variable | `STAGING_SUPABASE_URL`, `STAGING_SUPABASE_ANON_KEY` | Conexión pública a Supabase                  |
 | Variable | `STAGING_SITE_URL`, `STAGING_ADMIN_URL`             | Que cada aplicación sepa su propia URL       |
 | Variable | `R2_PUBLIC_URL`                                     | Dominio público de las imágenes              |
+| Secret   | `STAGING_RESEND_API_KEY`                            | Correo transaccional. **Aún sin poner**      |
+| Variable | `STAGING_EMAIL_FROM`, `STAGING_EMAIL_REPLY_TO`      | Remitente del correo. **Aún sin poner**      |
 
 La anon key va como **variable y no como secreto** a propósito: viaja en el
 navegador de cualquiera que abra la tienda. Lo que protege los datos es RLS, no
 el secreto de esa clave.
+
+Las tres del correo **todavía no están puestas, y no es un olvido**: `EMAIL_FROM`
+necesita un dominio verificado en Resend, y el dominio es el P1 número 2. El
+despliegue ya sabe leerlas y cargarlas en el Worker; mientras falten, lo dice en
+su resumen y la tienda funciona igual, solo que sin avisar a nadie. Los pasos de
+instalación, cuando haya dominio, están en
+[`PLAN-LOGISTICA.md` § 2.e](PLAN-LOGISTICA.md).
+
+### Quién tiene acceso a qué, y qué NO es una vía de acceso
+
+Este apartado existe porque la pregunta se ha hecho ya y se volverá a hacer, y
+porque la respuesta equivocada cuesta cara: **ninguna parte de esta plataforma
+depende de una conexión MCP.**
+
+> Lo pendiente de accesos y credenciales, con sus casillas, está en el
+> [issue #23](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/23).
+> Este apartado explica el porqué; ese issue lleva la cuenta de lo que falta.
+
+#### Un conector MCP no es una credencial de la tienda
+
+Quien desarrolla puede tener conectados a su asistente conectores de Supabase,
+Cloudflare, Notion, Resend o los que sea. Eso son **cuentas personales de esa
+persona**, atadas a su sesión de trabajo, y no tienen nada que ver con la
+plataforma:
+
+- **El código no lee ningún conector.** Todo lo que la tienda necesita lo lee de
+  variables de entorno (`process.env`), y esas variables las pone el despliegue
+  desde los secretos del repositorio. No hay un solo `import` de nada MCP.
+- **Una sesión de asistente no tiene acceso a la base de datos ni a Cloudflare de
+  este proyecto**, salvo que alguien le dé las credenciales a propósito. Las
+  sesiones de trabajo de este repositorio no las han tenido.
+- Por eso, cuando en un commit se lee «probado contra Postgres real», eso
+  significa **una base de datos desechable levantada dentro del contenedor de esa
+  sesión**, con el esquema del repositorio aplicado y datos inventados. Nunca es
+  staging, y nunca es producción.
+
+Si alguien alguna vez conecta un MCP a la base real, **eso no es integrarlo: es
+darle acceso de escritura a una persona.** Se decide a sabiendas y se revoca al
+terminar.
+
+#### Cómo se autentica de verdad cada servicio
+
+| Servicio                  | Para qué                                 | Cómo entra la credencial                                                                  | Estado hoy                             |
+| ------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------- |
+| **Supabase**              | Base de datos, autenticación, RLS        | `NEXT_PUBLIC_SUPABASE_URL` + anon key (variables) y `SUPABASE_SERVICE_ROLE_KEY` (secreto) | ✅ Puesto (staging)                    |
+| **Cloudflare Workers**    | Servir las dos aplicaciones              | `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` (secretos de Actions)                    | ✅ Puesto                              |
+| **Cloudflare R2**         | Imágenes de producto                     | Enlace `r2_buckets` en `wrangler.jsonc` + `R2_PUBLIC_URL`                                 | ✅ Puesto, bucket `nebula-media`       |
+| **Cloudflare R2 privado** | Prueba de entrega y comprobante de abono | Enlace `r2_buckets` (`MEDIA_PRIVADA`). **Sin dominio público, y no debe tenerlo**         | 🔲 Falta crear `nebula-media-privada`  |
+| **Resend**                | Correo transaccional                     | `RESEND_API_KEY` (secreto) + `EMAIL_FROM`                                                 | 🔲 Falta. Necesita dominio             |
+| **Meta**                  | Píxel y Conversions API                  | `NEXT_PUBLIC_META_PIXEL_ID` + `META_CONVERSIONS_ACCESS_TOKEN`                             | 🔲 Falta                               |
+| **Yappy · Botón**         | Cobrar en el checkout                    | `YAPPY_MERCHANT_ID`, `YAPPY_SECRET_KEY`, `YAPPY_DOMAIN_URL`                               | 🔲 Falta especificación y credenciales |
+| **Yappy · Integración**   | Conciliar cobros                         | `YAPPY_API_URL`, `YAPPY_API_KEY`, `YAPPY_API_SECRET_KEY`                                  | 🔲 Falta el host de la API             |
+| **Teselas del mapa**      | Las imágenes del mapa                    | `NEXT_PUBLIC_MAP_TILES_URL`                                                               | ⚠️ CARTO sin clave, sin plan           |
+
+Los nombres exactos y sus valores de ejemplo están en
+[`.env.example`](../.env.example). Las reglas de qué va como secreto y qué como
+variable, en [`DESPLIEGUE.md`](DESPLIEGUE.md).
+
+#### Lo que ninguna sesión de trabajo puede hacer sola
+
+Conviene tenerlo presente al leer un commit que dice «listo»:
+
+- **Aplicar migraciones.** El workflow de «Publicar en staging» construye y
+  despliega los Workers; **no toca la base de datos**. Las migraciones se aplican
+  a mano con `supabase db push` desde una máquina que sí tenga acceso al
+  proyecto. Contra staging **nunca** `supabase db reset`: eso borra, y staging
+  guarda datos reales.
+- **Poner un secreto.** Los valores los pega una persona en GitHub → Settings →
+  Secrets and variables → Actions. Nada de este repositorio los contiene ni
+  puede leerlos.
+- **Verificar contra Supabase de verdad.** Lo más cerca que llega una sesión sin
+  acceso es un Postgres con el esquema aplicado. Quien confirma que las
+  migraciones entran limpias en un Supabase real es **CI**, que levanta uno con
+  Docker en cada pull request.
+
+#### Cuando la plataforma pase a la dueña
+
+Las cuentas de servicio son de quien las crea. Si se abren a nombre de quien
+desarrolla, el día del traspaso el correo, el dominio o las imágenes se quedan
+atrás. Antes de abrir al público, cada una de estas debería estar a nombre del
+negocio:
+
+| Cuenta         | Qué se pierde si queda a nombre de otra persona                    |
+| -------------- | ------------------------------------------------------------------ |
+| **Supabase**   | La base de datos entera y sus backups                              |
+| **Cloudflare** | El dominio, los Workers y las imágenes de R2                       |
+| **Resend**     | El dominio verificado del correo, y con él todos los avisos        |
+| **Yappy**      | El comercio afiliado y su liquidación bancaria                     |
+| **Meta**       | El píxel y el histórico de conversiones que alimenta la publicidad |
+
+Lo que **no** hay que traspasar es este repositorio de configuración: no guarda
+ninguna credencial, a propósito.
 
 ### Cómo entra el primer administrador
 
@@ -59,13 +153,28 @@ disparador de alta. Ver migración `20260901020000`.
 - **Fase L1 completa**: la dirección del checkout captura coordenada,
   procedencia del punto, referencia e instrucciones de entrega, y todo eso viaja
   hasta quedar grabado en el pedido.
+- **El punto del mapa rellena la dirección**: marcado el punto —con el pin, con
+  el buscador o con el GPS— se resuelve qué dirección hay ahí y se vuelca en
+  dirección, ciudad y provincia. Lo que se escriba a mano manda: ese campo deja
+  de tocarse. Dos tests end-to-end lo vigilan, comprobados en rojo sin el
+  arreglo.
 - **Fase L3 casi completa**: se cobran abonos desde el panel, el saldo lo lleva
   la base de datos, y una regla configurable decide si un pedido con saldo puede
   salir del almacén. Falta solo los recordatorios por correo.
 - **Fase L2 casi completa**: los envíos son una entidad propia con su máquina de
   estados, el panel los crea y los mueve, la guía se imprime en 4×6" con su QR,
   la página que abre ese QR funciona en la calle, y quien compró sigue su pedido
-  sin registrarse. Falta solo 2.e, los avisos automáticos por correo.
+  sin registrarse. Falta solo 2.e, los avisos automáticos por correo, y falta
+  por el dominio: ver el punto 1.
+- **Fase L4.1 completa**: los motorizados tienen rol propio, ficha, zonas y
+  permisos comprobados contra Postgres real. El panel los da de alta y les asigna
+  envíos; ellos entran en `/motorizado` desde la tienda y ven **solo** lo que
+  llevan encima. Falta L4.2: rutas, mapa en vivo y liquidaciones.
+- **Ficheros privados**: la foto de la prueba de entrega y el comprobante de un
+  abono van a un bucket **sin dominio público**. Lo que se guarda en la base es
+  la clave del objeto, que por sí sola no sirve de nada: para ver el fichero hay
+  que pedir el envío o el pago por una ruta que comprueba permisos. **Falta crear
+  el bucket en Cloudflare** — el código ya está y avisa si no lo encuentra.
 
 ### Cómo probar la fase L2 sin datos propios
 
@@ -93,71 +202,76 @@ funcionando.
 
 ### 🔴 P1 · Impide abrir al público
 
-| #   | Qué falta                                           | Por qué es crítico                                                                                                                                                          | Quién puede hacerlo                            |
-| --- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| 1   | **El mapa del checkout no muestra las imágenes**    | Es la pieza de más impacto de todo el proyecto y la que la clienta pidió primero. La coordenada **sí se captura** y llega al pedido, pero el cliente marca su casa a ciegas | Desarrollo. Diagnóstico completo abajo         |
-| 2   | **Dominio propio** y los dos Workers apuntados a él | Hoy las URL son `workers.dev`. No se puede dar a clientes reales, ni cobrar, ni pasar la revisión de una pasarela                                                           | La dueña (comprar el dominio) + desarrollo     |
-| 3   | **Páginas legales** completadas y revisadas         | Términos, privacidad, envíos y devoluciones son plantillas. Sin ellas no se puede vender legalmente en Panamá, y ninguna pasarela aprueba el comercio                       | La dueña + alguien que conozca la ley panameña |
-| 4   | **Proveedor de teselas del mapa con plan**          | Hoy se usa CARTO sin clave. Su cuota razonable no cubre una tienda en producción                                                                                            | Decisión de la dueña (coste) + desarrollo      |
+| #     | Qué falta                                            | Por qué es crítico                                                                                                                                    | Quién puede hacerlo                            |
+| ----- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| ~~1~~ | ~~**El mapa del checkout no muestra las imágenes**~~ | **Resuelto.** El mapa se previsualiza, y desde hoy además rellena la dirección sola. Queda un matiz de proveedor: ver 3.1                             | —                                              |
+| 2     | **Dominio propio** y los dos Workers apuntados a él  | Hoy las URL son `workers.dev`. No se puede dar a clientes reales, ni cobrar, ni pasar la revisión de una pasarela                                     | La dueña (comprar el dominio) + desarrollo     |
+| 3     | **Páginas legales** completadas y revisadas          | Términos, privacidad, envíos y devoluciones son plantillas. Sin ellas no se puede vender legalmente en Panamá, y ninguna pasarela aprueba el comercio | La dueña + alguien que conozca la ley panameña |
+| 4     | **Proveedor de teselas del mapa con plan**           | Hoy se usa CARTO sin clave. Su cuota razonable no cubre una tienda en producción                                                                      | Decisión de la dueña (coste) + desarrollo      |
 
 ### 🟠 P2 · Se puede abrir sin ello, pero duele pronto
 
-| #   | Qué falta                                                                                                          | Qué pasa si no está                                                                                                                                                         |
-| --- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 5   | **Los avisos automáticos por correo** (L2 2.e y L3): despachado, en camino, entregado, recordatorio de vencimiento | El cliente llama por teléfono para preguntar dónde está su pedido. Es el trabajo manual que la plataforma existía para quitar                                               |
-| 6   | **Cloudflare Access sobre el panel**                                                                               | El panel administrativo es alcanzable por cualquiera que sepa la URL. RLS protege los datos, pero la pantalla de acceso queda expuesta a fuerza bruta                       |
-| 7   | **Backups de Supabase con retención definida**                                                                     | Un borrado accidental no tiene vuelta atrás                                                                                                                                 |
-| 8   | **Bucket privado** para la foto de prueba de entrega y el comprobante del abono                                    | Ambas funciones están a medias. El bucket que existe es **público**, y una foto de entrega es la puerta de casa de alguien: no sirve                                        |
-| 9   | **Pasarela de pago real conectada**                                                                                | Hoy los pedidos se registran pero no se cobran en línea. Los abonos manuales sí funcionan. Es una decisión de negocio pendiente ([ADR 0006](adr/0006-pasarela-al-final.md)) |
+| #   | Qué falta                                                                                                                                                                                                                                                                                            | Qué pasa si no está                                                                                                                                                                                                                                                                       |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 5   | **Los avisos automáticos por correo** (L2 2.e y L3): despachado, en camino, entregado, recordatorio de vencimiento                                                                                                                                                                                   | El cliente llama por teléfono para preguntar dónde está su pedido. Es el trabajo manual que la plataforma existía para quitar                                                                                                                                                             |
+| 6   | **Cloudflare Access sobre el panel**                                                                                                                                                                                                                                                                 | El panel administrativo es alcanzable por cualquiera que sepa la URL. RLS protege los datos, pero la pantalla de acceso queda expuesta a fuerza bruta                                                                                                                                     |
+| 7   | **Backups de Supabase con retención definida**                                                                                                                                                                                                                                                       | Un borrado accidental no tiene vuelta atrás                                                                                                                                                                                                                                               |
+| 8   | **Crear el bucket privado en Cloudflare**: `wrangler r2 bucket create nebula-media-privada`. El código ya escribe y lee de él —la foto de la prueba de entrega y el comprobante del abono— y avisa con claridad si no lo encuentra. Es un comando, y lo tiene que dar alguien con acceso a la cuenta |
+| 9   | **Pasarela de pago real conectada**                                                                                                                                                                                                                                                                  | Hoy los pedidos se registran pero no se cobran en línea. Los abonos manuales sí funcionan. De Yappy falta **solo el Botón de Pago**, y falta porque falta su especificación: ver [`YAPPY.md`](YAPPY.md). Es una decisión de negocio pendiente ([ADR 0006](adr/0006-pasarela-al-final.md)) |
 
 ### 🟡 P3 · Deuda conocida, sin urgencia
 
-| #   | Qué                                                                                                                                                                                                            |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 10  | **La URL pública de R2 sigue en `r2.dev`**: hay que pasarla a dominio propio antes de producción                                                                                                               |
-| 11  | **`http://localhost:3000/**` falta en las Redirect URLs de Supabase**: sin eso, registrarse desde el entorno de desarrollo no confirma cuentas                                                                 |
-| 12  | **La posición del motorizado en ruta** en el seguimiento: depende de que exista su aplicación (fase L4)                                                                                                        |
-| 13  | **`/cuenta/direcciones` es solo lectura**: no se pueden guardar ni reutilizar direcciones con su punto                                                                                                         |
-| 14  | **La cabecera de la tienda se esconde con `:has()`** en la página del motorizado, en vez de mover las rutas a un grupo con su propio layout. Atajo consciente; se borra cuando alguien haga esa reorganización |
-| 15  | **La pantalla de integraciones lee `NEXT_PUBLIC_META_PIXEL_ID` de forma dinámica**, así que dirá «pendiente» aunque esté configurada. Cosmético, afecta a una fila                                             |
+| #   | Qué                                                                                                                                                                                                                                        |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 10  | **La URL pública de R2 sigue en `r2.dev`**: hay que pasarla a dominio propio antes de producción                                                                                                                                           |
+| 11  | **`http://localhost:3000/**` falta en las Redirect URLs de Supabase**: sin eso, registrarse desde el entorno de desarrollo no confirma cuentas                                                                                             |
+| 12  | **La posición del motorizado en ruta** en el seguimiento: la aplicación ya existe (L4.1), falta enviar y pintar la posición (L4.2)                                                                                                         |
+| 13  | **`/cuenta/direcciones` es solo lectura**: no se pueden guardar ni reutilizar direcciones con su punto                                                                                                                                     |
+| 14  | **La cabecera de la tienda se esconde con `:has()`** en la página del motorizado, en vez de mover las rutas a un grupo con su propio layout. Atajo consciente; se borra cuando alguien haga esa reorganización                             |
+| 15  | **La pantalla de integraciones lee `NEXT_PUBLIC_META_PIXEL_ID` de forma dinámica**, así que dirá «pendiente» aunque esté configurada. Cosmético, afecta a una fila                                                                         |
+| 16  | **`NEXT_PUBLIC_ADMIN_URL` no lo lee nadie**: se declara en `.env.example` y el despliegue lo pasa, pero ningún código lo usa. O se usa, o se quita: una variable que se configura y no hace nada es media hora de alguien buscando por qué |
+| 17  | **Las cuentas de servicio deberían estar a nombre del negocio** antes de abrir. Ver el apartado «Cuando la plataforma pase a la dueña» del punto 1                                                                                         |
 
 ---
 
-## 3.1 · El fallo del mapa, con todo lo que ya se descartó
+## 3.1 · El mapa: lo que se resolvió y lo que queda
 
-Es el P1 número 1 y el que más tiempo ha costado, así que aquí está todo lo
-averiguado para que nadie repita el camino.
+**Resuelto: el recuadro salía vacío.** Lo causaba una colisión de CSS. MapLibre
+le pone al contenedor su clase `.maplibregl-map`, que trae `position: relative`
+y anulaba el `inset: 0` del que dependía el alto: el mapa se construía entero
+—lienzo, controles, atribución— dentro de una caja de cero píxeles. Se arregló
+con mayor especificidad más alto y ancho explícitos, y hay un test end-to-end
+que **falla sin el arreglo**. Confirmado: el mapa se previsualiza.
 
-**Qué se ve:** el recuadro del mapa sale vacío. El pin y el botón «Usar mi
-ubicación» sí aparecen porque son elementos propios, no del mapa.
+**Resuelto: marcar el punto no rellenaba nada.** La coordenada se capturaba y
+llegaba al pedido, así que nada parecía roto — pero quien marcaba su casa en el
+mapa tenía que escribir después la misma dirección a mano, que era justo el
+trabajo que el mapa venía a quitarle. Ahora el punto resuelve su dirección
+(`/api/geo/inverso`, Nominatim por el servidor y cacheado) y la vuelca en los
+tres campos. Detalles que importan y ya están decididos:
 
-**Qué SÍ funciona, comprobado y no supuesto:**
+- La dirección sale **siempre del punto final**, nunca del resultado de búsqueda
+  que llevó hasta él. El pin es la verdad. Usar las dos fuentes daba textos que
+  cambiaban solos al asentarse el mapa.
+- **Lo escrito a mano manda.** En cuanto alguien toca un campo, ese campo es
+  suyo y ningún movimiento posterior del pin lo vuelve a tocar.
+- El reparto de la respuesta de OpenStreetMap a los tres campos es puro y está
+  en `packages/domain/src/direccion.ts`. La jerarquía panameña —provincia,
+  distrito, corregimiento— no cae siempre en las mismas claves de OSM, así que
+  **cuando una dirección real salga mal repartida, el arreglo empieza por pegar
+  su respuesta en `direccion.test.ts`.**
 
-- MapLibre arranca y responde: al mover el recuadro, el estado cambia a «Marcada
-  en el mapa», texto que solo se escribe desde su evento `moveend`.
-- La coordenada se captura, se guarda con su procedencia y llega al pedido.
-- WebGL está disponible en el navegador donde se reprodujo (`true` en consola).
-- La hoja de estilos de MapLibre se sirve completa: 69 KB, 62 reglas.
-- El lienzo se crea con el tamaño correcto y los dos controles existen en el DOM.
+**Lo que queda, y es de la dueña, no de programación:** el proveedor de teselas
+(P1 número 4). Hoy es CARTO sin clave, y su cuota razonable no cubre una tienda
+abierta.
 
-**Lo ya arreglado y verificado en producción:** el contenedor colapsaba a altura
-cero por una colisión de CSS con `.maplibregl-map`, que trae `position: relative`
-y anulaba el `inset: 0`. Resuelto con mayor especificidad más alto y ancho
-explícitos, y hay un test end-to-end que **falla sin el arreglo**.
-
-**Lo que queda por confirmar:** tras ese arreglo la última comprobación seguía
-sin ver el mapa, pero no se confirmó que se hubiera recargado sobre el despliegue
-nuevo. El CSS corregido sí está publicado.
-
-**Por dónde seguir, en este orden:**
-
-1. Recargar forzando caché (`Ctrl+Shift+R`) y mirar si aparece alguno de los tres
-   mensajes de fallo que el componente ya distingue: sin WebGL / no cargó la
-   librería / no llegan las imágenes.
-2. En **Network**, filtrar por `cartocdn` y mirar el código de respuesta. Un
-   `403` es bloqueo del proveedor; `ERR_BLOCKED_BY_CLIENT` es una extensión.
-3. Probar en incógnito y desde un teléfono. Los bloqueadores de rastreo incluyen
-   dominios de mapas en sus listas, y eso le pasará también a clientes reales.
+**Un dato que ahorra media tarde a quien depure esto:** hay entornos que
+bloquean `basemaps.cartocdn.com` por política de red —el sandbox de desarrollo
+de este proyecto lo hace, y algunos bloqueadores de rastreo también—. El síntoma
+es idéntico al fallo de CSS ya resuelto: recuadro vacío. Se distinguen en la
+pestaña **Network**: si las peticiones a `cartocdn` no salen o vuelven con 403,
+es la red, no el código, y el componente lo dice con su propio mensaje («no
+pudimos cargar las imágenes del mapa»).
 
 ## 4. Lo que se aprendió por las malas
 
@@ -197,10 +311,31 @@ Postgres real cada consulta que las aplicaciones hacen, con el rol que la hará.
 
 ### `grant ... on all tables` solo alcanza a lo que ya existe
 
-Una tabla creada después nace sin privilegios. Está declarado
+Una tabla creada después nace sin privilegios de los nuestros. Está declarado
 `alter default privileges` para `authenticated` y `service_role`, que sí alcanza
-al futuro. `anon` se deja fuera a propósito: una tabla nueva no debería quedar
-expuesta al público por omisión, sino porque alguien lo escribió.
+al futuro.
+
+**Y lo que decía aquí sobre `anon` era falso.** Decía que se dejaba fuera a
+propósito, y que por tanto una tabla nueva no quedaba expuesta al público. No es
+así: **el arranque de Supabase declara sus propios `alter default privileges`
+concediendo a `anon`**, y los suyos también aplican. Toda tabla creada en
+`public` nace con `select, insert, update, delete` **y `truncate`** para el
+público, digamos aquí lo que digamos.
+
+Se descubrió en CI, con un test que esperaba «permission denied» sobre
+`shipments` y recibió cero filas: contra un Postgres pelado el permiso no
+existía; contra el Supabase de verdad, sí.
+
+Con RLS bien puesta, las cuatro primeras no devuelven ni tocan nada. **`truncate`
+es la excepción y la que importa**: no está sujeto a políticas de fila, así que
+el privilegio es lo único que separa a un anónimo de vaciar una tabla. Hoy no se
+llega a él desde la API REST —PostgREST no lo expone— pero eso es una propiedad
+de la capa de arriba, no de la base.
+
+**La conclusión práctica:** una tabla nueva se revoca a `anon` explícitamente, en
+su propia migración, en vez de confiar en que no se le concedió. Las de la fase
+L4 lo hacen y tienen tests que lo fijan. Las anteriores no: [issue
+#24](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/24).
 
 ### Un test que no puede fallar no prueba nada
 
@@ -214,23 +349,39 @@ paquete de producción. **Comprobar siempre que el test falla sin el arreglo.**
 
 **Las siete preguntas de la clienta, hoy:**
 
-| Pregunta                                       | Estado                                                              |
-| ---------------------------------------------- | ------------------------------------------------------------------- |
-| ¿Podrá seguir sus pedidos?                     | ✅ Con línea de tiempo, y sin registrarse                           |
-| ¿La dirección se marca en un mapa?             | 🔶 La coordenada se captura y llega al pedido; **el mapa no se ve** |
-| ¿La guía lleva QR que abra Waze y Maps?        | ✅ Guía imprimible en 4×6" con su QR                                |
-| ¿Puede recibir abonos y despachar al cuadrar?  | ✅ Con tres reglas de despacho a elegir                             |
-| ¿Hay panel de cliente? ¿Se puede sin registro? | ✅ Las dos cosas                                                    |
-| ¿Cómo entran sus motorizados?                  | 🔲 Fase L4                                                          |
-| ¿Y Servientrega y Dropi?                       | 🔲 Fase L5, con la investigación hecha                              |
+| Pregunta                                       | Estado                                                   |
+| ---------------------------------------------- | -------------------------------------------------------- |
+| ¿Podrá seguir sus pedidos?                     | ✅ Con línea de tiempo, y sin registrarse                |
+| ¿La dirección se marca en un mapa?             | ✅ Se ve, se marca, y el punto rellena la dirección solo |
+| ¿La guía lleva QR que abra Waze y Maps?        | ✅ Guía imprimible en 4×6" con su QR                     |
+| ¿Puede recibir abonos y despachar al cuadrar?  | ✅ Con tres reglas de despacho a elegir                  |
+| ¿Hay panel de cliente? ¿Se puede sin registro? | ✅ Las dos cosas                                         |
+| ¿Cómo entran sus motorizados?                  | ✅ Con su cuenta, en `/motorizado`. Ven solo lo suyo     |
+| ¿Y Servientrega y Dropi?                       | 🔲 Fase L5, con la investigación hecha                   |
 
-**Lo siguiente del plan es la fase L4**, la comunidad de motorizados. Desbloquea
-tres cosas que hoy están a medias: la posición en ruta, la prueba de entrega con
-foto y la liquidación de lo cobrado contra entrega.
+**Lo siguiente del plan es la fase L4.2**: la pantalla de despacho con rutas, la
+posición en vivo y las liquidaciones. La L4.1 —rol, fichas, permisos, asignación
+y la aplicación— ya está.
+
+Dos cosas de L4 siguen atadas al **bucket privado**, que no existe: la foto de la
+prueba de entrega y el comprobante del abono. Es el punto 8 de la lista de
+arriba, y son la misma tarea.
 
 **Pero antes conviene cerrar el P1.** Un dominio propio y unas páginas legales no
 son trabajo de programación y dependen de decisiones de la dueña: cuanto antes se
 pidan, antes dejan de bloquear.
+
+### Lo que hay pedido a terceros
+
+Dos cosas están escritas y esperando una respuesta de fuera. Conviene pedirlas ya,
+porque no dependen de nosotros:
+
+| A quién                         | Qué se pide                                                               | Qué desbloquea                       |
+| ------------------------------- | ------------------------------------------------------------------------- | ------------------------------------ |
+| `integracionesdev@yappy.com.pa` | El **host** de la API de integración (la especificación trae un marcador) | La conciliación automática de cobros |
+| `botondepagoyappy@bgeneral.com` | La **especificación del Botón de Pago**                                   | Cobrar con Yappy en el checkout      |
+
+Todo lo demás de Yappy está hecho: ver [`YAPPY.md`](YAPPY.md).
 
 El detalle de cada fase, con criterios de aceptación, está en
 [`PLAN-LOGISTICA.md`](PLAN-LOGISTICA.md).

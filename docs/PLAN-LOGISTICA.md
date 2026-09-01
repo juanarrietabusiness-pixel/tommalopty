@@ -473,7 +473,10 @@ en dos toques.
 
 - **2.e · Los avisos automáticos.** Los correos que ya existen no se han
   ampliado a los estados de envío (despachado, en camino, entregado). Es lo
-  único de L2 sin empezar.
+  único de L2 sin empezar, y **está bloqueado por el dominio, no por el
+  código** — ver el apartado de abajo. Con ellos van los recordatorios de
+  vencimiento de L3: es el mismo trabajo de correo y conviene hacerlo de una
+  vez.
 - **La posición del motorizado en el mapa** durante la ruta. Necesita que exista
   la aplicación del motorizado, que es la fase L4.
 - **La prueba de entrega con foto.** La columna está y apunta a un bucket
@@ -481,6 +484,58 @@ en dos toques.
   público y una foto de entrega es la puerta de casa de alguien.
 - **El saldo pendiente en la guía** hoy es el total si el pedido no está pagado.
   Cuando existan los abonos (L3) pasará a ser el saldo real.
+
+#### 2.e · Por qué el correo espera al dominio, y qué hay que hacer cuando llegue
+
+El código de envío **ya está y no necesita credenciales**: `resendProvider.send()`
+es una llamada HTTP a `api.resend.com` que lee dos variables del entorno. Sin
+ellas devuelve `{ sent: false, reason: 'email_not_configured' }`, y quien llama ya
+trata ese caso como normal y no lo registra como error. La tienda funciona sin
+correo y empieza a mandarlo el día que existan las variables, sin desplegar nada
+distinto.
+
+Lo que bloquea no es la clave: es que **`EMAIL_FROM` necesita un dominio
+verificado en Resend**. Sin dominio propio, Resend solo deja enviar desde
+`onboarding@resend.dev` y **solo a la dirección de la propia cuenta**. Sirve para
+comprobar que el código funciona; no sirve para avisar a un cliente. Es el mismo
+P1 que bloquea las pasarelas: el dominio.
+
+**Instalación, cuando haya dominio.** Cuatro pasos, y ninguno es de programación:
+
+1. **En Resend, con la cuenta que vaya a ser la definitiva.** Si la tienda es de
+   la clienta, la cuenta es suya: una clave creada en la cuenta personal de otra
+   persona significa que el día que ella se lleve la tienda, el correo se queda
+   atrás.
+2. **Añadir el dominio y verificarlo.** Resend da los registros DNS (SPF, DKIM y
+   el de retorno) para pegar donde esté el dominio. Hasta que no aparezcan los
+   tres en verde, no sale nada.
+3. **Crear una API key con permiso de solo envío** («Sending access»). No hace
+   falta ninguno más, y una clave con menos permisos es una clave que hace menos
+   daño si se filtra.
+4. **Pegar los valores en GitHub → Settings → Secrets and variables → Actions**,
+   con la convención que ya usa el repositorio:
+
+   | Tipo         | Nombre                   | Valor                         |
+   | ------------ | ------------------------ | ----------------------------- |
+   | **Secret**   | `STAGING_RESEND_API_KEY` | la clave, `re_…`              |
+   | **Variable** | `STAGING_EMAIL_FROM`     | `Nombre <hola@tudominio.com>` |
+   | **Variable** | `STAGING_EMAIL_REPLY_TO` | `hola@tudominio.com`          |
+
+   La clave va como **secreto** y las otras dos como **variables**: la clave
+   manda correo en nombre del dominio, y las otras dos aparecen en la cabecera de
+   cada mensaje que se envía. El despliegue ya está preparado para leerlas y
+   pasárselas al Worker, igual que hace con la service-role de Supabase.
+
+Para probar en local antes, las mismas tres en un `.env.local`, que está en
+`.gitignore`. **La clave no se pega nunca en un chat, en un commit ni en un
+issue.**
+
+Cuando estén puestas, lo que queda por escribir es un aviso por cada movimiento
+del envío —despachado, en camino, entregado, fallido— con el enlace de
+seguimiento, y el correo de abono registrado con el saldo que queda. Las
+plantillas y el patrón de disparo ya existen (`email/templates.ts` y
+`email/notificaciones.ts`); el disparo va en `apps/admin/src/lib/actions/logistica.ts`,
+dentro de `after()`, que es donde ya se hace para el estado del pedido.
 
 ---
 
@@ -566,14 +621,19 @@ bajar en cada paso.
 - **Los recordatorios por correo antes del vencimiento**, y con ellos la tabla
   `payment_plans` (cuotas y vencimientos). Van junto a los avisos de L2: es el
   mismo trabajo de correo y conviene hacerlo de una vez.
-- **El comprobante adjunto** al registrar un abono. Necesita el mismo bucket
-  privado que la prueba de entrega, que todavía no existe.
+- ~~**El comprobante adjunto** al registrar un abono.~~ Hecho: va al bucket
+  privado, y el panel lo enseña con un enlace que solo abre el equipo. Falta
+  crear el bucket en Cloudflare, que es un comando.
 - **`valor_recaudar` de Servientrega**: con la política de contra entrega, el
   courier nacional puede cobrar el saldo en la puerta. Se conecta en L5.
 
 ---
 
 ### Fase L4 · La comunidad de motorizados dentro de la plataforma
+
+> **Estado: L4.1 construida.** Rol, fichas, permisos, alta desde el panel,
+> asignación y la aplicación del motorizado con sus tres pantallas. Falta L4.2:
+> rutas, mapa en vivo y liquidaciones. Al final está lo que se hizo y lo que no.
 
 Es la fase más grande y la que más valor propio aporta: es el activo de la
 clienta, y ningún courier externo se lo replica.
@@ -634,6 +694,71 @@ día cuadra en el panel sin que nadie toque una hoja de cálculo.
 **Duración estimada:** 4–5 semanas. Es la fase más grande, y conviene partirla:
 primero rol + app básica + asignación manual (L4.1), después rutas y
 liquidaciones (L4.2).
+
+#### Lo que se construyó en L4.1
+
+- **Migraciones 0030 y 0031.** El rol `courier` va solo en la 0030 porque
+  Postgres no deja usar un valor nuevo de un `enum` en la misma transacción que
+  lo añade. `is_staff()` **no se tocó**: un motorizado no es del equipo, y esa
+  función gobierna medio esquema.
+- **`couriers` y `courier_zones`.** Las zonas en tabla de unión y no en un
+  `uuid[]`: con un array, borrar una zona deja identificadores apuntando a nada
+  y nadie se entera hasta que el reparto propone una zona que no existe.
+- **Los permisos se decidieron en la base, no en las pantallas.** Un motorizado
+  ve los envíos con `assigned_to = auth.uid()` y su propia ficha. Ni pedidos, ni
+  clientes, ni catálogo, ni cobros. No se revocó **ningún** permiso de tabla: un
+  motorizado también es `authenticated`, y lo que se le quitara por columna se le
+  quitaría igual a la dueña — la lección de los once días de catálogo ilegible.
+- **`guard_courier_shipment_update`.** RLS decide filas, no columnas. Sin este
+  disparador, un motorizado podía reasignarse el envío de otro, cambiarle el
+  destino, moverlo a otro pedido o falsear la hora de entrega, y todo eso pasaba
+  la política sin despeinarse. Es la pieza que hay que leer con más cuidado de
+  toda la fase.
+- **Tres situaciones y no dos.** `pausa` no es un grado de `inactivo`: a quien
+  está en pausa no se le asignan entregas nuevas pero **entra y cierra las que ya
+  lleva encima**. Pausar a alguien a media tarde no puede dejarle tres paquetes
+  sin poder marcar.
+- **El alta no crea cuentas.** La persona se registra en la tienda como
+  cualquiera y desde el panel se la convierte en motorizado. Crear cuentas desde
+  el panel obliga a inventarle una contraseña a alguien y a hacérsela llegar, que
+  es exactamente como se filtran las credenciales de reparto.
+- **La baja no borra.** Pone `inactivo` y devuelve el rol a `customer`. Borrar la
+  ficha dejaría los envíos que llevó apuntando a una cuenta sin ficha, y la
+  pregunta «quién entregó esto» se quedaría sin respuesta justo cuando alguien la
+  hace. Y no deja dar de baja a quien todavía lleva envíos encima.
+- **`/motorizado` en la tienda**, no en el panel: el panel es de la oficina y
+  trae el catálogo, los clientes y los cobros. Tres pantallas —mis entregas, el
+  detalle con Waze y Maps, y el cierre— con todo lo que se toca a 56 px, porque
+  se usa de pie y con una mano.
+- **El selector de «quién lo lleva» pasó a ser de motorizados.** Antes eran los
+  operadores del panel, que era lo único que había; asignarle un envío a un
+  administrador significaría que ese envío no aparece en la aplicación de nadie.
+
+**Un agujero que esta fase abría, cerrado de paso.** La puerta del panel decía
+«cualquiera menos `customer`». Funcionó mientras `customer` era el único rol de
+fuera del equipo; en cuanto existe `courier`, lo dejaba entrar. Ahora es una
+lista de admitidos, así que el rol que se invente mañana queda fuera por omisión.
+
+**Verificación:** 21 tests nuevos contra Postgres real. Los cuatro que cubren la
+guardia de columnas se comprobaron **rojos sin el disparador**, y el de «mover mi
+envío a otro pedido» usa un pedido que existe de verdad — con un identificador
+inventado lo rechazaba la clave foránea y el test pasaba en verde sin haber
+probado nada.
+
+#### Lo que queda pendiente de esta fase
+
+- **4.b · La firma en pantalla.** La foto de la prueba de entrega ya está: el
+  motorizado la sube al cerrar y va a un bucket sin dominio público. Falta la
+  firma, que necesita un lienzo táctil y es otra tarea.
+- **4.b · Funcionar sin señal.** Hoy cerrar una entrega necesita conexión. En
+  reparto urbano eso no es opcional, pero es trabajo de service worker y cola
+  local, y va después de que la aplicación se use y se sepa dónde falla de
+  verdad.
+- **4.c · Rutas y mapa en vivo.** La pantalla de despacho con asignación
+  sugerida, la optimización de ruta y la posición del motorizado. Es L4.2.
+- **4.d · Liquidaciones.** Depende de **D5**: si los motorizados cobran contra
+  entrega o van por tarifa variable. La tarifa por entrega ya se guarda en la
+  ficha, que es la mitad del dato.
 
 ---
 
