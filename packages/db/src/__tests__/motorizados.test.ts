@@ -453,24 +453,35 @@ describeIfDb('los ficheros privados', () => {
   });
 
   /*
-   * A un visitante anónimo lo paran las dos tablas, pero **RLS a solas**, sin la
-   * capa de permisos por debajo. Y eso NO es lo que el repositorio creía.
+   * ESTE TEST CAMBIÓ DE SIGNIFICADO, Y LA HISTORIA VALE LA PENA.
    *
-   * La migración 0022 dice que `anon` «se deja fuera» de las tablas nuevas
-   * porque sus `alter default privileges` solo nombran a `authenticated` y
-   * `service_role`. Pero el arranque de Supabase declara los suyos concediendo a
-   * `anon`, y los suyos también aplican: `shipments` y `payments` nacieron con
-   * permisos para el público, y lo único que las protege es la política.
+   * Antes decía «RLS le devuelve cero filas», y era cierto: `shipments` y
+   * `payments` nacieron con permisos para el público. La migración 0022 afirmaba
+   * lo contrario —que `anon` «se deja fuera» de las tablas nuevas porque nuestros
+   * `alter default privileges` solo nombran a `authenticated` y `service_role`—
+   * pero el arranque de Supabase declara los suyos concediendo a `anon`, y los
+   * suyos también aplican.
    *
    * Se descubrió porque este test, escrito contra un Postgres pelado donde esos
    * privilegios por omisión no existen, esperaba «permission denied» y en CI
-   * —Supabase de verdad— devolvió cero filas. Queda escrito así para que nadie
-   * vuelva a leer el comentario de la 0022 y se lo crea.
+   * —Supabase de verdad— devolvió cero filas.
+   *
+   * **La migración 0033 lo cerró** (issue #24): `anon` ya no tiene nada sobre
+   * estas dos tablas, así que ahora la consulta ni siquiera llega a la política.
+   * La aserción vuelve a ser la que este test tuvo al nacer, pero esta vez
+   * porque el esquema lo garantiza y no porque el entorno de pruebas fuera pobre.
+   *
+   * Lo que de verdad se ganó no es esta consulta: es `truncate`, que NO pasa por
+   * RLS. Mientras hubo `select` para `anon` también hubo `truncate`, y ese sí
+   * vaciaba la tabla.
    */
-  it('a un visitante anónimo RLS le devuelve cero envíos y cero cobros', async () => {
+  it('a un visitante anónimo se le rechaza la consulta de envíos y cobros antes de mirar políticas', async () => {
     await asRole(client, { role: 'anon' }, async (db) => {
-      expect(await countVisible(db, 'public.shipments')).toBe(0);
-      expect(await countVisible(db, 'public.payments')).toBe(0);
+      await expect(countVisible(db, 'public.shipments')).rejects.toThrow(/permission denied/i);
+    });
+
+    await asRole(client, { role: 'anon' }, async (db) => {
+      await expect(countVisible(db, 'public.payments')).rejects.toThrow(/permission denied/i);
     });
   });
 
@@ -495,12 +506,18 @@ describeIfDb('los ficheros privados', () => {
   });
 
   /*
-   * Este es el que de verdad protege la caja. `anon` tiene `insert` concedido
-   * sobre `payments` —un permiso que sobra— así que lo único que impide que un
-   * visitante se invente un cobro de mil dólares sobre un pedido ajeno es la
-   * política. Queda fijado aquí para que nadie la relaje sin enterarse.
+   * Este es el que de verdad protege la caja: que un visitante no pueda
+   * inventarse un cobro de mil dólares sobre un pedido ajeno.
+   *
+   * Antes lo paraba **solo la política**, porque `anon` tenía `insert` concedido
+   * sobre `payments` — un permiso que sobraba y que nadie había escrito. Desde la
+   * migración 0033 ya no lo tiene, así que lo para el permiso, una capa antes.
+   *
+   * Se comprueba que la escritura es rechazada **y por qué**: si un día alguien
+   * le devuelve el `insert` a `anon`, este test no se vuelve verde en silencio
+   * apoyándose en la política — falla, y dice que el permiso volvió.
    */
-  it('un visitante anónimo no puede inventarse un cobro', async () => {
+  it('un visitante anónimo no puede inventarse un cobro, y ni siquiera tiene permiso para intentarlo', async () => {
     await asRole(client, { role: 'anon' }, async (db) => {
       await expect(
         db.query(
@@ -508,7 +525,7 @@ describeIfDb('los ficheros privados', () => {
            values ($1, 'manual', 999, 'paid')`,
           [otroPedido],
         ),
-      ).rejects.toThrow(/row-level security/i);
+      ).rejects.toThrow(/permission denied/i);
     });
   });
 });

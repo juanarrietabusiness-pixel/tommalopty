@@ -125,21 +125,36 @@ describeIfDb('visitante anónimo', () => {
     });
   });
 
-  it('no ve ningún pedido', async () => {
+  /*
+   * A partir de la migración 0033 estas consultas ya no devuelven cero filas:
+   * **se rechazan antes de mirar políticas**, porque `anon` no tiene `select`
+   * sobre estas tablas.
+   *
+   * La aserción cambió, y es más fuerte que la de antes. «Cero filas» sale de la
+   * política, que es una sola capa y una que se puede relajar por accidente al
+   * editarla. «Permission denied» sale del permiso de tabla, que es la capa de
+   * debajo: si un día alguien escribe una política permisiva de más, aquí la
+   * consulta sigue sin llegar a evaluarla.
+   *
+   * Y sobre todo importa por `truncate`, que NO pasa por RLS: mientras hubo
+   * `select` para `anon` también hubo `truncate`, y ese es el que vaciaba tablas
+   * (issue #24).
+   */
+  it('no ve ningún pedido — ni llega a mirar políticas', async () => {
     await asRole(client, { role: 'anon' }, async (db) => {
-      expect(await countVisible(db, 'public.orders')).toBe(0);
+      await expect(countVisible(db, 'public.orders')).rejects.toThrow(/permission denied/i);
     });
   });
 
-  it('no ve fichas de cliente', async () => {
+  it('no ve fichas de cliente — ni llega a mirar políticas', async () => {
     await asRole(client, { role: 'anon' }, async (db) => {
-      expect(await countVisible(db, 'public.customers')).toBe(0);
+      await expect(countVisible(db, 'public.customers')).rejects.toThrow(/permission denied/i);
     });
   });
 
-  it('no puede enumerar códigos de descuento', async () => {
+  it('no puede enumerar códigos de descuento — ni llega a mirar políticas', async () => {
     await asRole(client, { role: 'anon' }, async (db) => {
-      expect(await countVisible(db, 'public.discounts')).toBe(0);
+      await expect(countVisible(db, 'public.discounts')).rejects.toThrow(/permission denied/i);
     });
   });
 
@@ -153,9 +168,9 @@ describeIfDb('visitante anónimo', () => {
     });
   });
 
-  it('no ve notas internas del CRM', async () => {
+  it('no ve notas internas del CRM — ni llega a mirar políticas', async () => {
     await asRole(client, { role: 'anon' }, async (db) => {
-      expect(await countVisible(db, 'public.crm_notes')).toBe(0);
+      await expect(countVisible(db, 'public.crm_notes')).rejects.toThrow(/permission denied/i);
     });
   });
 
