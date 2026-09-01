@@ -2,7 +2,12 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { parsePolygon } from '@nebula/domain';
+import {
+  SHIPMENT_STATUSES,
+  isShipmentStatus,
+  parsePolygon,
+  validateShipmentTransition,
+} from '@nebula/domain';
 import { getSupabaseServerClient } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/auth';
 import {
@@ -159,4 +164,129 @@ export async function deleteDeliveryZone(id: string): Promise<ActionResult> {
 
   revalidatePath('/configuracion/zonas');
   return success('Zona eliminada.');
+}
+
+/* --- Envíos ---------------------------------------------------------------- */
+
+/**
+ * Crea el envío de un pedido copiando su dirección.
+ *
+ * La dirección se **copia**, no se referencia. Si mañana el cliente corrige la
+ * suya, este envío no puede cambiar de destino: quien lo lleva tiene un papel
+ * impreso, y el sistema tiene que coincidir con ese papel.
+ */
+export async function createShipment(orderId: string): Promise<ActionResult> {
+  await requireAdmin();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
+
+  const supabase = await getSupabaseServerClient();
+
+  const { data: pedido, error: errorPedido } = await supabase
+    .from('orders')
+    .select('id, shipping_address, phone')
+    .eq('id', orderId)
+    .maybeSingle();
+
+  if (errorPedido) return fromDatabaseError(errorPedido);
+  if (!pedido) return failure('Ese pedido ya no existe.');
+
+  const direccion = (pedido.shipping_address ?? {}) as Record<string, unknown>;
+
+  const lat = typeof direccion.latitude === 'number' ? direccion.latitude : null;
+  const lng = typeof direccion.longitude === 'number' ? direccion.longitude : null;
+
+  const { error } = await supabase.from('shipments').insert({
+    order_id: pedido.id,
+    // El teléfono del pedido se copia dentro del destino si la dirección no
+    // traía uno: en la calle, no tener a quién llamar es lo que convierte un
+    // «no encuentro la puerta» en una entrega fallida.
+    destination: {
+      ...direccion,
+      phone: (direccion.phone as string | undefined) ?? pedido.phone ?? undefined,
+    },
+    latitude: lat,
+    longitude: lng,
+  });
+
+  if (error) return fromDatabaseError(error);
+
+  revalidatePath(`/pedidos/${orderId}`);
+
+  return lat === null
+    ? success(
+        'Envío creado. Ojo: este pedido no trae punto en el mapa, así que el QR no podrá abrir Waze.',
+      )
+    : success('Envío creado.');
+}
+
+const cambioSchema = z.object({
+  shipmentId: z.uuid(),
+  status: z.enum(SHIPMENT_STATUSES),
+  assignedTo: z.string().trim().optional(),
+  carrier: z.string().trim().max(80).optional(),
+  carrierTrackingNumber: z.string().trim().max(80).optional(),
+  carrierTrackingUrl: z.string().trim().max(500).optional(),
+});
+
+/**
+ * Mueve un envío de estado, y de paso guarda quién lo lleva.
+ *
+ * La transición se valida aquí para poder devolver un mensaje entendible, y
+ * otra vez en el disparador de Postgres, que es el que de verdad no se puede
+ * saltar. Ver la migración 0025.
+ */
+export async function updateShipment(
+  _previous: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  await requireAdmin();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
+
+  const parsed = cambioSchema.safeParse({
+    shipmentId: formData.get('shipmentId'),
+    status: formData.get('status'),
+    assignedTo: formData.get('assignedTo') || undefined,
+    carrier: formData.get('carrier') || undefined,
+    carrierTrackingNumber: formData.get('carrierTrackingNumber') || undefined,
+    carrierTrackingUrl: formData.get('carrierTrackingUrl') || undefined,
+  });
+
+  if (!parsed.success) return fromZodError(parsed.error);
+
+  const supabase = await getSupabaseServerClient();
+
+  const { data: envio } = await supabase
+    .from('shipments')
+    .select('id, order_id, status')
+    .eq('id', parsed.data.shipmentId)
+    .maybeSingle();
+
+  if (!envio) return failure('Ese envío ya no existe.');
+
+  const actual = isShipmentStatus(envio.status) ? envio.status : 'pendiente';
+  const problema = validateShipmentTransition(actual, parsed.data.status);
+  if (problema) return failure(problema.message);
+
+  const cambio = checkWrite(
+    await supabase
+      .from('shipments')
+      .update({
+        status: parsed.data.status,
+        assigned_to: parsed.data.assignedTo || null,
+        carrier: parsed.data.carrier ?? null,
+        carrier_tracking_number: parsed.data.carrierTrackingNumber ?? null,
+        carrier_tracking_url: parsed.data.carrierTrackingUrl ?? null,
+      })
+      .eq('id', parsed.data.shipmentId)
+      .select('id'),
+  );
+
+  if (cambio) return cambio;
+
+  revalidatePath(`/pedidos/${envio.order_id}`);
+  return success('Envío actualizado.');
 }

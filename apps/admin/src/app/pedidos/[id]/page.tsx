@@ -4,7 +4,8 @@ import { dateTime, money } from '@nebula/ui';
 import { DataTable, StatusBadge, Timeline } from '@nebula/ui/admin';
 import { PanelPage } from '@/components/panel-page';
 import { OrderNoteForm, OrderStatusForm } from '@/components/order-forms';
-import { cargarPedido } from '@/lib/panel-data';
+import { EnvioForm, NuevoEnvioForm } from '@/components/shipment-forms';
+import { cargarEnviosDelPedido, cargarPedido } from '@/lib/panel-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const datos = await cargarPedido(id);
   if (!datos) notFound();
+
+  const { envios, operadores } = await cargarEnviosDelPedido(id);
 
   const { order, events, payments: orderPayments } = datos;
 
@@ -159,6 +162,33 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             <div style={{ marginTop: 20 }}>
               <OrderNoteForm orderId={order.id} />
             </div>
+          </section>
+
+          <section className="card">
+            <div className="card-head">
+              <h2>Envíos</h2>
+              <NuevoEnvioForm orderId={order.id} />
+            </div>
+
+            {envios.length === 0 ? (
+              <p className="field-hint">
+                Todavía no hay ningún envío. Al crearlo se copia la dirección del pedido y se genera
+                la guía con su QR.
+              </p>
+            ) : (
+              envios.map((envio) => (
+                <div key={envio.id} className="envio">
+                  <EnvioForm envio={envio} operadores={operadores} />
+                  <Link
+                    href={`/pedidos/${order.id}/guia/${envio.id}`}
+                    className="btn btn-outline btn-sm"
+                    target="_blank"
+                  >
+                    Ver e imprimir la guía
+                  </Link>
+                </div>
+              ))
+            )}
           </section>
         </div>
 

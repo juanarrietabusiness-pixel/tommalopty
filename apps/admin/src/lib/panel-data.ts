@@ -1,3 +1,4 @@
+import { isShipmentStatus, type ShipmentStatus } from '@nebula/domain';
 import type { Enums, Tables, Views } from '@nebula/db';
 import {
   getCustomer,
@@ -683,4 +684,66 @@ export async function cargarUsuarios(): Promise<FilaUsuario[]> {
     .order('created_at', { ascending: false });
 
   return data ?? [];
+}
+
+/* --- Envíos ---------------------------------------------------------------- */
+
+export interface EnvioDelPedido {
+  id: string;
+  trackingNumber: string;
+  status: ShipmentStatus;
+  assignedTo: string | null;
+  carrier: string | null;
+  carrierTrackingNumber: string | null;
+  tieneCoordenadas: boolean;
+  createdAt: string;
+}
+
+/**
+ * Los envíos de un pedido, y quién puede llevarlos.
+ *
+ * Las dos consultas van juntas porque se pintan juntas: la lista de operadores
+ * solo existe para llenar el selector de «quién lo lleva» de cada envío.
+ */
+export async function cargarEnviosDelPedido(orderId: string): Promise<{
+  envios: EnvioDelPedido[];
+  operadores: { id: string; nombre: string }[];
+}> {
+  if (esModoDemostracion()) return { envios: [], operadores: [] };
+
+  const supabase = await getSupabaseServerClient();
+
+  const [{ data: envios }, { data: perfiles }] = await Promise.all([
+    supabase
+      .from('shipments')
+      .select(
+        `id, tracking_number, status, assigned_to, carrier, carrier_tracking_number,
+         latitude, created_at`,
+      )
+      .eq('order_id', orderId)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('profiles')
+      .select('id, full_name, email, role')
+      .in('role', ['operator', 'admin', 'superadmin'])
+      .eq('is_active', true)
+      .order('full_name'),
+  ]);
+
+  return {
+    envios: (envios ?? []).map((fila) => ({
+      id: fila.id,
+      trackingNumber: fila.tracking_number,
+      status: isShipmentStatus(fila.status) ? fila.status : 'pendiente',
+      assignedTo: fila.assigned_to,
+      carrier: fila.carrier,
+      carrierTrackingNumber: fila.carrier_tracking_number,
+      tieneCoordenadas: fila.latitude !== null,
+      createdAt: fila.created_at,
+    })),
+    operadores: (perfiles ?? []).map((perfil) => ({
+      id: perfil.id,
+      nombre: perfil.full_name ?? perfil.email,
+    })),
+  };
 }
