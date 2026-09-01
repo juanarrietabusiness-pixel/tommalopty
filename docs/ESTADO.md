@@ -401,9 +401,11 @@ paquete de producción. **Comprobar siempre que el test falla sin el arreglo.**
 posición en vivo y las liquidaciones. La L4.1 —rol, fichas, permisos, asignación
 y la aplicación— ya está.
 
-Dos cosas de L4 siguen atadas al **bucket privado**, que no existe: la foto de la
-prueba de entrega y el comprobante del abono. Es el punto 8 de la lista de
-arriba, y son la misma tarea.
+Dos cosas de L4 estaban atadas al **bucket privado**: la foto de la prueba de
+entrega y el comprobante del abono. **El bucket ya existe** —`nebula-media-privada`—
+así que el código puede escribir y leer. Lo que falta es la prueba que de verdad
+lo valida: abrir el enlace de una foto en una ventana sin sesión y comprobar que
+da 403. Punto 19 de la lista de arriba.
 
 **Pero antes conviene cerrar el P1.** Un dominio propio y unas páginas legales no
 son trabajo de programación y dependen de decisiones de la dueña: cuanto antes se
