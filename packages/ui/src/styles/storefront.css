@@ -1368,9 +1368,28 @@
   overflow: hidden;
 }
 
-.ubicacion-lienzo {
+/*
+   Dos selectores y no uno, y el alto declarado además del `inset`. Las dos
+   cosas son la misma defensa contra el mismo fallo.
+
+   MapLibre le pone al contenedor su clase `.maplibregl-map`, que trae
+   `position: relative`. Con un solo selector las dos reglas empatan en
+   especificidad y gana la que cargue después. En desarrollo cargaba antes la
+   suya y todo se veía bien; en el paquete de producción cargaba después, ganaba
+   ella, `inset: 0` dejaba de aplicar, el contenedor se quedaba sin alto propio y
+   colapsaba a cero. El mapa se construía entero —lienzo, controles,
+   atribución— dentro de una caja de cero píxeles de alto, y como MapLibre
+   además añade `overflow: hidden`, no se veía absolutamente nada.
+
+   Con dos clases la especificidad es mayor y ganamos en cualquier orden. El
+   alto y el ancho explícitos son el segundo cinturón: aunque algún día otra
+   regla imponga `position: relative`, el contenedor sigue midiendo lo que
+   debe. */
+.ubicacion-mapa .ubicacion-lienzo {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 /* La punta del pin es lo que señala, así que es la punta —y no el centro del

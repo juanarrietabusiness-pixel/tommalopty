@@ -131,6 +131,51 @@ test.describe('checkout', () => {
     await expect(page.locator('.payment-method').first()).toBeVisible();
   });
 
+  /**
+   * El mapa se construyó entero —lienzo, controles, atribución— dentro de una
+   * caja de altura cero, así que no se veía nada. Lo causaba una colisión de
+   * CSS: MapLibre le pone al contenedor su clase `.maplibregl-map`, que trae
+   * `position: relative` y anulaba el `inset: 0` del que dependía el alto.
+   *
+   * El test hace dos cosas que merecen explicación:
+   *
+   * 1. **Inyecta la regla de MapLibre al final del documento.** Es lo que
+   *    reproduce el fallo: en desarrollo la hoja de MapLibre carga antes que la
+   *    nuestra y ganamos por orden, así que sin esto el test pasa en verde
+   *    aunque el CSS esté mal. Inyectada al final, empata en orden y solo gana
+   *    quien tenga más especificidad — que es justo lo que se quiere probar.
+   *
+   * 2. **Mide el tamaño, no la existencia.** Existir existía todo. Un test que
+   *    preguntara «¿hay un canvas?» habría pasado con la pantalla en blanco.
+   */
+  test('el mapa de la dirección ocupa espacio aunque MapLibre imponga su position', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await page
+      .locator('.product-card')
+      .first()
+      .getByRole('button', { name: /añadir/i })
+      .click();
+    await page.goto('/checkout');
+
+    const lienzo = page.locator('.ubicacion-lienzo');
+    await expect(lienzo).toBeVisible();
+
+    // Hay que esperar a que MapLibre termine de montarse: la clase que provoca
+    // el conflicto —`maplibregl-map`— se la pone él al contenedor, y hasta que
+    // no está, la regla de abajo no engancha con nada y el test pasaría en
+    // verde sin haber probado nada.
+    await expect(page.locator('.ubicacion-lienzo canvas')).toBeAttached({ timeout: 15_000 });
+    await expect(lienzo).toHaveClass(/maplibregl-map/);
+
+    await page.addStyleTag({ content: '.maplibregl-map { position: relative; }' });
+
+    const caja = await lienzo.boundingBox();
+    expect(caja?.width ?? 0).toBeGreaterThan(200);
+    expect(caja?.height ?? 0).toBeGreaterThan(200);
+  });
+
   test('deja claro que la tienda no recibe datos de tarjeta', async ({ page }) => {
     await page.goto('/');
     await page
