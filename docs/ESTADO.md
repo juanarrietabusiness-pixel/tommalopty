@@ -1,16 +1,16 @@
 # Estado de la plataforma
 
-> **Última actualización:** 1 de septiembre de 2026.
+> **Última actualización:** 1 de septiembre de 2026 (tarde: se ejecutó [`CONECTAR.md`](CONECTAR.md) §§ 1-5).
 > Este documento es el punto de entrada para quien retome el trabajo. Dice qué
 > hay publicado, qué está roto, qué se sabe de cada fallo abierto y qué se
 > aprendió por las malas. El plan de a dónde vamos está en
 > [`PLAN-LOGISTICA.md`](PLAN-LOGISTICA.md); esto es de dónde partimos.
 
-> **¿Tienes acceso a Supabase y a Cloudflare?** Entonces lo tuyo es
-> [`CONECTAR.md`](CONECTAR.md): la lista ordenada de lo que hay construido y
-> esperando a que alguien lo enchufe, con cómo verificar cada paso. Está escrita
-> para una sesión con esos conectores puestos, que es lo que ninguna de las
-> sesiones de desarrollo ha tenido.
+> **¿Tienes acceso a Supabase y a Cloudflare?** Lo tuyo es
+> [`CONECTAR.md`](CONECTAR.md), que lleva la lista ordenada con su verificación.
+> **Los pasos 1 a 5 ya están hechos** —migraciones aplicadas, tipos regenerados,
+> advisors revisados, bucket privado creado y `anon` revocado— y lo que queda de
+> esa lista cuelga todo del mismo sitio: **comprar el dominio**.
 
 ---
 
@@ -91,7 +91,7 @@ terminar.
 | **Supabase**              | Base de datos, autenticación, RLS        | `NEXT_PUBLIC_SUPABASE_URL` + anon key (variables) y `SUPABASE_SERVICE_ROLE_KEY` (secreto) | ✅ Puesto (staging)                    |
 | **Cloudflare Workers**    | Servir las dos aplicaciones              | `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` (secretos de Actions)                    | ✅ Puesto                              |
 | **Cloudflare R2**         | Imágenes de producto                     | Enlace `r2_buckets` en `wrangler.jsonc` + `R2_PUBLIC_URL`                                 | ✅ Puesto, bucket `nebula-media`       |
-| **Cloudflare R2 privado** | Prueba de entrega y comprobante de abono | Enlace `r2_buckets` (`MEDIA_PRIVADA`). **Sin dominio público, y no debe tenerlo**         | 🔲 Falta crear `nebula-media-privada`  |
+| **Cloudflare R2 privado** | Prueba de entrega y comprobante de abono | Enlace `r2_buckets` (`MEDIA_PRIVADA`). **Sin dominio público, y no debe tenerlo**         | ✅ Creado, `nebula-media-privada`      |
 | **Resend**                | Correo transaccional                     | `RESEND_API_KEY` (secreto) + `EMAIL_FROM`                                                 | 🔲 Falta. Necesita dominio             |
 | **Meta**                  | Píxel y Conversions API                  | `NEXT_PUBLIC_META_PIXEL_ID` + `META_CONVERSIONS_ACCESS_TOKEN`                             | 🔲 Falta                               |
 | **Yappy · Botón**         | Cobrar en el checkout                    | `YAPPY_MERCHANT_ID`, `YAPPY_SECRET_KEY`, `YAPPY_DOMAIN_URL`                               | 🔲 Falta especificación y credenciales |
@@ -120,6 +120,12 @@ Conviene tenerlo presente al leer un commit que dice «listo»:
   acceso es un Postgres con el esquema aplicado. Quien confirma que las
   migraciones entran limpias en un Supabase real es **CI**, que levanta uno con
   Docker en cada pull request.
+
+**Salvo que alguien le dé los accesos a propósito**, que es lo que pasó el 1 de
+septiembre: una sesión con los conectores de Supabase y Cloudflare puestos aplicó
+las migraciones pendientes y ejecutó `CONECTAR.md`. Eso no cambia la regla —el
+código sigue sin depender de ningún MCP, y sigue leyendo solo `process.env`—;
+cambia quién ejecutó ese paso. Se decide a sabiendas y se revoca al terminar.
 
 #### Cuando la plataforma pase a la dueña
 
@@ -219,13 +225,13 @@ funcionando.
 
 ### 🟠 P2 · Se puede abrir sin ello, pero duele pronto
 
-| #   | Qué falta                                                                                                                                                                                                                                                                                            | Qué pasa si no está                                                                                                                                                                                                                                                                       |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 5   | **Los avisos automáticos por correo** (L2 2.e y L3): despachado, en camino, entregado, recordatorio de vencimiento                                                                                                                                                                                   | El cliente llama por teléfono para preguntar dónde está su pedido. Es el trabajo manual que la plataforma existía para quitar                                                                                                                                                             |
-| 6   | **Cloudflare Access sobre el panel**                                                                                                                                                                                                                                                                 | El panel administrativo es alcanzable por cualquiera que sepa la URL. RLS protege los datos, pero la pantalla de acceso queda expuesta a fuerza bruta                                                                                                                                     |
-| 7   | **Backups de Supabase con retención definida**                                                                                                                                                                                                                                                       | Un borrado accidental no tiene vuelta atrás                                                                                                                                                                                                                                               |
-| 8   | **Crear el bucket privado en Cloudflare**: `wrangler r2 bucket create nebula-media-privada`. El código ya escribe y lee de él —la foto de la prueba de entrega y el comprobante del abono— y avisa con claridad si no lo encuentra. Es un comando, y lo tiene que dar alguien con acceso a la cuenta |
-| 9   | **Pasarela de pago real conectada**                                                                                                                                                                                                                                                                  | Hoy los pedidos se registran pero no se cobran en línea. Los abonos manuales sí funcionan. De Yappy falta **solo el Botón de Pago**, y falta porque falta su especificación: ver [`YAPPY.md`](YAPPY.md). Es una decisión de negocio pendiente ([ADR 0006](adr/0006-pasarela-al-final.md)) |
+| #     | Qué falta                                                                                                                                                                                                                                                                             | Qué pasa si no está                                                                                                                                                                                                                                                                       |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 5     | **Los avisos automáticos por correo** (L2 2.e y L3): despachado, en camino, entregado, recordatorio de vencimiento                                                                                                                                                                    | El cliente llama por teléfono para preguntar dónde está su pedido. Es el trabajo manual que la plataforma existía para quitar                                                                                                                                                             |
+| 6     | **Cloudflare Access sobre el panel**                                                                                                                                                                                                                                                  | El panel administrativo es alcanzable por cualquiera que sepa la URL. RLS protege los datos, pero la pantalla de acceso queda expuesta a fuerza bruta                                                                                                                                     |
+| 7     | **Backups de Supabase con retención definida**                                                                                                                                                                                                                                        | Un borrado accidental no tiene vuelta atrás                                                                                                                                                                                                                                               |
+| ~~8~~ | ~~**Crear el bucket privado en Cloudflare**~~ **Hecho.** `nebula-media-privada` existe y el binding `MEDIA_PRIVADA` ya lo alcanza. Falta la comprobación de punta a punta: subir una prueba de entrega y confirmar que su enlace da 403 sin sesión ([`CONECTAR.md`](CONECTAR.md) § 4) |
+| 9     | **Pasarela de pago real conectada**                                                                                                                                                                                                                                                   | Hoy los pedidos se registran pero no se cobran en línea. Los abonos manuales sí funcionan. De Yappy falta **solo el Botón de Pago**, y falta porque falta su especificación: ver [`YAPPY.md`](YAPPY.md). Es una decisión de negocio pendiente ([ADR 0006](adr/0006-pasarela-al-final.md)) |
 
 ### 🟡 P3 · Deuda conocida, sin urgencia
 
@@ -239,6 +245,8 @@ funcionando.
 | 15  | **La pantalla de integraciones lee `NEXT_PUBLIC_META_PIXEL_ID` de forma dinámica**, así que dirá «pendiente» aunque esté configurada. Cosmético, afecta a una fila                                                                         |
 | 16  | **`NEXT_PUBLIC_ADMIN_URL` no lo lee nadie**: se declara en `.env.example` y el despliegue lo pasa, pero ningún código lo usa. O se usa, o se quita: una variable que se configura y no hace nada es media hora de alguien buscando por qué |
 | 17  | **Las cuentas de servicio deberían estar a nombre del negocio** antes de abrir. Ver el apartado «Cuando la plataforma pase a la dueña» del punto 1                                                                                         |
+| 18  | **_Leaked Password Protection_ está desactivado en Supabase**: comprueba las contraseñas nuevas contra HaveIBeenPwned. Es un interruptor en Authentication → Policies, sin coste y sin cambios de código                                   |
+| 19  | **La prueba de punta a punta del bucket privado sigue sin hacerse**: subir una foto de entrega y confirmar que su enlace da 403 en una ventana sin sesión. El bucket ya existe; lo que falta es alguien con el panel abierto               |
 
 ---
 
@@ -340,10 +348,32 @@ el privilegio es lo único que separa a un anónimo de vaciar una tabla. Hoy no 
 llega a él desde la API REST —PostgREST no lo expone— pero eso es una propiedad
 de la capa de arriba, no de la base.
 
-**La conclusión práctica:** una tabla nueva se revoca a `anon` explícitamente, en
-su propia migración, en vez de confiar en que no se le concedió. Las de la fase
-L4 lo hacen y tienen tests que lo fijan. Las anteriores no: [issue
-#24](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/24).
+**Y hay un matiz que solo se ve mirando la base.** Los privilegios por omisión
+vienen de dos sitios distintos, y no dan lo mismo: `pg_default_acl` tiene una
+entrada por cada rol que crea tablas. La de `supabase_admin` concede a `anon` los
+siete privilegios; la de `postgres` —que es quien ejecuta las migraciones— solo
+concedía `TRUNCATE`, `REFERENCES`, `TRIGGER` y `MAINTAIN`. Por eso el mismo
+esquema daba resultados distintos en CI y en staging, y por eso el issue describía
+más privilegios de los que `shipments` tenía aquí. **El que importaba estaba en
+los dos: `truncate`.**
+
+**Resuelto** en la migración 0033, y con las tres cosas hechas y no solo la
+primera:
+
+1. `anon` se revocó tabla por tabla —nunca con un bucle— dejando `select` solo en
+   las trece que la tienda lee de verdad, e `insert` solo en `leads`.
+2. `alter default privileges in schema public revoke all on tables from anon`,
+   para que las futuras nazcan limpias. Comprobado creando una tabla de verdad:
+   nace sin nada.
+3. `permisos.test.ts` pasó de comprobar solo lo que `anon` **sí** puede a
+   comprobar también lo que **no**: 36 aserciones nuevas, verificadas contra
+   staging antes de escribirlas.
+
+**La conclusión práctica sigue en pie:** una tabla nueva se revoca a `anon`
+explícitamente en su propia migración, en vez de confiar en que no se le
+concedió. Los `alter default privileges` de `supabase_admin` no se pueden cambiar
+desde una migración, así que el paso 2 protege pero no es una garantía; el test
+del paso 3 sí lo es.
 
 ### Un test que no puede fallar no prueba nada
 

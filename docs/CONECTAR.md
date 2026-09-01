@@ -11,6 +11,43 @@
 
 ---
 
+## ✅ Estado: los pasos 1 a 5 están hechos
+
+El 1 de septiembre de 2026, una sesión con los conectores de Supabase y
+Cloudflare puestos ejecutó esta guía. **Lo que queda —del 6 en adelante— cuelga
+todo del dominio, y el dominio hay que comprarlo.**
+
+| Paso                      | Estado                                                                                                            |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 1 · Las tres migraciones  | ✅ Aplicadas en orden. `courier` en el enum, `couriers`/`courier_zones` con sus políticas, `payments.receipt_key` |
+| 2 · Regenerar los tipos   | ✅ 44 tablas y 1277 campos comparados uno a uno. Cuatro diferencias reales, corregidas                            |
+| 3 · Advisors de seguridad | ✅ Revisados. Dos hallazgos reales arreglados; el resto, explicado abajo                                          |
+| 4 · El bucket privado     | ✅ `nebula-media-privada` existe. **Falta la prueba de punta a punta** (el 403 sin sesión)                        |
+| 5 · Revocar `anon`        | ✅ Migración 0033, tabla por tabla, con 36 tests nuevos. Cierra el [issue #24]                                    |
+| 6 · El dominio            | 🔲 **Bloqueado**: hay que comprarlo. Es el P1 número 2                                                            |
+| 7 · Antes de abrir        | 🔲 Backups, Cloudflare Access, plan de teselas, cuentas a nombre del negocio                                      |
+
+[issue #24]: https://github.com/juanarrietabusiness-pixel/tommalopty/issues/24
+
+### Lo que se encontró al hacerlo, y que no estaba previsto
+
+- **Los tipos editados a mano estaban casi bien.** De 1277 campos, cuatro
+  fallaban: `orders.balance_due` y `products.search_vector` faltaban en `Insert` y
+  `Update` —las dos son columnas que Postgres calcula solo, y quien las editó a
+  mano las omitió por eso mismo—, y `audit_log.ip_address` y
+  `products.search_vector` tenían un tipo más específico del que produce el
+  generador. Corregidos los cuatro; ahora el fichero coincide exactamente.
+- **`anon` tenía menos privilegios en staging que los que describe el issue #24.**
+  No porque el issue se equivocara, sino porque `pg_default_acl` tiene una entrada
+  por cada rol que crea tablas: la de `supabase_admin` concede los siete, la de
+  `postgres` —que es quien ejecuta las migraciones— concedía cuatro. El que
+  importaba, `truncate`, estaba en las dos.
+- **Dos funciones de disparador sin `search_path` fijo**, y son precisamente las
+  dos que deciden si un motorizado puede reasignarse un envío. Arreglado en la
+  migración 0034.
+
+---
+
 ## Antes de tocar nada
 
 **Un conector MCP sobre la base real es acceso de escritura.** No es una
@@ -97,6 +134,33 @@ Panel del proyecto → **Advisors → Security**. Con el MCP: `get_advisors`.
 Hacerlo **después** de aplicar las migraciones, no antes: lo que interesa es lo
 que digan de las tablas nuevas.
 
+#### Lo que encontró, y qué se hizo con cada cosa
+
+**Arreglado** (migración 0034): `guard_shipment_transition` y
+`guard_courier_shipment_update` no fijaban su `search_path`. Sin él, los nombres
+sin cualificar los resuelve quien dispara la operación — y estas dos son
+exactamente las que deciden si un motorizado puede reasignarse un envío. Hoy sus
+cuerpos ya cualifican todo, así que no cambiaba ningún comportamiento; cierra la
+puerta para el día que alguien añada una llamada sin cualificar.
+
+**Pendiente, y es un clic que no se puede dar desde aquí:** _Leaked Password
+Protection_ está desactivado. Se enciende en el panel de Supabase →
+Authentication → Policies. Comprueba las contraseñas nuevas contra
+HaveIBeenPwned. No tiene coste y no requiere ningún cambio de código.
+
+**Lo que NO hay que "arreglar", y conviene leerlo antes de tocarlo**, porque son
+avisos correctos sobre un diseño deliberado:
+
+| Aviso                                                                                                        | Por qué se queda así                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `admin_bootstrap` tiene RLS activo y ninguna política                                                        | **Es el objetivo.** RLS sin políticas significa que nadie pasa, y además está revocada para los tres roles. Una política aquí sería abrir una puerta que se cerró a propósito                                                                                                     |
+| `is_staff()`, `is_admin()`, `is_courier()`, `current_courier_id()`… ejecutables por `anon` y `authenticated` | **No se pueden revocar sin romperlo todo.** Las políticas RLS las llaman, y Postgres evalúa la expresión de una política con los permisos de quien consulta: sin `execute`, cada consulta a cada tabla protegida falla. Y no filtran nada: solo dicen quién es **quien pregunta** |
+| `validate_discount(...)` ejecutable por `anon`                                                               | La tienda valida el código de descuento antes del checkout, sin sesión. Es su motivo de existir                                                                                                                                                                                   |
+
+La regla para el siguiente que mire esta lista: **un aviso del linter es una
+pregunta, no una orden.** Revocar el `execute` de `is_staff()` para dejar el panel
+en verde tumbaría la tienda entera, y el linter no lo sabe.
+
 ---
 
 ## 4 · Crear el bucket privado de R2
@@ -105,11 +169,17 @@ que digan de las tablas nuevas.
 El código ya escribe y lee de él; mientras no exista, subir avisa con un mensaje
 claro y no rompe nada.
 
+**✅ Ya está creado.** `nebula-media-privada` existe en la cuenta. Se creó con:
+
 ```bash
 wrangler r2 bucket create nebula-media-privada
 ```
 
 Con el MCP de Cloudflare: `r2_bucket_create`.
+
+**Lo que falta es la verificación de abajo**, y no es un trámite: es el único
+paso que demuestra que el bucket es de verdad privado. Nadie la ha hecho todavía
+porque hace falta una sesión con el panel abierto y un motorizado dado de alta.
 
 **⚠️ No le pongas dominio público ni habilites el acceso `r2.dev`.** Ahí van
 fotos de la puerta de casa de clientes y capturas de transferencias bancarias. El
