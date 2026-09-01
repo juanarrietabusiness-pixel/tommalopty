@@ -1,5 +1,8 @@
 # Roadmap y estado
 
+> Esto es el plan por fases. El estado **real** de lo publicado, con los fallos
+> abiertos y lo que falta configurar, está en [`ESTADO.md`](ESTADO.md).
+
 > **El objetivo actual es la estructura completa y desplegada**, no vender.
 > La pasarela de pago se conecta cuando la aplicación esté terminada, y su
 > elección es de la dueña de la plataforma:

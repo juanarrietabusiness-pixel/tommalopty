@@ -343,6 +343,10 @@ abrirlas en el móvil cae sobre la puerta correcta.
 
 #### Lo que queda pendiente de esta fase
 
+> **Fallo abierto:** el mapa del checkout no muestra las imágenes de fondo. La
+> captura del punto sí funciona. El diagnóstico completo y por dónde seguir
+> están en [`ESTADO.md`](ESTADO.md), fallo A.
+
 - **Las teselas del mapa, antes de abrir al público.** Ahora mismo se usan las
   públicas de OpenStreetMap, que sirven para desarrollo y para enseñar la
   pantalla, pero **su política de uso no cubre una tienda en producción**. Hay
