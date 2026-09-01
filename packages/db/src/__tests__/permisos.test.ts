@@ -52,23 +52,77 @@ const CONSULTAS_DE_LA_TIENDA: { nombre: string; sql: string }[] = [
 ];
 
 /**
+ * Lo que el panel necesita leer con una sesión de equipo.
+ *
+ * Esta lista existe porque faltaba. La primera versión de este archivo solo
+ * comprobaba `anon` —las consultas de la tienda— y el panel se quedó fuera. El
+ * resultado fue que el dashboard respondía «server error» nada más entrar, por
+ * exactamente el mismo motivo que había roto la tienda: una columna revocada
+ * que una vista `security_invoker` seguía leyendo.
+ *
+ * La trampa que hay detrás: `authenticated` no es sinónimo de «cliente». Quien
+ * administra la tienda también es `authenticated`, así que revocar una columna
+ * de ese rol se la quita igual a la dueña del negocio.
+ */
+const CONSULTAS_DEL_PANEL: { nombre: string; sql: string }[] = [
+  { nombre: 'las métricas del dashboard', sql: 'select public.dashboard_metrics(30)' },
+  { nombre: 'las ventas por día', sql: 'select * from public.report_sales_daily limit 1' },
+  { nombre: 'los más vendidos', sql: 'select * from public.report_top_products limit 1' },
+  { nombre: 'el informe de stock bajo', sql: 'select * from public.report_low_stock limit 1' },
+  { nombre: 'el embudo de conversión', sql: 'select * from public.report_conversion_funnel limit 1' },
+  {
+    nombre: 'la pantalla de inventario',
+    sql: `select variant_id, quantity, reserved_quantity, low_stock_threshold
+          from public.inventory limit 1`,
+  },
+  {
+    nombre: 'la pantalla de catálogo',
+    sql: `select p.id, v.price, i.quantity, i.reserved_quantity
+          from public.products p
+          left join public.product_variants v on v.product_id = p.id
+          left join public.inventory i on i.variant_id = v.id
+          limit 1`,
+  },
+  { nombre: 'los pedidos', sql: 'select id, order_number, total from public.orders limit 1' },
+  { nombre: 'las líneas del pedido', sql: 'select id, product_title from public.order_items limit 1' },
+  { nombre: 'los pagos', sql: 'select id, provider, amount from public.payments limit 1' },
+  { nombre: 'la ficha de cliente', sql: 'select id, email, tags from public.customers limit 1' },
+  { nombre: 'las zonas de reparto', sql: 'select id, name, polygon from public.delivery_zones limit 1' },
+  { nombre: 'usuarios y roles', sql: 'select id, email, role from public.profiles limit 1' },
+];
+
+/**
  * Columnas que la tienda NO debe poder leer. Se comprueban una a una porque el
  * permiso es por columna: perderlo no rompe nada visible, solo destapa datos.
  */
-const COLUMNAS_PROHIBIDAS: { tabla: string; columna: string; porque: string }[] = [
+const COLUMNAS_PROHIBIDAS: {
+  tabla: string;
+  columna: string;
+  roles: ('anon' | 'authenticated')[];
+  porque: string;
+}[] = [
   {
     tabla: 'public.product_variants',
     columna: 'cost_price',
-    porque: 'es el margen de todo el catálogo',
+    // Para los dos roles: el margen no lo necesita ninguna pantalla, ni la de
+    // la tienda ni la del panel. Es la revocación que sí protege algo.
+    roles: ['anon', 'authenticated'],
+    porque: 'es el margen de todo el catálogo y ninguna pantalla lo usa',
   },
   {
     tabla: 'public.inventory',
     columna: 'low_stock_threshold',
-    porque: 'es un umbral de operación interna',
+    // Solo `anon`. Al panel le hace falta, y el panel es `authenticated`.
+    roles: ['anon'],
+    porque: 'la tienda pública no tiene nada que hacer con un umbral de reposición',
   },
-  { tabla: 'public.inventory', columna: 'location', porque: 'es dónde está la mercancía' },
+  {
+    tabla: 'public.inventory',
+    columna: 'location',
+    roles: ['anon'],
+    porque: 'es dónde está guardada la mercancía',
+  },
 ];
-
 // Igual que en `rls.test.ts`: la comprobación va en el nivel superior del
 // módulo porque Vitest decide qué bloques registrar antes de ejecutar los hooks.
 // Sin base de datos estos tests se marcan omitidos, no aprobados: un verde falso
@@ -113,30 +167,42 @@ describeSiHayBase('permisos de tabla', () => {
     }
   });
 
-  describe('lo que la tienda no debe poder leer', () => {
-    for (const { tabla, columna, porque } of COLUMNAS_PROHIBIDAS) {
-      it(`anon no lee ${tabla}.${columna}, porque ${porque}`, async () => {
-        const codigo = await asRole(client, { role: 'anon' }, async (c) => {
+  describe('lo que el panel necesita leer con sesión de equipo', () => {
+    for (const consulta of CONSULTAS_DEL_PANEL) {
+      it(`authenticated puede ejecutar ${consulta.nombre}`, async () => {
+        const error = await asRole(client, { role: 'authenticated' }, async (c) => {
           try {
-            await c.query(`select ${columna} from ${tabla} limit 1`);
-            return 'se pudo leer';
+            await c.query(consulta.sql);
+            return null;
           } catch (e) {
-            return (e as { code?: string }).code ?? 'error sin código';
+            return e as { code?: string; message?: string };
           }
         });
 
-        expect(codigo).toBe('42501');
+        expect(error?.message ?? 'sin error').toBe('sin error');
       });
     }
   });
 
-  /**
-   * La lista de invitaciones con la que nace el primer administrador es la
-   * tabla más delicada del esquema: quien pueda escribir en ella se nombra
-   * superadministrador a sí mismo. Su protección no es RLS —es no tener ni un
-   * privilegio concedido— y eso hay que vigilarlo, porque un `grant on all
-   * tables` despistado la volvería a abrir sin que nada más se rompiera.
-   */
+  describe('lo que no debe poder leerse', () => {
+    for (const { tabla, columna, roles, porque } of COLUMNAS_PROHIBIDAS) {
+      for (const rol of roles) {
+        it(`${rol} no lee ${tabla}.${columna}, porque ${porque}`, async () => {
+          const codigo = await asRole(client, { role: rol }, async (c) => {
+            try {
+              await c.query(`select ${columna} from ${tabla} limit 1`);
+              return 'se pudo leer';
+            } catch (e) {
+              return (e as { code?: string }).code ?? 'error sin código';
+            }
+          });
+
+          expect(codigo).toBe('42501');
+        });
+      }
+    }
+  });
+
   describe('la lista de invitaciones no la alcanza nadie', () => {
     for (const rol of ['anon', 'authenticated', 'service_role']) {
       it(`${rol} no puede leerla ni escribirla`, async () => {

@@ -1,0 +1,43 @@
+-- =============================================================================
+-- 0024 · El panel puede leer su propio inventario
+-- =============================================================================
+-- El panel respondía «server error» nada más entrar. La causa es la misma que
+-- tumbó la tienda hace dos migraciones, en el sitio de al lado:
+--
+--   * La 0014 revocó `inventory.low_stock_threshold` de `anon` **y de
+--     `authenticated`**.
+--   * El dashboard lee `report_low_stock`, que es `security_invoker` y consulta
+--     esa columna, y la pantalla de inventario la lee directamente.
+--
+-- Resultado: «permission denied for table inventory» en la primera pantalla del
+-- panel, y en la de inventario entera.
+--
+-- EL ERROR DE FONDO, QUE CONVIENE NO REPETIR
+--
+-- La 0014 trató `authenticated` como sinónimo de «cliente». No lo es: **quien
+-- administra la tienda también es `authenticated`**. Un permiso por columna se
+-- concede por rol, así que revocar de `authenticated` se lo revoca igual a la
+-- dueña del negocio que a quien acaba de crearse una cuenta para comprar. Lo
+-- que distingue a una de otro es `is_staff()`, y eso vive en RLS y en las
+-- políticas, no en los grants.
+--
+-- LA DECISIÓN
+--
+-- `low_stock_threshold` vuelve para `authenticated`, y **sigue revocada para
+-- `anon`**: la tienda pública no la necesita para nada.
+--
+-- Con la consecuencia dicha en voz alta: un cliente con sesión iniciada podría
+-- leer por la API a partir de cuántas unidades se repone un producto. Es un
+-- dato de operación sin valor para nadie más, y el precio de esconderlo era
+-- tener el panel de inventario inservible. Lo que sí protege de verdad —
+-- `product_variants.cost_price`, el margen de todo el catálogo— se queda
+-- revocado para los dos roles, y el panel no lo necesita: no lo lee en ninguna
+-- pantalla.
+--
+-- Si algún día hace falta esconder de verdad datos de operación de los clientes
+-- con sesión, la vía no son los grants por columna: es una vista
+-- `security_invoker = off` con `where public.is_staff()`, que sí distingue quién
+-- pregunta. Queda anotado para cuando aparezca un dato que lo merezca.
+-- =============================================================================
+
+grant select (low_stock_threshold) on public.inventory to authenticated;
