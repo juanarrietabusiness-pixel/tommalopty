@@ -1,6 +1,6 @@
 # Estado de la plataforma
 
-> **Última actualización:** 1 de septiembre de 2026.
+> **Última actualización:** 1 de septiembre de 2026 (tarde).
 > Este documento es el punto de entrada para quien retome el trabajo. Dice qué
 > hay publicado, qué está roto, qué se sabe de cada fallo abierto y qué se
 > aprendió por las malas. El plan de a dónde vamos está en
@@ -59,6 +59,24 @@ disparador de alta. Ver migración `20260901020000`.
 - **Fase L1 completa**: la dirección del checkout captura coordenada,
   procedencia del punto, referencia e instrucciones de entrega, y todo eso viaja
   hasta quedar grabado en el pedido.
+- **Fase L2 casi completa**: los envíos son una entidad propia con su máquina de
+  estados, el panel los crea y los mueve, la guía se imprime en 4×6" con su QR,
+  la página que abre ese QR funciona en la calle, y quien compró sigue su pedido
+  sin registrarse. Falta solo 2.e, los avisos automáticos por correo.
+
+### Cómo probar la fase L2 sin datos propios
+
+Hay un pedido de prueba en staging con dos envíos, uno entregado y otro en
+camino:
+
+| Qué                     | Dónde                                                           |
+| ----------------------- | --------------------------------------------------------------- |
+| Seguimiento del cliente | `/seguimiento/<confirmation_token del pedido>`                  |
+| Lo que abre el QR       | `/g/<token del envío>`                                          |
+| La guía imprimible      | Panel → Pedidos → el pedido → Envíos → «Ver e imprimir la guía» |
+
+Los tokens salen de la base: `select order_number, confirmation_token from
+orders` y `select tracking_number, token from shipments`.
 
 Lo que **no** funciona: ver el punto 3.
 
@@ -157,7 +175,21 @@ Al añadir una pantalla que lea algo nuevo, añade su consulta a
   Site URL a `workers.dev` se perdió el permiso implícito que tenía el entorno
   local. Sin eso, registrarse desde el equipo de desarrollo no confirma cuentas.
 
-### 🟡 E · Cosas menores conocidas
+### 🟡 E · Lo que L2 dejó abierto a propósito
+
+- **Los avisos automáticos (2.e)**: los correos que existen no se han ampliado a
+  los estados de envío. Es lo único de L2 sin empezar.
+- **La foto de la prueba de entrega**: la columna está y apunta a un bucket
+  **privado**, que todavía no existe. El bucket de imágenes de producto es
+  público y una foto de entrega es la puerta de casa de alguien: no sirve.
+- **La cabecera de la tienda se esconde con `:has()`** en la página del
+  motorizado, en vez de mover las rutas a un grupo con su propio layout. Es un
+  atajo consciente: el grupo obliga a mover veinte carpetas. Cuando alguien haga
+  esa reorganización, esas tres líneas de CSS se borran.
+- **El saldo de la guía** hoy es el total si el pedido no está pagado. Con los
+  abonos (L3) pasará a ser el saldo real.
+
+### 🟡 F · Cosas menores conocidas
 
 - La pantalla de integraciones comprueba `NEXT_PUBLIC_META_PIXEL_ID` con una
   lectura dinámica de `process.env`, que Next no sustituye. Dirá «pendiente»

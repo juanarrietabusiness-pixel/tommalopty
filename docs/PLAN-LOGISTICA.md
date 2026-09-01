@@ -13,9 +13,9 @@
 
 | Pregunta                                                             | Respuesta corta                                                   | Estado hoy   | Dónde se resuelve |
 | -------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------ | ----------------- |
-| ¿Podrá seguir sus pedidos?                                           | Sí, y ya hay media base construida                                | 🔶 Parcial   | Fase **L2**       |
+| ¿Podrá seguir sus pedidos?                                           | **Sí, con línea de tiempo y sin registrarse**                     | ✅ Hecho     | Fase **L2**       |
 | ¿El cliente pone la dirección en un mapa, como PedidosYa o inDriver? | **Sí, ya está en staging**                                        | ✅ Hecho     | Fase **L1**       |
-| ¿La guía lleva QR que abra Waze y Google Maps?                       | Hoy no hay guía; se construye con QR desde el primer día          | 🔲 No existe | Fase **L2**       |
+| ¿La guía lleva QR que abra Waze y Google Maps?                       | **Sí, guía imprimible en 4×6" con QR**                            | ✅ Hecho     | Fase **L2**       |
 | ¿Puede recibir abonos y despachar al completarse el pago?            | Hoy no; la base de datos ya aguanta varios pagos por pedido       | 🔲 No existe | Fase **L3**       |
 | ¿Hay panel de clientes? ¿Vive sin clientes registrados?              | **Sí a las dos.** Ya está hecho y funcionando                     | ✅ Hecho     | —                 |
 | ¿Cómo entra su comunidad de motorizados?                             | Es un módulo nuevo completo, con su propia app                    | 🔲 No existe | Fase **L4**       |
@@ -364,6 +364,9 @@ abrirlas en el móvil cae sobre la puerta correcta.
 
 ### Fase L2 · Trazabilidad completa: guía, QR, estados y seguimiento público
 
+> **Estado: construida salvo los avisos automáticos (2.e).** Al final de la
+> fase está lo que se hizo y en qué se apartó del plan.
+
 **Lo que ya hay:** la bitácora `order_events` registra sola cada cambio de
 estado y de pago, con autor y fecha. La media base está puesta.
 
@@ -442,6 +445,42 @@ clienta lo sigue desde su teléfono sin llamar a nadie; el QR impreso abre Waze
 en dos toques.
 
 **Duración estimada:** 3 semanas.
+
+#### Lo que se construyó, y en qué se apartó del plan
+
+- **Migración 0025**: tabla `shipments` con guía propia, token opaco,
+  transportista, instantánea del destino con coordenada, prueba de entrega y
+  costo. La máquina de estados está en `@nebula/domain` **y repetida en un
+  disparador de Postgres**: la de la aplicación es una recomendación que
+  cualquier script se salta; la de la base, no.
+- **`/g/<token>` en la tienda**: lo que abre el QR. Waze, Google Maps, teléfono
+  en un toque, referencia e instrucciones, y marcar entregado o fallido. Todo lo
+  que se toca mide 56 px: se usa de pie y con una mano.
+- **La guía de despacho es HTML con `@page { size: 4in 6in }`, no un PDF.**
+  Imprime la misma etiqueta desde cualquier navegador y sale igual en térmica;
+  un PDF exigía meter una librería de composición en el Worker para producir el
+  mismo papel. De regalo: se revisa en pantalla antes de gastar etiqueta.
+- **El QR se genera en el servidor**, no con un servicio externo: un QR que
+  depende de un tercero es una etiqueta que un día sale en blanco, y encima le
+  contaría a ese tercero la dirección de cada cliente.
+- **`/seguimiento/<token>` usa el token del pedido**, el mismo que ya viaja en
+  el correo de confirmación. Un segundo token para lo mismo obligaría a mandar
+  dos enlaces y a explicar cuál es cuál.
+- **El panel crea, asigna y mueve envíos** desde la ficha del pedido, y el
+  selector de estado solo ofrece lo que la máquina permite desde donde está.
+
+#### Lo que queda pendiente de esta fase
+
+- **2.e · Los avisos automáticos.** Los correos que ya existen no se han
+  ampliado a los estados de envío (despachado, en camino, entregado). Es lo
+  único de L2 sin empezar.
+- **La posición del motorizado en el mapa** durante la ruta. Necesita que exista
+  la aplicación del motorizado, que es la fase L4.
+- **La prueba de entrega con foto.** La columna está y apunta a un bucket
+  **privado**, que todavía no existe: el bucket de imágenes de producto es
+  público y una foto de entrega es la puerta de casa de alguien.
+- **El saldo pendiente en la guía** hoy es el total si el pedido no está pagado.
+  Cuando existan los abonos (L3) pasará a ser el saldo real.
 
 ---
 
