@@ -144,6 +144,18 @@ jobs:
         run: |
           supabase gen types typescript --local > /tmp/types-actuales.ts
 
+          # Sin esto la comparación no puede salir bien nunca, y por eso este aviso
+          # llevaba abierto desde agosto (issue #5): el fichero commiteado pasa por
+          # Prettier —punto y coma, comillas simples— y la salida cruda del
+          # generador no. Comparar los dos era comparar dos formatos, y el diff
+          # salía de dos mil líneas de comillas donde no se veía si faltaba una
+          # columna. Con el mismo formato en los dos lados, lo que quede en el diff
+          # son diferencias de verdad.
+          #
+          # El `--config` es obligatorio: Prettier resuelve la configuración desde
+          # la ruta del fichero, y `/tmp` está fuera del repositorio.
+          pnpm exec prettier --config .prettierrc.json --write /tmp/types-actuales.ts > /dev/null
+
           if diff -q packages/db/src/generated/database.types.ts /tmp/types-actuales.ts > /dev/null 2>&1; then
             echo "### Tipos generados" >> "$GITHUB_STEP_SUMMARY"
             echo "Coinciden con el esquema." >> "$GITHUB_STEP_SUMMARY"
