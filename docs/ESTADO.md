@@ -183,7 +183,12 @@ disparador de alta. Ver migración `20260901020000`.
 - **Fase L4.1 completa**: los motorizados tienen rol propio, ficha, zonas y
   permisos comprobados contra Postgres real. El panel los da de alta y les asigna
   envíos; ellos entran en `/motorizado` desde la tienda y ven **solo** lo que
-  llevan encima. Falta L4.2: rutas, mapa en vivo y liquidaciones.
+  llevan encima.
+- **Fase L4.2 casi completa**: la pantalla de **Despacho** propone a quién darle
+  cada envío —con el motivo de cada candidato— y en qué orden conviene hacer las
+  entregas de cada motorizado, con los kilómetros que ahorra. Falta el mapa de
+  esa pantalla, la posición en vivo, y las liquidaciones, que están bloqueadas
+  por **D5**: una decisión de negocio sobre cómo se paga a los motorizados.
 - **Ficheros privados**: la foto de la prueba de entrega y el comprobante de un
   abono van a un bucket **sin dominio público**. Lo que se guarda en la base es
   la clave del objeto, que por sí sola no sirve de nada: para ver el fichero hay
@@ -239,7 +244,7 @@ funcionando.
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 10  | **La URL pública de R2 sigue en `r2.dev`**: hay que pasarla a dominio propio antes de producción                                                                                                                                           |
 | 11  | **`http://localhost:3000/**` falta en las Redirect URLs de Supabase**: sin eso, registrarse desde el entorno de desarrollo no confirma cuentas                                                                                             |
-| 12  | **La posición del motorizado en ruta** en el seguimiento: la aplicación ya existe (L4.1), falta enviar y pintar la posición (L4.2)                                                                                                         |
+| 12  | **La posición del motorizado en ruta**: la aplicación y la pantalla de despacho ya existen; falta que el teléfono envíe la posición y una columna donde guardarla. Es lo único de L4.2 que pide migración                                  |
 | 13  | **`/cuenta/direcciones` es solo lectura**: no se pueden guardar ni reutilizar direcciones con su punto                                                                                                                                     |
 | 14  | **La cabecera de la tienda se esconde con `:has()`** en la página del motorizado, en vez de mover las rutas a un grupo con su propio layout. Atajo consciente; se borra cuando alguien haga esa reorganización                             |
 | 15  | **La pantalla de integraciones lee `NEXT_PUBLIC_META_PIXEL_ID` de forma dinámica**, así que dirá «pendiente» aunque esté configurada. Cosmético, afecta a una fila                                                                         |
@@ -397,9 +402,17 @@ paquete de producción. **Comprobar siempre que el test falla sin el arreglo.**
 | ¿Cómo entran sus motorizados?                  | ✅ Con su cuenta, en `/motorizado`. Ven solo lo suyo     |
 | ¿Y Servientrega y Dropi?                       | 🔲 Fase L5, con la investigación hecha                   |
 
-**Lo siguiente del plan es la fase L4.2**: la pantalla de despacho con rutas, la
-posición en vivo y las liquidaciones. La L4.1 —rol, fichas, permisos, asignación
-y la aplicación— ya está.
+**Lo siguiente del plan** son tres cosas, y ninguna necesita accesos:
+
+1. **La posición del motorizado en vivo** — cierra L4.2 salvo el mapa, y es la
+   única parte que pide migración.
+2. **Los avisos automáticos por correo** (P2 número 5). El código se puede
+   escribir hoy; solo el envío espera al dominio.
+3. **La fase L5**, couriers externos, en cuanto haya credenciales.
+
+**Las liquidaciones (4.d) no están esperando a un programador, sino a una
+decisión**: D5, cómo se le paga a un motorizado. Conviene preguntárselo a la
+dueña antes que cualquier otra cosa de esta fase.
 
 Dos cosas de L4 estaban atadas al **bucket privado**: la foto de la prueba de
 entrega y el comprobante del abono. **El bucket ya existe** —`nebula-media-privada`—

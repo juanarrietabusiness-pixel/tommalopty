@@ -792,6 +792,171 @@
   font-size: 1.05rem;
 }
 
+/* --- Despacho -------------------------------------------------------------- */
+
+/* Dos columnas: lo que hay que mover, y a quién dárselo. En pantallas estrechas
+   se apilan — esta pantalla se usa en un escritorio, pero apilarse es mejor que
+   comprimirse hasta ser ilegible. */
+.despacho {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+@media (width <= 1100px) {
+  .despacho {
+    grid-template-columns: 1fr;
+  }
+}
+
+.despacho-columna h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-family: var(--font-heading);
+  font-size: 1rem;
+}
+
+.despacho-cuenta {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.despacho-lista,
+.despacho-candidatos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* La lista de pendientes puede crecer mucho un lunes por la mañana. Se le pone
+     techo para que la columna de al lado siga a la vista sin tener que subir. */
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+/* La tarjeta entera es el botón: el objetivo que hay que acertar es toda la
+   fila, no un texto dentro de ella. */
+.despacho-envio {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.despacho-envio:hover {
+  background: var(--color-surface);
+}
+
+/* `aria-pressed` y no una clase: el estado de selección tiene que llegar
+   también a quien navega con lector de pantalla, no solo al que ve el borde. */
+.despacho-envio[aria-pressed='true'] {
+  border-color: var(--color-accent-dark);
+  box-shadow: inset 3px 0 0 var(--color-accent-dark);
+}
+
+.despacho-envio:focus-visible {
+  outline: 2px solid var(--color-accent-dark);
+  outline-offset: 2px;
+}
+
+.despacho-guia {
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.despacho-elegido {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--color-accent-dark);
+  background: var(--color-surface);
+}
+
+.despacho-candidatos li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.despacho-candidatos li > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* Los que no se pueden proponer se atenúan pero no se esconden: saber por qué
+   no está fulano vale tanto como la propuesta. */
+.despacho-candidatos li[data-proponible='false'] {
+  opacity: 0.55;
+}
+
+.despacho-ruta {
+  margin-top: 14px;
+}
+
+.despacho-orden {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: paso;
+}
+
+.despacho-orden li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.despacho-orden li:last-child {
+  border-bottom: 0;
+}
+
+.despacho-orden li > span:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.despacho-paso {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-accent-dark);
+  color: var(--color-bg);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
 /* --- Motorizados ----------------------------------------------------------- */
 
 /* La etiqueta de un grupo de casillas. No es un `<label>` —no apunta a un solo

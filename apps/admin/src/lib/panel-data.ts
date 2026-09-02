@@ -2,7 +2,10 @@ import {
   REGLA_POR_DEFECTO,
   isPoliticaDeDespacho,
   isShipmentStatus,
+  puedeRecibirEntregas,
+  type Coordinates,
   type DeliveryZone,
+  type MotorizadoDisponible,
   type ReglaDeDespacho,
   type ShipmentStatus,
 } from '@nebula/domain';
@@ -23,7 +26,9 @@ import {
   listPayments,
   listCouriers,
   listDeliveryZones,
+  listShipmentsPendientes,
   type Motorizado,
+  type Shipment,
 } from '@nebula/db';
 import { getSupabaseServerClient, isSupabaseConfigured } from './supabase';
 import { esModoDemostracion } from './demo-mode';
@@ -852,5 +857,107 @@ export async function cargarMotorizados(): Promise<DatosDeMotorizados> {
       email: fila.email,
       fullName: fila.full_name,
     })),
+  };
+}
+
+/* --- Despacho --------------------------------------------------------------- */
+
+export interface EnvioParaDespachar {
+  id: string;
+  trackingNumber: string;
+  status: ShipmentStatus;
+  /** `profile_id` del motorizado, o `null` si nadie lo lleva. */
+  assignedTo: string | null;
+  punto: Coordinates | null;
+  /** Una línea que identifique el sitio, para la lista. */
+  destino: string;
+  referencia: string | null;
+  createdAt: string;
+}
+
+export interface DatosDeDespacho {
+  envios: EnvioParaDespachar[];
+  /** Con la carga ya calculada, listos para `sugerirMotorizado`. */
+  motorizados: MotorizadoDisponible[];
+  zonas: DeliveryZone[];
+  /** Cuántos motorizados hay dados de alta pero no pueden recibir entregas. */
+  enPausaOInactivos: number;
+}
+
+/** Lee el destino `jsonb` y saca una línea legible. Nunca lanza. */
+function lineaDeDestino(destino: unknown): { texto: string; referencia: string | null } {
+  if (typeof destino !== 'object' || destino === null || Array.isArray(destino)) {
+    return { texto: 'Sin dirección escrita', referencia: null };
+  }
+
+  const campos = destino as Record<string, unknown>;
+  const trozo = (clave: string) =>
+    typeof campos[clave] === 'string' && campos[clave].trim() ? campos[clave].trim() : null;
+
+  const partes = [trozo('line1'), trozo('city')].filter(Boolean);
+  const nombre = [trozo('firstName'), trozo('lastName')].filter(Boolean).join(' ');
+
+  return {
+    texto: partes.length > 0 ? partes.join(', ') : nombre || 'Sin dirección escrita',
+    referencia: trozo('reference'),
+  };
+}
+
+/**
+ * Todo lo que la pantalla de despacho necesita, en tres consultas.
+ *
+ * La carga de cada motorizado **se deriva de los propios envíos**, no se
+ * consulta aparte: son los mismos datos vistos de otra forma, y una segunda
+ * consulta podría contradecir a la primera si algo se mueve entre las dos.
+ */
+export async function cargarDespacho(): Promise<DatosDeDespacho> {
+  if (esModoDemostracion() || !isSupabaseConfigured()) {
+    return { envios: [], motorizados: [], zonas: [], enPausaOInactivos: 0 };
+  }
+
+  const supabase = await getSupabaseServerClient();
+
+  const [envios, fichas, zonas] = await Promise.all([
+    listShipmentsPendientes(supabase),
+    listCouriers(supabase),
+    listDeliveryZones(supabase, { soloActivas: false }),
+  ]);
+
+  const enLaCalle = (envio: Shipment) => envio.assignedTo !== null;
+
+  const cargaPorMotorizado = new Map<string, Coordinates[]>();
+  for (const envio of envios.filter(enLaCalle)) {
+    if (!envio.assignedTo) continue;
+    const lista = cargaPorMotorizado.get(envio.assignedTo) ?? [];
+    if (envio.coordinates) lista.push(envio.coordinates);
+    cargaPorMotorizado.set(envio.assignedTo, lista);
+  }
+
+  return {
+    envios: envios.map((envio) => {
+      const { texto, referencia } = lineaDeDestino(envio.destination);
+      return {
+        id: envio.id,
+        trackingNumber: envio.trackingNumber,
+        status: envio.status,
+        assignedTo: envio.assignedTo,
+        punto: envio.coordinates,
+        destino: texto,
+        referencia,
+        createdAt: envio.createdAt,
+      };
+    }),
+    motorizados: fichas.map((ficha) => ({
+      // El identificador que viaja es el del **perfil**, no el de la ficha:
+      // `shipments.assigned_to` apunta a `profiles`, y mezclarlos haría que la
+      // asignación fallara con una clave foránea que nadie sabría explicar.
+      id: ficha.profileId,
+      nombre: ficha.displayName,
+      estado: ficha.status,
+      zoneIds: ficha.zoneIds,
+      entregasPendientes: cargaPorMotorizado.get(ficha.profileId) ?? [],
+    })),
+    zonas,
+    enPausaOInactivos: fichas.filter((ficha) => !puedeRecibirEntregas(ficha.status)).length,
   };
 }
