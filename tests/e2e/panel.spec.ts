@@ -89,4 +89,73 @@ test.describe('panel · recorrido de demostración', () => {
 
     await expect(page.getByText(/no se guarda nada|demostración/i).first()).toBeVisible();
   });
+
+  /**
+   * La pantalla de integraciones.
+   *
+   * Existía como una rejilla de tarjetas grandes que crecía con cada pasarela:
+   * con seis ya había que hacer scroll para ver el estado de la última. Estos
+   * tests fijan las dos propiedades que la arreglan —agrupada y plegada— y una
+   * tercera que no es de comodidad sino de seguridad.
+   */
+  test.describe('integraciones', () => {
+    test('están agrupadas por para qué sirven', async ({ page }) => {
+      await page.goto(`${PANEL_URL}/configuracion`);
+
+      for (const grupo of ['Cobrar', 'Publicidad y medición', 'Correo']) {
+        await expect(page.getByRole('heading', { name: grupo })).toBeVisible();
+      }
+    });
+
+    test('llegan plegadas, que es lo que evita el scroll infinito', async ({ page }) => {
+      await page.goto(`${PANEL_URL}/configuracion`);
+
+      const filas = page.locator('details.integracion');
+      expect(await filas.count()).toBeGreaterThan(5);
+
+      // Ninguna abierta: con nueve integraciones abiertas la pantalla mide
+      // varias pantallas de alto y no se ve el estado de un vistazo.
+      expect(await page.locator('details.integracion[open]').count()).toBe(0);
+    });
+
+    test('una fila se abre y enseña sus campos', async ({ page }) => {
+      await page.goto(`${PANEL_URL}/configuracion`);
+
+      const yappy = page.locator('details.integracion').filter({ hasText: 'Botón de Pago' });
+      await yappy.locator('summary').click();
+
+      await expect(yappy.getByLabel(/clave secreta/i)).toBeVisible();
+    });
+
+    /**
+     * La propiedad que de verdad importa: **el campo de un secreto nace vacío.**
+     *
+     * Rellenarlo con el valor guardado sería lo cómodo, y pondría la clave de
+     * Yappy en el HTML de la página, en la memoria de la pestaña y al alcance de
+     * cualquier extensión que lea formularios. Se enseña la pista en el
+     * `placeholder`, que no es un valor y no se envía al guardar.
+     */
+    test('los campos de secreto nacen vacíos y son de tipo contraseña', async ({ page }) => {
+      await page.goto(`${PANEL_URL}/configuracion`);
+
+      for (const fila of await page.locator('details.integracion').all()) {
+        await fila.locator('summary').click();
+      }
+
+      const secretos = page.locator('details.integracion input[type="password"]');
+      expect(await secretos.count()).toBeGreaterThan(3);
+
+      for (const campo of await secretos.all()) {
+        expect(await campo.inputValue()).toBe('');
+      }
+    });
+
+    test('dice qué integraciones están esperando algo de fuera', async ({ page }) => {
+      await page.goto(`${PANEL_URL}/configuracion`);
+
+      // Sin esto, «¿por qué no puedo cobrar con Yappy?» es una pregunta que
+      // alguien hace por teléfono en vez de leerla en la propia fila.
+      await expect(page.getByText(/En espera/i).first()).toBeVisible();
+    });
+  });
 });

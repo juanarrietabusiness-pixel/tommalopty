@@ -1,61 +1,85 @@
 import { PanelPage } from '@/components/panel-page';
+import { IntegracionForm } from '@/components/integracion-form';
 import { IntegrationForm } from '@/components/settings-forms';
 import { requireAdmin } from '@/lib/auth';
+import { cargarEstadoDeLaBoveda } from '@/lib/credenciales';
 import { cargarIntegraciones } from '@/lib/panel-data';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Comprueba en servidor si el entorno tiene cargadas las credenciales de cada
- * integración. Nunca se devuelve el valor: solo si existe o no.
+ * Integraciones.
+ *
+ * Antes era una rejilla de tarjetas grandes, una por proveedor, sin agrupar: con
+ * seis ya había que hacer scroll y con la siguiente pasarela sería peor. Ahora
+ * son filas plegadas agrupadas por para qué sirven, y lo que se ve de un vistazo
+ * es el estado de cada una, que es lo que se viene a mirar.
+ *
+ * La pantalla no conoce ninguna integración: las lee del catálogo. Añadir la
+ * siguiente pasarela no toca este fichero.
  */
-const CREDENTIAL_ENV: Record<string, string[]> = {
-  paypal: ['PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET'],
-  wompi: ['WOMPI_PUBLIC_KEY', 'WOMPI_PRIVATE_KEY'],
-  paguelofacil: ['PAGUELOFACIL_CCLW'],
-  yappy: ['YAPPY_MERCHANT_ID', 'YAPPY_SECRET_KEY'],
-  meta_pixel: ['NEXT_PUBLIC_META_PIXEL_ID', 'META_CONVERSIONS_ACCESS_TOKEN'],
-  resend: ['RESEND_API_KEY'],
-};
-
-function hasCredentials(provider: string): boolean {
-  const keys = CREDENTIAL_ENV[provider];
-  if (!keys) return false;
-  return keys.every((key) => Boolean(process.env[key]));
-}
-
 export default async function IntegrationsPage() {
   const session = await requireAdmin();
-  const integrations = await cargarIntegraciones();
+  const [estado, activaciones] = await Promise.all([
+    cargarEstadoDeLaBoveda(),
+    cargarIntegraciones(),
+  ]);
+
+  const esSuperadmin = session.role === 'superadmin';
 
   return (
     <PanelPage
       title="Integraciones"
-      description="Aquí solo se activa cada servicio. Las claves viven en variables de entorno del hosting, nunca en la base de datos."
+      description="Las credenciales se pegan aquí. Se guardan cifradas y no vuelven a salir: solo se ven sus últimos caracteres."
     >
-      <div className="notice notice-info">
-        Para cargar o rotar credenciales, edita las variables de entorno del proyecto en Cloudflare
-        (o el <code>.env.local</code> en desarrollo) y vuelve a desplegar. Consulta
-        <code> .env.example</code> para ver los nombres exactos.
-      </div>
+      {!estado.hayClaveMaestra ? (
+        <div className="notice notice-warning">
+          <strong>Falta la clave maestra.</strong> Sin ella no se puede cifrar nada, así que los
+          campos están bloqueados y las integraciones siguen leyendo las variables de entorno del
+          hosting. Es una variable, una sola y para siempre: <code>CREDENCIALES_CLAVE_MAESTRA</code>
+          . Los pasos están en <code>docs/CONECTAR.md</code>.
+        </div>
+      ) : null}
 
-      <div className="grid-2">
-        {(integrations ?? []).map((integration) => {
-          const label = (integration.config as { label?: string })?.label ?? integration.provider;
+      {estado.secciones.map((seccion) => (
+        <section className="seccion-integraciones" key={seccion.grupo}>
+          <h2 className="seccion-titulo">{seccion.titulo}</h2>
 
-          return (
+          <div className="lista-integraciones">
+            {seccion.integraciones.map(({ integracion, campos, configurada }) => (
+              <IntegracionForm
+                key={integracion.proveedor}
+                integracion={integracion}
+                campos={campos}
+                configurada={configurada}
+                puedeEditar={esSuperadmin}
+                bovedaDisponible={estado.bovedaDisponible}
+              />
+            ))}
+          </div>
+        </section>
+      ))}
+
+      <section className="seccion-integraciones">
+        <h2 className="seccion-titulo">Activación</h2>
+        <p className="field-hint">
+          Tener las credenciales puestas no basta: cada servicio se enciende aquí, y así se puede
+          apagar uno sin borrar sus claves.
+        </p>
+
+        <div className="grid-2">
+          {(activaciones ?? []).map((activacion) => (
             <IntegrationForm
-              key={integration.provider}
-              provider={integration.provider}
-              label={label}
-              isEnabled={integration.is_enabled}
-              environment={integration.environment}
-              hasCredentials={hasCredentials(integration.provider)}
-              canEdit={session.role === 'superadmin'}
+              key={activacion.provider}
+              provider={activacion.provider}
+              label={(activacion.config as { label?: string })?.label ?? activacion.provider}
+              isEnabled={activacion.is_enabled}
+              environment={activacion.environment}
+              canEdit={esSuperadmin}
             />
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      </section>
     </PanelPage>
   );
 }
