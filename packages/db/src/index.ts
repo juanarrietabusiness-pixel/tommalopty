@@ -20,3 +20,4 @@ export * from './repositories/orders';
 export * from './repositories/customers';
 export * from './repositories/reports';
 export * from './repositories/logistica';
+export * from './repositories/credenciales';

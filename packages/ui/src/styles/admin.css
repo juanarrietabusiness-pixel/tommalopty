@@ -155,11 +155,31 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  /* Se envuelven en vez de empujar la página.
+   *
+   * Con un botón cabía; al añadir «Importar» al catálogo pasaron a 356px dentro
+   * de una pantalla de 412 y, contando el título, la desbordaban. Sin
+   * `flex-wrap` cada botón nuevo que alguien añada aquí vuelve a romperlo, y no
+   * es evidente que la causa esté en esta regla. */
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .admin-content {
   padding: 28px;
   flex: 1;
+  /* La misma trampa que en la barra lateral, y esta era la que de verdad
+   * ensanchaba la página.
+   *
+   * `flex: 1` no basta: un elemento flexible nace con `min-width: auto`, que le
+   * impide encoger por debajo de su contenido. Una tabla ancha dentro de una
+   * tarjeta empujaba el contenido a 701px dentro de una pantalla de 412, y el
+   * `overflow-x: auto` de `.table-wrap` no llegaba a actuar nunca porque su
+   * padre ya se había hecho grande.
+   *
+   * El síntoma era el panel moviéndose de lado a lado en un teléfono, con las
+   * columnas de la derecha fuera de la pantalla. Medido en tres pantallas. */
+  min-width: 0;
 }
 
 .admin-page-head {
@@ -237,19 +257,25 @@
 
 .grid-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 20px;
   align-items: start;
 }
 .grid-3 {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 20px;
   align-items: start;
 }
 .grid-sidebar {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  /* `minmax(0, 1fr)` y no `1fr`, que es lo mismo que `minmax(auto, 1fr)`: ese
+   * `auto` es el ancho mínimo del contenido, así que una tabla ancha dentro
+   * estira la pista y con ella la página entera.
+   *
+   * Medido: la pista calculaba 700px dentro de un contenedor de 380 en un
+   * teléfono, y el panel se movía de lado a lado. */
+  grid-template-columns: minmax(0, 1fr) 320px;
   gap: 20px;
   align-items: start;
 }
@@ -490,7 +516,7 @@
   .grid-sidebar,
   .grid-3,
   .grid-2 {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -519,12 +545,32 @@
   .admin-sidebar {
     position: static;
     height: auto;
+    /* Sin esto, el `overflow-x: auto` de abajo no sirve de nada.
+     *
+     * Un elemento de rejilla nace con `min-width: auto`, que le impide encoger
+     * por debajo de su contenido. La barra de navegación medía 718px dentro de
+     * una pantalla de 412 y **ensanchaba la página entera**: el panel se movía
+     * de lado a lado en un teléfono, con el contenido cortado por la derecha.
+     *
+     * Medido, no supuesto: la auditoría de interfaz lo encontró en tres
+     * pantallas del panel. */
+    min-width: 0;
   }
   .admin-nav {
     display: flex;
     gap: 8px;
     overflow-x: auto;
+    /* Que se pueda desplazar con el dedo sin arrastrar la página detrás. */
+    overscroll-behavior-x: contain;
     padding: 12px;
+    min-width: 0;
+  }
+  .admin-nav-group ul {
+    display: flex;
+    gap: 8px;
+  }
+  .admin-nav a {
+    white-space: nowrap;
   }
   .admin-nav-group {
     margin-bottom: 0;
@@ -799,7 +845,7 @@
    comprimirse hasta ser ilegible. */
 .despacho {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
@@ -1001,7 +1047,7 @@
 /* --- Abonos y saldo -------------------------------------------------------- */
 .abono-resumen {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 14px;
 }
@@ -1232,4 +1278,176 @@
     width: 100%;
     min-height: auto;
   }
+}
+
+/* --- Integraciones --------------------------------------------------------
+ *
+ * Filas plegadas y agrupadas por para qué sirven, en vez de una rejilla de
+ * tarjetas grandes. El problema que resuelve es de escala: con seis
+ * integraciones la rejilla ya obligaba a hacer scroll para ver el estado de la
+ * última, y cada pasarela nueva lo empeoraba.
+ *
+ * Plegado el estado se ve de un vistazo, que es a lo que se entra el 90% de las
+ * veces; abierto aparecen los campos, que es a lo que se entra una vez al año.
+ */
+.seccion-integraciones {
+  margin-bottom: 32px;
+}
+
+.seccion-titulo {
+  font-family: var(--font-heading);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
+  margin: 0 0 10px;
+}
+
+.lista-integraciones {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.integracion + .integracion {
+  border-top: 1px solid var(--color-border);
+}
+
+.integracion-cabecera {
+  display: grid;
+  grid-template-columns: minmax(180px, auto) 1fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 18px;
+  cursor: pointer;
+  list-style: none;
+  transition: background var(--transition);
+}
+
+.integracion-cabecera:hover {
+  background: var(--color-surface);
+}
+
+/* El foco tiene que verse: `<details>` se abre con teclado y sin esto no se ve
+   dónde está uno. */
+.integracion-cabecera:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+/* El triángulo por omisión de Safari y Chrome se quita por separado. */
+.integracion-cabecera::-webkit-details-marker {
+  display: none;
+}
+
+.integracion-nombre {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+/* Una flecha propia, que gira al abrir. Va antes del nombre para que la columna
+   de nombres quede alineada. */
+.integracion-nombre::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-left: 5px solid var(--color-muted);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform var(--transition);
+  flex-shrink: 0;
+}
+
+.integracion[open] .integracion-nombre::before {
+  transform: rotate(90deg);
+}
+
+.integracion-resumen {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+.integracion-cuerpo {
+  padding: 4px 18px 20px 18px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.integracion-cuerpo .field input:disabled {
+  background: var(--color-surface);
+  cursor: not-allowed;
+}
+
+.integracion-revocar {
+  margin-top: 4px;
+}
+
+.field-opcional {
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+/* En móvil las tres columnas no caben: pasa a filas y el resumen se esconde,
+   porque el nombre y el estado son lo que se viene a mirar. */
+@media (max-width: 720px) {
+  .integracion-cabecera {
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+  }
+
+  .integracion-resumen {
+    display: none;
+  }
+}
+
+/* --- Importador de productos ---------------------------------------------- */
+.importador > .card + .card,
+.importador > .card + form {
+  margin-top: 20px;
+}
+
+.importador textarea {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.8rem;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* La interpretación del precio y los avisos van pequeños y apagados: informan
+   sin competir con el dato, que es lo que se viene a leer. */
+.importador-aviso {
+  font-size: 0.72rem;
+  color: var(--color-muted);
+  margin-top: 2px;
+}
+
+.importador-descartes {
+  margin-bottom: 16px;
+  font-size: 0.82rem;
+}
+
+.importador-descartes summary {
+  cursor: pointer;
+  color: var(--color-warning);
+  font-weight: 600;
+}
+
+.importador-descartes ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: var(--color-muted);
+}
+
+.importador-descartes li {
+  margin-bottom: 4px;
+}
+
+/* Una tabla ancha no puede ensanchar la página: se desplaza dentro de su caja. */
+.tabla-scroll {
+  overflow-x: auto;
 }

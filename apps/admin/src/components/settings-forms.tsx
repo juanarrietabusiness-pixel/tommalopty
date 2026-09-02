@@ -10,14 +10,12 @@ export function IntegrationForm({
   label,
   isEnabled,
   environment,
-  hasCredentials,
   canEdit,
 }: {
   provider: string;
   label: string;
   isEnabled: boolean;
   environment: string;
-  hasCredentials: boolean;
   canEdit: boolean;
 }) {
   const [state, formAction] = useActionState(updateIntegration, IDLE);
@@ -26,11 +24,9 @@ export function IntegrationForm({
     <form action={formAction} className="card">
       <div className="card-head">
         <h3>{label}</h3>
-        {hasCredentials ? (
-          <span className="tag tag-success">Credenciales cargadas</span>
-        ) : (
-          <span className="tag tag-warning">Sin credenciales</span>
-        )}
+        <span className={isEnabled ? 'tag tag-success' : 'tag tag-muted'}>
+          {isEnabled ? 'Activa' : 'Apagada'}
+        </span>
       </div>
 
       <FormFeedback state={state} />

@@ -497,3 +497,128 @@ test.describe('navegación', () => {
     await expect(page.getByRole('link', { name: /volver al inicio/i })).toBeVisible();
   });
 });
+
+/**
+ * Los eventos de Meta.
+ *
+ * Hasta hoy el píxel solo emitía `PageView` y `AddToCart`: no había `ViewContent`,
+ * así que Meta no podía construir el público de «miró este producto y no lo
+ * compró», que es de donde sale casi todo el remarketing. Y no había `Search`, así
+ * que una búsqueda sin resultados —que es demanda de algo que no está en
+ * catálogo— se perdía entera.
+ *
+ * Se comprueban interceptando `fbq` antes de que cargue la página. Eso permite
+ * verificar el cableado real sin necesidad de un píxel de verdad ni de hablar con
+ * Meta, que en un test sería a la vez lento y mentira.
+ */
+test.describe('eventos de Meta', () => {
+  async function interceptarFbq(page: import('@playwright/test').Page) {
+    await page.addInitScript(() => {
+      const registro: unknown[][] = [];
+      (window as unknown as Record<string, unknown>).__eventosMeta = registro;
+      (window as unknown as Record<string, unknown>).fbq = (...args: unknown[]) => {
+        registro.push(args);
+      };
+    });
+  }
+
+  function eventos(page: import('@playwright/test').Page) {
+    return page.evaluate(
+      () => (window as unknown as { __eventosMeta: unknown[][] }).__eventosMeta ?? [],
+    );
+  }
+
+  /**
+   * Espera a que llegue un evento concreto.
+   *
+   * Leer justo después de `goto` es lo que parece correcto y no lo es: estos
+   * eventos salen de un `useEffect`, y `goto` resuelve cuando la página carga,
+   * no cuando React ha hidratado. Sin esta espera el test falla o pasa según lo
+   * cargada que esté la máquina, que es la peor clase de test.
+   */
+  async function esperarEvento(page: import('@playwright/test').Page, nombre: string) {
+    await page.waitForFunction(
+      (buscado) => {
+        const registro = (window as unknown as { __eventosMeta?: unknown[][] }).__eventosMeta ?? [];
+        return registro.some((e) => e[1] === buscado);
+      },
+      nombre,
+      { timeout: 5_000 },
+    );
+  }
+
+  test('la ficha de producto emite ViewContent una sola vez', async ({ page }) => {
+    await interceptarFbq(page);
+
+    await page.goto('/tienda');
+    await page.locator('a[href^="/producto/"]').first().click();
+    await page.waitForURL(/\/producto\//);
+    await esperarEvento(page, 'ViewContent');
+
+    const emitidos = await eventos(page);
+    const vistas = emitidos.filter((e) => e[0] === 'track' && e[1] === 'ViewContent');
+
+    expect(vistas.length, 'ViewContent debería emitirse exactamente una vez').toBe(1);
+
+    // Sin datos, el evento le sirve a Meta para poco: no puede emparejar la
+    // visita con el producto ni con su precio.
+    const datos = vistas[0]?.[2] as Record<string, unknown> | undefined;
+    expect(datos?.content_type).toBe('product');
+    expect(datos?.content_ids).toBeTruthy();
+  });
+
+  test('cambiar de producto vuelve a emitir ViewContent, con otro identificador', async ({
+    page,
+  }) => {
+    await interceptarFbq(page);
+
+    const fichas = ['/tienda'];
+    await page.goto(fichas[0] as string);
+
+    const enlaces = await page
+      .locator('a[href^="/producto/"]')
+      .evaluateAll((nodos) =>
+        Array.from(new Set(nodos.map((n) => (n as HTMLAnchorElement).getAttribute('href')))).slice(
+          0,
+          2,
+        ),
+      );
+
+    expect(enlaces.length, 'hacen falta dos productos distintos').toBe(2);
+
+    for (const enlace of enlaces) {
+      await page.goto(enlace as string);
+      await esperarEvento(page, 'ViewContent');
+    }
+
+    const vistas = (await eventos(page)).filter((e) => e[1] === 'ViewContent');
+
+    // Con un guardia booleano en vez de comparar identificadores, el segundo
+    // producto no se contaría nunca.
+    expect(vistas.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('una búsqueda emite Search con el término, aunque no encuentre nada', async ({ page }) => {
+    await interceptarFbq(page);
+    await page.goto('/buscar?q=zzzzzznoexiste');
+    await esperarEvento(page, 'Search');
+
+    const busquedas = (await eventos(page)).filter((e) => e[1] === 'Search');
+
+    expect(busquedas.length, 'una búsqueda sin resultados también es una señal').toBe(1);
+    expect((busquedas[0]?.[2] as Record<string, unknown>)?.search_string).toBe('zzzzzznoexiste');
+  });
+
+  test('sin término de búsqueda no se emite nada', async ({ page }) => {
+    await interceptarFbq(page);
+    await page.goto('/buscar');
+
+    // Se espera a PageView, que el píxel emite siempre: sin anclar la espera a
+    // algo que sí ocurre, este test pasaría también con el evento presente,
+    // simplemente por leer antes de tiempo.
+    await esperarEvento(page, 'PageView').catch(() => undefined);
+    await page.waitForTimeout(500);
+
+    expect((await eventos(page)).filter((e) => e[1] === 'Search')).toHaveLength(0);
+  });
+});

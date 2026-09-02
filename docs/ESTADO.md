@@ -1,10 +1,15 @@
 # Estado de la plataforma
 
-> **Última actualización:** 2 de septiembre de 2026 (fase L4.2: la pantalla de Despacho).
+> **Última actualización:** 2 de septiembre de 2026 (bóveda de credenciales, panel de
+> integraciones, eventos de Meta, importación de productos y auditoría de interfaz).
 > Este documento es el punto de entrada para quien retome el trabajo. Dice qué
 > hay publicado, qué está roto, qué se sabe de cada fallo abierto y qué se
 > aprendió por las malas. El plan de a dónde vamos está en
 > [`PLAN-LOGISTICA.md`](PLAN-LOGISTICA.md); esto es de dónde partimos.
+
+> **¿Acabas de recibir este proyecto?** Empieza por [`SIGUIENTE.md`](SIGUIENTE.md),
+> que dice en veinte minutos qué hay, qué puedes tocar hoy y qué está esperando a
+> otra cosa.
 
 > **¿Tienes acceso a Supabase y a Cloudflare?** Lo tuyo es
 > [`CONECTAR.md`](CONECTAR.md), que lleva la lista ordenada con su verificación.
@@ -87,19 +92,33 @@ Si alguien alguna vez conecta un MCP a la base real, **eso no es integrarlo: es
 darle acceso de escritura a una persona.** Se decide a sabiendas y se revoca al
 terminar.
 
+#### La regla de trabajo, dicha por el dueño del proyecto
+
+**Ninguna sesión de desarrollo usa los conectores personales de quien programa
+para este proyecto.** Ni Supabase, ni Cloudflare, ni Resend, ni ningún otro: son
+cuentas de una persona, y esta plataforma es de otra. Lo que haga falta conectar
+se escribe en un issue y en este documento, y lo ejecuta quien tenga las
+credenciales del negocio.
+
+La única excepción, y conviene que esté dicha: **el conector de GitHub**, porque
+es la única vía para abrir issues y pull requests en este repositorio desde una
+sesión sin `gh` instalado, y está limitado a `juanarrietabusiness-pixel/tommalopty`.
+Nada de lo que hace toca la tienda, la base de datos ni el hosting.
+
 #### Cómo se autentica de verdad cada servicio
 
-| Servicio                  | Para qué                                 | Cómo entra la credencial                                                                  | Estado hoy                             |
-| ------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------- |
-| **Supabase**              | Base de datos, autenticación, RLS        | `NEXT_PUBLIC_SUPABASE_URL` + anon key (variables) y `SUPABASE_SERVICE_ROLE_KEY` (secreto) | ✅ Puesto (staging)                    |
-| **Cloudflare Workers**    | Servir las dos aplicaciones              | `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` (secretos de Actions)                    | ✅ Puesto                              |
-| **Cloudflare R2**         | Imágenes de producto                     | Enlace `r2_buckets` en `wrangler.jsonc` + `R2_PUBLIC_URL`                                 | ✅ Puesto, bucket `nebula-media`       |
-| **Cloudflare R2 privado** | Prueba de entrega y comprobante de abono | Enlace `r2_buckets` (`MEDIA_PRIVADA`). **Sin dominio público, y no debe tenerlo**         | ✅ Creado, `nebula-media-privada`      |
-| **Resend**                | Correo transaccional                     | `RESEND_API_KEY` (secreto) + `EMAIL_FROM`                                                 | 🔲 Falta. Necesita dominio             |
-| **Meta**                  | Píxel y Conversions API                  | `NEXT_PUBLIC_META_PIXEL_ID` + `META_CONVERSIONS_ACCESS_TOKEN`                             | 🔲 Falta                               |
-| **Yappy · Botón**         | Cobrar en el checkout                    | `YAPPY_MERCHANT_ID`, `YAPPY_SECRET_KEY`, `YAPPY_DOMAIN_URL`                               | 🔲 Falta especificación y credenciales |
-| **Yappy · Integración**   | Conciliar cobros                         | `YAPPY_API_URL`, `YAPPY_API_KEY`, `YAPPY_API_SECRET_KEY`                                  | 🔲 Falta el host de la API             |
-| **Teselas del mapa**      | Las imágenes del mapa                    | `NEXT_PUBLIC_MAP_TILES_URL`                                                               | ⚠️ CARTO sin clave, sin plan           |
+| Servicio                   | Para qué                                    | Cómo entra la credencial                                                                                             | Estado hoy                                  |
+| -------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| **Supabase**               | Base de datos, autenticación, RLS           | `NEXT_PUBLIC_SUPABASE_URL` + anon key (variables) y `SUPABASE_SERVICE_ROLE_KEY` (secreto)                            | ✅ Puesto (staging)                         |
+| **Cloudflare Workers**     | Servir las dos aplicaciones                 | `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` (secretos de Actions)                                               | ✅ Puesto                                   |
+| **Cloudflare R2**          | Imágenes de producto                        | Enlace `r2_buckets` en `wrangler.jsonc` + `R2_PUBLIC_URL`                                                            | ✅ Puesto, bucket `nebula-media`            |
+| **Cloudflare R2 privado**  | Prueba de entrega y comprobante de abono    | Enlace `r2_buckets` (`MEDIA_PRIVADA`). **Sin dominio público, y no debe tenerlo**                                    | ✅ Creado, `nebula-media-privada`           |
+| **Resend**                 | Correo transaccional                        | `RESEND_API_KEY` (secreto) + `EMAIL_FROM`                                                                            | 🔲 Falta. Necesita dominio                  |
+| **Meta**                   | Píxel y Conversions API                     | `NEXT_PUBLIC_META_PIXEL_ID` + `META_CONVERSIONS_ACCESS_TOKEN`                                                        | 🔲 Falta                                    |
+| **Yappy · Botón**          | Cobrar en el checkout                       | `YAPPY_MERCHANT_ID`, `YAPPY_SECRET_KEY`, `YAPPY_DOMAIN_URL`                                                          | 🔲 Falta especificación y credenciales      |
+| **Yappy · Integración**    | Conciliar cobros                            | `YAPPY_API_URL`, `YAPPY_API_KEY`, `YAPPY_API_SECRET_KEY`                                                             | 🔲 Falta el host de la API                  |
+| **Teselas del mapa**       | Las imágenes del mapa                       | `NEXT_PUBLIC_MAP_TILES_URL`                                                                                          | ⚠️ CARTO sin clave, sin plan                |
+| **Bóveda de credenciales** | Que la dueña pegue sus claves sin desplegar | `CREDENCIALES_CLAVE_MAESTRA` (secreto). **La única variable que hace falta para que las demás dejen de hacer falta** | 🔲 Falta la variable y aplicar su migración |
 
 Los nombres exactos y sus valores de ejemplo están en
 [`.env.example`](../.env.example). Las reglas de qué va como secreto y qué como
@@ -192,6 +211,23 @@ disparador de alta. Ver migración `20260901020000`.
   entregas de cada motorizado, con los kilómetros que ahorra. Falta el mapa de
   esa pantalla, la posición en vivo, y las liquidaciones, que están bloqueadas
   por **D5**: una decisión de negocio sobre cómo se paga a los motorizados.
+- **Las credenciales se pegan, no se despliegan**: hay una bóveda cifrada
+  (AES-256-GCM) y una pantalla de Integraciones donde la dueña mete las claves de
+  Yappy, Meta o Resend sin llamar a nadie. **Falta aplicar su migración y poner
+  una variable**; mientras tanto todo sigue leyendo el entorno igual que antes.
+- **El panel de integraciones ya no crece hacia abajo**: filas plegadas agrupadas
+  por para qué sirven, y cada una dice qué la está bloqueando.
+- **Importar productos desde una hoja de cálculo** (`/catalogo/importar`): sube o
+  pega el fichero, **ve qué se entendió** —qué columna es cada campo, cómo quedó
+  cada precio, qué filas se descartan— y confirma. Sirve tanto para el inventario
+  propio en Excel como para lo que exporta una extensión tipo «DS Amazon Quick
+  View Extended»: los encabezados no tienen que llamarse de ninguna forma.
+- **El panel se puede usar desde un teléfono.** Cuatro pantallas se salían de la
+  pantalla a lo ancho, y los campos provocaban zoom automático en iPhone. Las dos
+  cosas tienen ahora su test de regresión.
+- **Meta mide lo que hay que medir**: se añadieron `ViewContent` —de donde sale el
+  público de «miró y no compró»—, `Search` y el `Purchase` del lado navegador. El
+  identificador del píxel se puede cambiar desde el panel, sin desplegar.
 - **Ficheros privados**: la foto de la prueba de entrega y el comprobante de un
   abono van a un bucket **sin dominio público**. Lo que se guarda en la base es
   la clave del objeto, que por sí sola no sirve de nada: para ver el fichero hay
@@ -287,6 +323,7 @@ funcionando.
 | 6     | **Cloudflare Access sobre el panel**                                                                                                                                                                                                                                                  | El panel administrativo es alcanzable por cualquiera que sepa la URL. RLS protege los datos, pero la pantalla de acceso queda expuesta a fuerza bruta                                                                                                                                     |
 | 7     | **Backups de Supabase con retención definida**                                                                                                                                                                                                                                        | Un borrado accidental no tiene vuelta atrás                                                                                                                                                                                                                                               |
 | ~~8~~ | ~~**Crear el bucket privado en Cloudflare**~~ **Hecho.** `nebula-media-privada` existe y el binding `MEDIA_PRIVADA` ya lo alcanza. Falta la comprobación de punta a punta: subir una prueba de entrega y confirmar que su enlace da 403 sin sesión ([`CONECTAR.md`](CONECTAR.md) § 4) |
+| 9b    | **Aplicar la migración de la bóveda y poner `CREDENCIALES_CLAVE_MAESTRA`**: es lo único que separa a la dueña de poder pegar sus propias credenciales. Sin ello el panel avisa y todo sigue leyendo variables de entorno                                                              |
 | 9     | **Pasarela de pago real conectada**                                                                                                                                                                                                                                                   | Hoy los pedidos se registran pero no se cobran en línea. Los abonos manuales sí funcionan. De Yappy falta **solo el Botón de Pago**, y falta porque falta su especificación: ver [`YAPPY.md`](YAPPY.md). Es una decisión de negocio pendiente ([ADR 0006](adr/0006-pasarela-al-final.md)) |
 
 ### 🟡 P3 · Deuda conocida, sin urgencia
@@ -304,6 +341,7 @@ funcionando.
 | 18  | **_Leaked Password Protection_ está desactivado en Supabase**: comprueba las contraseñas nuevas contra HaveIBeenPwned. Es un interruptor en Authentication → Policies, sin coste y sin cambios de código                                                                                          |
 | 19  | **La prueba de punta a punta del bucket privado sigue sin hacerse**: subir una foto de entrega y confirmar que su enlace da 403 en una ventana sin sesión. El bucket ya existe; lo que falta es alguien con el panel abierto                                                                      |
 | 20  | **El mapa de la pantalla de Despacho**: se dejó fuera a propósito, y va detrás del plan de teselas (P1 número 4). Un mapa abierto toda la jornada consume más cuota que decenas de checkouts ([#30](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/30))                           |
+| 20b | **La auditoría de interfaz dejó dos cosas sin cerrar**: no se ha medido el contraste más allá de lo que comprueba axe, ni el rendimiento percibido (LCP, CLS) sobre una conexión lenta. Ninguna de las dos es un fallo conocido; son medidas que no se han tomado                                 |
 | 21  | **Los tipos generados siguen difiriendo del esquema en CI**, aunque se verificaron campo a campo contra staging. Desde ahora CI enseña el diff en el resumen del job, para que la próxima ejecución diga **qué** difiere ([#5](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/5)) |
 
 ---
@@ -432,6 +470,21 @@ explícitamente en su propia migración, en vez de confiar en que no se le
 concedió. Los `alter default privileges` de `supabase_admin` no se pueden cambiar
 desde una migración, así que el paso 2 protege pero no es una garantía; el test
 del paso 3 sí lo es.
+
+### Un dato de prueba con forma de credencial bloquea el push
+
+Un test de cifrado usaba `sk_live_51H8x…` como secreto de ejemplo. Es inventado y
+no abre nada, pero tiene **exactamente la forma de una clave de Stripe**, y la
+protección de secretos de GitHub rechazó el push entero.
+
+Hizo bien. Un escáner que solo bloqueara las claves que de verdad funcionan
+tendría que probarlas, y para entonces ya estarían publicadas: lo único que puede
+mirar es la forma.
+
+La conclusión es de una línea: **los valores de ejemplo no se parecen a
+credenciales reales.** `valor-de-prueba-largo-que-no-es-de-ningun-proveedor` prueba
+lo mismo y no dispara nada. Y el susto que provoca —«¿alguien metió una clave de
+verdad?»— cuesta más que el rato de escribir una cadena aburrida.
 
 ### Un test que no puede fallar no prueba nada
 

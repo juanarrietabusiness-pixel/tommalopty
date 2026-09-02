@@ -8,8 +8,12 @@ El diseño parte del esqueleto HTML aprobado por la clienta, que se conserva
 Todo el look & feel se migró tal cual a componentes React: mismos colores,
 tipografías, espaciados y comportamiento.
 
-> **¿Retomas el trabajo?** Empieza por [`docs/ESTADO.md`](docs/ESTADO.md): qué
-> hay publicado, qué está roto y qué se sabe de cada fallo abierto.
+> **¿Acabas de recibir este proyecto?** Empieza por
+> [`docs/SIGUIENTE.md`](docs/SIGUIENTE.md): en veinte minutos, qué hay hecho, qué
+> puedes tocar hoy y qué está esperando a otra cosa.
+>
+> **¿Retomas el trabajo?** [`docs/ESTADO.md`](docs/ESTADO.md): qué hay publicado,
+> qué está roto y qué se aprendió por las malas.
 >
 > **¿Tienes acceso a Supabase y a Cloudflare?** Entonces ve directo a
 > [`docs/CONECTAR.md`](docs/CONECTAR.md): lo que está construido y esperando a

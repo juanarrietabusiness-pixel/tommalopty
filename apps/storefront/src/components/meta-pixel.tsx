@@ -17,8 +17,15 @@ declare global {
   }
 }
 
-export function MetaPixel() {
-  const pixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID;
+/**
+ * El identificador llega **como prop y no de `process.env`**, y esa es toda la
+ * diferencia entre poder cambiarlo desde el panel o no.
+ *
+ * `NEXT_PUBLIC_*` se sustituye en compilación: leído aquí, pegar el píxel en
+ * Integraciones no habría hecho nada hasta el siguiente despliegue. Quien lo
+ * lee ahora es un componente de servidor, en cada petición.
+ */
+export function MetaPixel({ pixelId }: { pixelId: string | null }) {
   const pathname = usePathname();
 
   // El App Router no recarga la página entre rutas: hay que emitir PageView.

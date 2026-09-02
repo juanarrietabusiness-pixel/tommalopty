@@ -5,6 +5,7 @@ import { getProductBySlug, listPublishedProductSlugs } from '@nebula/db';
 import { getSupabaseAnonClient, isSupabaseConfigured } from '@/lib/supabase';
 import { getDemoProductBySlug } from '@/lib/demo-data';
 import { ProductGallery } from '@/components/product-gallery';
+import { EventoDePagina } from '@/components/eventos-de-pagina';
 import { ProductPurchasePanel } from '@/components/product-purchase-panel';
 
 // ISR: la ficha se sirve estática y se regenera cada 10 minutos. Es la página
@@ -109,6 +110,25 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           ) : null}
           <h1>{product.title}</h1>
           <ProductPurchasePanel product={product} />
+
+          {/* ViewContent: es el evento que le permite a Meta construir públicos
+              de quien miró un producto y no lo compró, que es de dónde sale la
+              mayor parte del remarketing. Faltaba: hasta hoy el píxel solo
+              emitía PageView y AddToCart, así que ese público no existía.
+
+              El `event_id` se deriva del producto y no del reloj: recargar la
+              ficha no inventa visitas nuevas. */}
+          <EventoDePagina
+            evento="ViewContent"
+            eventId={`view-${product.id}`}
+            datos={{
+              content_type: 'product',
+              content_ids: [defaultVariant?.sku ?? product.id],
+              content_name: product.title,
+              currency: 'USD',
+              value: defaultVariant?.price ?? 0,
+            }}
+          />
           {product.description ? (
             <div className="product-description" style={{ marginTop: 28 }}>
               {product.description}

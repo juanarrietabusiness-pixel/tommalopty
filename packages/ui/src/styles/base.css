@@ -122,6 +122,20 @@ button {
   padding: 9px 18px;
   font-size: 0.7rem;
 }
+.btn-xs {
+  padding: 5px 11px;
+  font-size: 0.66rem;
+}
+/* Para acciones secundarias que no deben competir con la principal del bloque. */
+.btn-ghost {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-muted);
+}
+.btn-ghost:hover {
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
 
 .btn:disabled,
 .btn[aria-disabled='true'] {
@@ -244,6 +258,11 @@ button {
   background: rgba(30, 91, 138, 0.06);
   color: var(--color-info);
 }
+.notice-warning {
+  border-color: rgba(180, 83, 9, 0.3);
+  background: rgba(180, 83, 9, 0.08);
+  color: var(--color-warning);
+}
 
 /* --- Etiquetas ------------------------------------------------------------ */
 .tag {
@@ -285,6 +304,12 @@ button {
   border-color: rgba(180, 35, 24, 0.3);
   background: rgba(180, 35, 24, 0.09);
 }
+/* Para lo que está apagado o en espera: presente, pero sin reclamar atención. */
+.tag-muted {
+  color: var(--color-muted);
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}
 
 /* --- Estado vacío --------------------------------------------------------- */
 .empty-state {
@@ -305,4 +330,69 @@ button {
 .empty-state p {
   margin: 0;
   font-size: 0.88rem;
+}
+
+/* --- Correcciones de la auditoría de interfaz ------------------------------
+ *
+ * Todo lo de aquí sale de medir sobre la aplicación construida, no de mirarla.
+ * Cada regla lleva qué se midió y por qué importa.
+ */
+
+/* Los campos de formulario nunca por debajo de 16px.
+ *
+ * No es estética: **Safari en iPhone hace zoom automático al enfocar un campo
+ * con la letra más pequeña de 16px**, y al hacerlo descoloca la página y deja al
+ * usuario perdido a mitad del formulario. Es la causa más común de «el checkout
+ * se ve raro en el iPhone».
+ *
+ * La auditoría lo encontró en el acceso, la búsqueda, el boletín y los filtros
+ * del panel: 13,4px y 14,1px. Se sube solo en pantallas táctiles, para no
+ * engordar los filtros en un escritorio donde no hay zoom que provocar. */
+@media (hover: none) and (pointer: coarse) {
+  /* El `html` de delante no es decorativo: sin él, `.toolbar input` y `.field
+   * select` —que viven en admin.css, cargado después— le ganaban a un `input`
+   * pelado por orden de aparición, y los filtros del panel seguían a 13,4px.
+   * Lo enseñó volver a medir después de «arreglarlo». */
+  /* `!important` a propósito, y es de los pocos casos en que se justifica.
+   *
+   * Esto no compite con el diseño: **anula un comportamiento del dispositivo**
+   * que rompe la página, y tiene que ganarle a cualquier regla con clase y a
+   * cualquier estilo en línea que alguien escriba mañana en un componente. Sin
+   * él, `.toolbar select` —una clase— le gana a `html select` y los filtros del
+   * panel se quedan en 13,4px. Lo enseñó volver a medir después de darlo por
+   * arreglado dos veces. */
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Objetivos táctiles de al menos 24px de alto (WCAG 2.5.8).
+ *
+ * Los enlaces del pie y de las listas de navegación medían entre 14 y 18px de
+ * alto en un móvil. Se tocan con el dedo, no con un ratón: fallar y darle al de
+ * al lado es lo que hace que una tienda «se sienta mal» sin que nadie sepa
+ * decir por qué.
+ *
+ * Se resuelve con relleno vertical y no con altura fija: así el texto largo que
+ * pasa a dos líneas sigue funcionando. */
+@media (pointer: coarse) {
+  .site-footer a,
+  .site-footer button,
+  .product-title a,
+  nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding-block: 4px;
+  }
+
+  /* Una casilla de 13x13 es el tamaño por omisión del navegador y es la mitad
+     de lo que pide la norma. Aparecía en las integraciones del panel. */
+  html input[type='checkbox'],
+  html input[type='radio'] {
+    width: 24px;
+    height: 24px;
+  }
 }
