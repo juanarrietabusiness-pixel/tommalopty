@@ -1,6 +1,6 @@
 # Estado de la plataforma
 
-> **Última actualización:** 1 de septiembre de 2026 (tarde: se ejecutó [`CONECTAR.md`](CONECTAR.md) §§ 1-5).
+> **Última actualización:** 2 de septiembre de 2026 (fase L4.2: la pantalla de Despacho).
 > Este documento es el punto de entrada para quien retome el trabajo. Dice qué
 > hay publicado, qué está roto, qué se sabe de cada fallo abierto y qué se
 > aprendió por las malas. El plan de a dónde vamos está en
@@ -8,9 +8,12 @@
 
 > **¿Tienes acceso a Supabase y a Cloudflare?** Lo tuyo es
 > [`CONECTAR.md`](CONECTAR.md), que lleva la lista ordenada con su verificación.
-> **Los pasos 1 a 5 ya están hechos** —migraciones aplicadas, tipos regenerados,
+> **Los pasos 1 a 5 ya están hechos** —migraciones aplicadas, tipos verificados,
 > advisors revisados, bucket privado creado y `anon` revocado— y lo que queda de
-> esa lista cuelga todo del mismo sitio: **comprar el dominio**.
+> esa lista cuelga todo del mismo sitio: **comprar el dominio**. Con una
+> excepción que conviene saber antes de empezar: **CI sigue avisando de que los
+> tipos generados difieren**, aunque se compararon campo a campo contra staging.
+> Punto 21 de la lista de pendientes.
 
 ---
 
@@ -195,6 +198,54 @@ disparador de alta. Ver migración `20260901020000`.
   que pedir el envío o el pago por una ruta que comprueba permisos. **Falta crear
   el bucket en Cloudflare** — el código ya está y avisa si no lo encuentra.
 
+### Mapa de la plataforma: cada pantalla y su dirección
+
+Todo lo de abajo está publicado en staging y se puede abrir hoy. La tienda
+cuelga de `https://nebula-storefront.juanarrietabusiness.workers.dev` y el
+panel de `https://nebula-admin.juanarrietabusiness.workers.dev`.
+
+**Panel administrativo** (`nebula-admin`, entra `operator`, `admin` o `superadmin`):
+
+| Pantalla         | Ruta                                 | Qué hace                                                                   |
+| ---------------- | ------------------------------------ | -------------------------------------------------------------------------- |
+| Entrar           | `/entrar`                            | Acceso del equipo. Un motorizado **no** entra aquí                         |
+| Resumen          | `/`                                  | Ventas del día, pedidos por estado, lo que hay que atender                 |
+| Pedidos          | `/pedidos`                           | Listado, filtros, detalle, abonos y envíos                                 |
+| Guía de envío    | `/pedidos/[id]/guia/[shipmentId]`    | La etiqueta 4×6" con su QR, lista para imprimir                            |
+| **Despacho**     | `/despacho`                          | **L4.2.** A quién darle cada envío, con el motivo, y en qué orden repartir |
+| **Motorizados**  | `/motorizados`                       | **L4.1.** Alta, zonas, documentos y estado de cada uno                     |
+| Clientes (CRM)   | `/clientes`, `/clientes/[id]`        | Ficha, histórico y notas                                                   |
+| Catálogo         | `/catalogo`                          | Productos, variantes, imágenes                                             |
+| Inventario       | `/catalogo/inventario`               | Existencias y ajustes                                                      |
+| Descuentos       | `/descuentos`                        | Códigos y reglas                                                           |
+| Contenido        | `/contenido/{banners,paginas,menus}` | El CMS de la tienda                                                        |
+| Reportes         | `/reportes`                          | Ventas, productos, clientes                                                |
+| Usuarios y roles | `/usuarios`                          | Quién es qué                                                               |
+| Zonas de reparto | `/configuracion/zonas`               | Las zonas que usa la cotización **y la sugerencia de despacho**            |
+
+**Tienda y clientes** (`nebula-storefront`):
+
+| Pantalla                   | Ruta                             | Qué hace                                                           |
+| -------------------------- | -------------------------------- | ------------------------------------------------------------------ |
+| Tienda                     | `/`, `/tienda`, `/buscar`        | Catálogo, búsqueda, categorías                                     |
+| Producto                   | `/producto/[slug]`               | Ficha con variantes                                                |
+| Carrito y checkout         | `/carrito`, `/checkout`          | **El mapa que rellena la dirección sola vive aquí**                |
+| Confirmación               | `/checkout/confirmacion/[token]` | Lo que ve quien acaba de comprar                                   |
+| **Seguimiento del pedido** | `/seguimiento/[token]`           | **L2.** Línea de tiempo del envío, **sin registrarse**             |
+| **Lo que abre el QR**      | `/g/[token]`                     | **L2.** La página que se abre desde la guía, pensada para la calle |
+| Panel del cliente          | `/cuenta`                        | Pedidos, direcciones, favoritos, datos                             |
+
+**Equipo de motorizados** (`nebula-storefront`, entra el rol `courier`):
+
+| Pantalla     | Ruta               | Qué hace                                                            |
+| ------------ | ------------------ | ------------------------------------------------------------------- |
+| Mis entregas | `/motorizado`      | **L4.1.** Solo lo que lleva encima. No ve el resto de la operación  |
+| Una entrega  | `/motorizado/[id]` | Dirección, mapa, teléfono, y cerrarla con foto de prueba de entrega |
+
+Un motorizado entra por la **tienda**, no por el panel: `/entrar` de
+`nebula-storefront`. El panel lo rechaza a propósito — su lista de roles
+permitidos es `operator`, `admin` y `superadmin`, y `courier` no está.
+
 ### Cómo probar la fase L2 sin datos propios
 
 Hay un pedido de prueba en staging con dos envíos, uno entregado y otro en
@@ -240,18 +291,20 @@ funcionando.
 
 ### 🟡 P3 · Deuda conocida, sin urgencia
 
-| #   | Qué                                                                                                                                                                                                                                        |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 10  | **La URL pública de R2 sigue en `r2.dev`**: hay que pasarla a dominio propio antes de producción                                                                                                                                           |
-| 11  | **`http://localhost:3000/**` falta en las Redirect URLs de Supabase**: sin eso, registrarse desde el entorno de desarrollo no confirma cuentas                                                                                             |
-| 12  | **La posición del motorizado en ruta**: la aplicación y la pantalla de despacho ya existen; falta que el teléfono envíe la posición y una columna donde guardarla. Es lo único de L4.2 que pide migración                                  |
-| 13  | **`/cuenta/direcciones` es solo lectura**: no se pueden guardar ni reutilizar direcciones con su punto                                                                                                                                     |
-| 14  | **La cabecera de la tienda se esconde con `:has()`** en la página del motorizado, en vez de mover las rutas a un grupo con su propio layout. Atajo consciente; se borra cuando alguien haga esa reorganización                             |
-| 15  | **La pantalla de integraciones lee `NEXT_PUBLIC_META_PIXEL_ID` de forma dinámica**, así que dirá «pendiente» aunque esté configurada. Cosmético, afecta a una fila                                                                         |
-| 16  | **`NEXT_PUBLIC_ADMIN_URL` no lo lee nadie**: se declara en `.env.example` y el despliegue lo pasa, pero ningún código lo usa. O se usa, o se quita: una variable que se configura y no hace nada es media hora de alguien buscando por qué |
-| 17  | **Las cuentas de servicio deberían estar a nombre del negocio** antes de abrir. Ver el apartado «Cuando la plataforma pase a la dueña» del punto 1                                                                                         |
-| 18  | **_Leaked Password Protection_ está desactivado en Supabase**: comprueba las contraseñas nuevas contra HaveIBeenPwned. Es un interruptor en Authentication → Policies, sin coste y sin cambios de código                                   |
-| 19  | **La prueba de punta a punta del bucket privado sigue sin hacerse**: subir una foto de entrega y confirmar que su enlace da 403 en una ventana sin sesión. El bucket ya existe; lo que falta es alguien con el panel abierto               |
+| #   | Qué                                                                                                                                                                                                                                                                                               |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 10  | **La URL pública de R2 sigue en `r2.dev`**: hay que pasarla a dominio propio antes de producción                                                                                                                                                                                                  |
+| 11  | **`http://localhost:3000/**` falta en las Redirect URLs de Supabase**: sin eso, registrarse desde el entorno de desarrollo no confirma cuentas                                                                                                                                                    |
+| 12  | **La posición del motorizado en ruta**: la aplicación y la pantalla de despacho ya existen; falta que el teléfono envíe la posición y una columna donde guardarla. Es lo único de L4.2 que pide migración ([#29](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/29))              |
+| 13  | **`/cuenta/direcciones` es solo lectura**: no se pueden guardar ni reutilizar direcciones con su punto                                                                                                                                                                                            |
+| 14  | **La cabecera de la tienda se esconde con `:has()`** en la página del motorizado, en vez de mover las rutas a un grupo con su propio layout. Atajo consciente; se borra cuando alguien haga esa reorganización                                                                                    |
+| 15  | **La pantalla de integraciones lee `NEXT_PUBLIC_META_PIXEL_ID` de forma dinámica**, así que dirá «pendiente» aunque esté configurada. Cosmético, afecta a una fila                                                                                                                                |
+| 16  | **`NEXT_PUBLIC_ADMIN_URL` no lo lee nadie**: se declara en `.env.example` y el despliegue lo pasa, pero ningún código lo usa. O se usa, o se quita: una variable que se configura y no hace nada es media hora de alguien buscando por qué                                                        |
+| 17  | **Las cuentas de servicio deberían estar a nombre del negocio** antes de abrir. Ver el apartado «Cuando la plataforma pase a la dueña» del punto 1                                                                                                                                                |
+| 18  | **_Leaked Password Protection_ está desactivado en Supabase**: comprueba las contraseñas nuevas contra HaveIBeenPwned. Es un interruptor en Authentication → Policies, sin coste y sin cambios de código                                                                                          |
+| 19  | **La prueba de punta a punta del bucket privado sigue sin hacerse**: subir una foto de entrega y confirmar que su enlace da 403 en una ventana sin sesión. El bucket ya existe; lo que falta es alguien con el panel abierto                                                                      |
+| 20  | **El mapa de la pantalla de Despacho**: se dejó fuera a propósito, y va detrás del plan de teselas (P1 número 4). Un mapa abierto toda la jornada consume más cuota que decenas de checkouts ([#30](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/30))                           |
+| 21  | **Los tipos generados siguen difiriendo del esquema en CI**, aunque se verificaron campo a campo contra staging. Desde ahora CI enseña el diff en el resumen del job, para que la próxima ejecución diga **qué** difiere ([#5](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/5)) |
 
 ---
 
@@ -404,15 +457,17 @@ paquete de producción. **Comprobar siempre que el test falla sin el arreglo.**
 
 **Lo siguiente del plan** son tres cosas, y ninguna necesita accesos:
 
-1. **La posición del motorizado en vivo** — cierra L4.2 salvo el mapa, y es la
-   única parte que pide migración.
+1. **La posición del motorizado en vivo** ([#29](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/29)) — cierra L4.2 salvo el mapa
+   ([#30](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/30)), y es la única parte que pide migración.
 2. **Los avisos automáticos por correo** (P2 número 5). El código se puede
    escribir hoy; solo el envío espera al dominio.
 3. **La fase L5**, couriers externos, en cuanto haya credenciales.
 
 **Las liquidaciones (4.d) no están esperando a un programador, sino a una
-decisión**: D5, cómo se le paga a un motorizado. Conviene preguntárselo a la
-dueña antes que cualquier otra cosa de esta fase.
+decisión**: D5, cómo se le paga a un motorizado. La pregunta está escrita, con
+las cuatro respuestas posibles y lo que cambia cada una, en el
+[issue #28](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/28).
+Conviene preguntárselo a la dueña antes que cualquier otra cosa de esta fase.
 
 Dos cosas de L4 estaban atadas al **bucket privado**: la foto de la prueba de
 entrega y el comprobante del abono. **El bucket ya existe** —`nebula-media-privada`—
