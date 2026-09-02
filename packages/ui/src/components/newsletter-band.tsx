@@ -63,6 +63,10 @@ export function NewsletterBand({
           <input
             id="newsletterEmail"
             type="email"
+            // Sin esto, quien se suscribe desde el móvil teclea su correo entero
+            // aunque el teléfono ya lo sepa. Es un campo, y es el único de la
+            // tienda al que le faltaba.
+            autoComplete="email"
             placeholder="tu@correo.com"
             required
             value={email}

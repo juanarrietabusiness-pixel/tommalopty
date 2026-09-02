@@ -1887,3 +1887,14 @@ body:has(.motorizado) .announcement-bar {
   gap: 10px;
   margin-top: 12px;
 }
+
+/* El campo de búsqueda. Estaba con estilos en línea, que no se pueden
+   sobrescribir por tamaño de pantalla ni por preferencia del dispositivo: por
+   eso se quedaba en 14,4px y provocaba el zoom de iOS al enfocarlo. */
+.buscador-campo {
+  flex: 1;
+  padding: 13px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  font-size: 0.9rem;
+}

@@ -35,13 +35,7 @@ export default async function SearchPage({
           type="search"
           defaultValue={term}
           placeholder="¿Qué estás buscando?"
-          style={{
-            flex: 1,
-            padding: '13px 18px',
-            borderRadius: 999,
-            border: '1px solid var(--color-border)',
-            fontSize: '0.9rem',
-          }}
+          className="buscador-campo"
         />
         <button type="submit" className="btn btn-dark btn-sm">
           Buscar

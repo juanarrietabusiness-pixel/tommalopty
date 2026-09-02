@@ -155,11 +155,31 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  /* Se envuelven en vez de empujar la página.
+   *
+   * Con un botón cabía; al añadir «Importar» al catálogo pasaron a 356px dentro
+   * de una pantalla de 412 y, contando el título, la desbordaban. Sin
+   * `flex-wrap` cada botón nuevo que alguien añada aquí vuelve a romperlo, y no
+   * es evidente que la causa esté en esta regla. */
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .admin-content {
   padding: 28px;
   flex: 1;
+  /* La misma trampa que en la barra lateral, y esta era la que de verdad
+   * ensanchaba la página.
+   *
+   * `flex: 1` no basta: un elemento flexible nace con `min-width: auto`, que le
+   * impide encoger por debajo de su contenido. Una tabla ancha dentro de una
+   * tarjeta empujaba el contenido a 701px dentro de una pantalla de 412, y el
+   * `overflow-x: auto` de `.table-wrap` no llegaba a actuar nunca porque su
+   * padre ya se había hecho grande.
+   *
+   * El síntoma era el panel moviéndose de lado a lado en un teléfono, con las
+   * columnas de la derecha fuera de la pantalla. Medido en tres pantallas. */
+  min-width: 0;
 }
 
 .admin-page-head {
@@ -237,19 +257,25 @@
 
 .grid-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 20px;
   align-items: start;
 }
 .grid-3 {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 20px;
   align-items: start;
 }
 .grid-sidebar {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  /* `minmax(0, 1fr)` y no `1fr`, que es lo mismo que `minmax(auto, 1fr)`: ese
+   * `auto` es el ancho mínimo del contenido, así que una tabla ancha dentro
+   * estira la pista y con ella la página entera.
+   *
+   * Medido: la pista calculaba 700px dentro de un contenedor de 380 en un
+   * teléfono, y el panel se movía de lado a lado. */
+  grid-template-columns: minmax(0, 1fr) 320px;
   gap: 20px;
   align-items: start;
 }
@@ -490,7 +516,7 @@
   .grid-sidebar,
   .grid-3,
   .grid-2 {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -519,12 +545,32 @@
   .admin-sidebar {
     position: static;
     height: auto;
+    /* Sin esto, el `overflow-x: auto` de abajo no sirve de nada.
+     *
+     * Un elemento de rejilla nace con `min-width: auto`, que le impide encoger
+     * por debajo de su contenido. La barra de navegación medía 718px dentro de
+     * una pantalla de 412 y **ensanchaba la página entera**: el panel se movía
+     * de lado a lado en un teléfono, con el contenido cortado por la derecha.
+     *
+     * Medido, no supuesto: la auditoría de interfaz lo encontró en tres
+     * pantallas del panel. */
+    min-width: 0;
   }
   .admin-nav {
     display: flex;
     gap: 8px;
     overflow-x: auto;
+    /* Que se pueda desplazar con el dedo sin arrastrar la página detrás. */
+    overscroll-behavior-x: contain;
     padding: 12px;
+    min-width: 0;
+  }
+  .admin-nav-group ul {
+    display: flex;
+    gap: 8px;
+  }
+  .admin-nav a {
+    white-space: nowrap;
   }
   .admin-nav-group {
     margin-bottom: 0;
@@ -799,7 +845,7 @@
    comprimirse hasta ser ilegible. */
 .despacho {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
@@ -1001,7 +1047,7 @@
 /* --- Abonos y saldo -------------------------------------------------------- */
 .abono-resumen {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 14px;
 }
