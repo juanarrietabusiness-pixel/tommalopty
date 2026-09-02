@@ -27,6 +27,7 @@ todo del dominio, y el dominio hay que comprarlo.**
 | 6 · El dominio            | 🔲 **Bloqueado**: hay que comprarlo. Es el P1 número 2                                                                                                  |
 | 7 · Antes de abrir        | 🔲 Backups, Cloudflare Access, plan de teselas, cuentas a nombre del negocio                                                                            |
 | 8 · Lo de después         | 🔲 Lo que pide accesos de cada fase que queda. Está al final de este documento                                                                          |
+| 9 · La bóveda             | 🔲 **Nuevo.** Una migración y una variable, y la dueña deja de necesitarte para poner sus credenciales                                                  |
 
 [issue #24]: https://github.com/juanarrietabusiness-pixel/tommalopty/issues/24
 
@@ -55,6 +56,66 @@ Lo que sí queda de L4.2, y por qué no está:
 [#28]: https://github.com/juanarrietabusiness-pixel/tommalopty/issues/28
 [#29]: https://github.com/juanarrietabusiness-pixel/tommalopty/issues/29
 [#30]: https://github.com/juanarrietabusiness-pixel/tommalopty/issues/30
+
+## 9 · La bóveda de credenciales
+
+**Por qué:** es el paso que te quita trabajo a ti. Hasta ahora, cada vez que la
+dueña conseguía una credencial —Yappy, Meta, Resend— alguien tenía que editar
+variables de entorno en Cloudflare y volver a desplegar. Con esto, las pega ella
+en Integraciones y ya está.
+
+Son **dos cosas**, y las dos se hacen una sola vez.
+
+### 9.a · La variable
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+Ese valor va a GitHub → Settings → Secrets and variables → Actions, como
+**secreto** llamado `CREDENCIALES_CLAVE_MAESTRA`.
+
+Es la única variable que hace falta para que las demás dejen de hacer falta. No
+puede vivir en la base de datos: guardar la llave encima del cofre no es cifrar.
+Es el mismo compromiso que hace n8n con `N8N_ENCRYPTION_KEY`.
+
+**Guárdala donde guardes las contraseñas del negocio.** Si se pierde, los
+secretos guardados no se recuperan —hay que volver a pegarlos— y si se cambia,
+igual. No es catastrófico, pero es una tarde.
+
+### 9.b · La migración
+
+`20260902120000_credenciales.sql`. Crea `integration_credentials`, y tiene dos
+rarezas deliberadas que conviene no «arreglar»:
+
+- **No tiene ni una política RLS.** Eso es lo que hace el trabajo: sin políticas,
+  ningún rol con sesión saca una fila, ni siquiera un `superadmin`. Solo
+  `service_role`, desde el servidor. La tabla de al lado, `integrations`, la lee
+  cualquier `admin`; si los secretos vivieran ahí, cualquier administrador se
+  llevaría el texto cifrado a casa para probar contra él con calma.
+- **Revoca `anon` explícitamente**, por lo que ya sabemos de los privilegios por
+  omisión de Supabase.
+
+**Después:** `pnpm db:types`. Y entonces se pueden borrar los tipos escritos a
+mano de `packages/db/src/repositories/credenciales.ts`, que están ahí solo porque
+la migración no estaba aplicada cuando se escribió el código.
+
+**Cómo verificar:**
+
+1. Panel → **Integraciones**: debe desaparecer el aviso amarillo de «falta la
+   clave maestra».
+2. Pega una credencial de prueba y guarda. Al recargar tiene que verse `••••` y
+   sus cuatro últimos caracteres, **nunca el valor**.
+3. En SQL: `select clave, es_secreto, pista from public.integration_credentials;`
+   — `valor_cifrado` empieza por `v1.` y no se parece a lo que pegaste.
+4. Y la que de verdad prueba la tabla: consulta
+   `select * from public.integration_credentials` **con un rol de usuario, no con
+   service_role**. Tiene que fallar.
+
+**Qué no hacer:** no le pongas una política RLS «para poder mirarla desde el
+panel». Mirarla desde el panel es exactamente lo que no debe poder hacerse.
+
+---
 
 ### Lo que se encontró al hacerlo, y que no estaba previsto
 
