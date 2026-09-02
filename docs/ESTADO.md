@@ -1,11 +1,15 @@
 # Estado de la plataforma
 
 > **Última actualización:** 2 de septiembre de 2026 (bóveda de credenciales, panel de
-> integraciones y los eventos de Meta que faltaban).
+> integraciones, eventos de Meta, importación de productos y auditoría de interfaz).
 > Este documento es el punto de entrada para quien retome el trabajo. Dice qué
 > hay publicado, qué está roto, qué se sabe de cada fallo abierto y qué se
 > aprendió por las malas. El plan de a dónde vamos está en
 > [`PLAN-LOGISTICA.md`](PLAN-LOGISTICA.md); esto es de dónde partimos.
+
+> **¿Acabas de recibir este proyecto?** Empieza por [`SIGUIENTE.md`](SIGUIENTE.md),
+> que dice en veinte minutos qué hay, qué puedes tocar hoy y qué está esperando a
+> otra cosa.
 
 > **¿Tienes acceso a Supabase y a Cloudflare?** Lo tuyo es
 > [`CONECTAR.md`](CONECTAR.md), que lleva la lista ordenada con su verificación.
@@ -213,6 +217,14 @@ disparador de alta. Ver migración `20260901020000`.
   una variable**; mientras tanto todo sigue leyendo el entorno igual que antes.
 - **El panel de integraciones ya no crece hacia abajo**: filas plegadas agrupadas
   por para qué sirven, y cada una dice qué la está bloqueando.
+- **Importar productos desde una hoja de cálculo** (`/catalogo/importar`): sube o
+  pega el fichero, **ve qué se entendió** —qué columna es cada campo, cómo quedó
+  cada precio, qué filas se descartan— y confirma. Sirve tanto para el inventario
+  propio en Excel como para lo que exporta una extensión tipo «DS Amazon Quick
+  View Extended»: los encabezados no tienen que llamarse de ninguna forma.
+- **El panel se puede usar desde un teléfono.** Cuatro pantallas se salían de la
+  pantalla a lo ancho, y los campos provocaban zoom automático en iPhone. Las dos
+  cosas tienen ahora su test de regresión.
 - **Meta mide lo que hay que medir**: se añadieron `ViewContent` —de donde sale el
   público de «miró y no compró»—, `Search` y el `Purchase` del lado navegador. El
   identificador del píxel se puede cambiar desde el panel, sin desplegar.
@@ -329,6 +341,7 @@ funcionando.
 | 18  | **_Leaked Password Protection_ está desactivado en Supabase**: comprueba las contraseñas nuevas contra HaveIBeenPwned. Es un interruptor en Authentication → Policies, sin coste y sin cambios de código                                                                                          |
 | 19  | **La prueba de punta a punta del bucket privado sigue sin hacerse**: subir una foto de entrega y confirmar que su enlace da 403 en una ventana sin sesión. El bucket ya existe; lo que falta es alguien con el panel abierto                                                                      |
 | 20  | **El mapa de la pantalla de Despacho**: se dejó fuera a propósito, y va detrás del plan de teselas (P1 número 4). Un mapa abierto toda la jornada consume más cuota que decenas de checkouts ([#30](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/30))                           |
+| 20b | **La auditoría de interfaz dejó dos cosas sin cerrar**: no se ha medido el contraste más allá de lo que comprueba axe, ni el rendimiento percibido (LCP, CLS) sobre una conexión lenta. Ninguna de las dos es un fallo conocido; son medidas que no se han tomado                                 |
 | 21  | **Los tipos generados siguen difiriendo del esquema en CI**, aunque se verificaron campo a campo contra staging. Desde ahora CI enseña el diff en el resumen del job, para que la próxima ejecución diga **qué** difiere ([#5](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/5)) |
 
 ---
