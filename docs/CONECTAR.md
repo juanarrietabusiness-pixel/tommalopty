@@ -155,6 +155,35 @@ historial no toca el esquema**: solo corrige la lista de lo que consta aplicado.
 
 Con el MCP, `list_migrations` enseña lo mismo sin instalar nada.
 
+#### ✅ Reparado el 2 de septiembre — y esto es lo que había
+
+El aviso de arriba no era hipotético. Al mirarlo, staging tenía **34 filas
+registradas para 32 ficheros**, y de esas:
+
+- **16 estaban con la versión equivocada**, la hora a la que se aplicaron en vez
+  del timestamp del fichero. `datos_editables_del_cliente` constaba como
+  `20260830032138` cuando su fichero es `20260829200000`, y así las quince
+  siguientes hasta `search_path_de_las_guardias`.
+- **2 no correspondían a ningún fichero**: `endurecer_funciones_event_trigger` y
+  `product_catalog_sin_asterisco`. Son trozos que se aplicaron por separado y
+  cuyo contenido ya vive dentro de `endurecer_funciones` y
+  `permisos_que_faltaban`. Dejarlas es el mismo problema por el otro lado:
+  `migration list` las habría visto como «solo en el remoto».
+
+Con eso, `supabase db push` habría anunciado las dieciséis como pendientes y
+habría intentado reaplicarlas sobre una base que ya las tenía.
+
+Se renumeró por nombre —el nombre es lo único que sobrevivió correcto— y se
+borraron las dos filas sueltas, todo en una transacción. **Comprobado después:
+32 ficheros, 32 filas, las 32 coincidiendo en versión y nombre, sin sobrantes por
+ninguno de los dos lados.** Y el esquema intacto: 39 tablas, 5 vistas, 82
+políticas, `couriers` con sus 13 columnas y el rol `courier` en su sitio.
+
+**La causa sigue viva**: mientras las migraciones se apliquen por
+`apply_migration`, cada una volverá a registrarse con la hora en que se aplicó.
+Quien aplique la siguiente por MCP tiene que renumerarla a mano, o hacerlo con
+`db push` desde una máquina con el CLI.
+
 ---
 
 ## 2 · Regenerar los tipos y confirmar que no difieren
@@ -197,6 +226,25 @@ generado, o escribir la migración que falta. Cuando el diff salga vacío, el av
 se puede convertir en fallo duro —es la segunda mitad del
 [issue #5](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/5)— y
 entonces esto no se vuelve a acumular en silencio.
+
+**⚠️ Y esto NO lo puede terminar una sesión con solo el MCP de Supabase, aunque
+lo parezca.** El MCP tiene `generate_typescript_types`, y es tentador pensar que
+sustituye a `supabase gen types --local`. **No produce lo mismo**, comprobado
+comparando las dos salidas:
+
+|          | `generate_typescript_types` (MCP, remoto)  | `supabase gen types --local` (CI) |
+| -------- | ------------------------------------------ | --------------------------------- |
+| Esquemas | Solo `public`                              | `public` **y `graphql_public`**   |
+| Cabecera | Trae `__InternalSupabase.PostgrestVersion` | No la trae                        |
+
+Commitear la salida del MCP no apagaría el aviso: lo cambiaría por otro, y encima
+introduciría una cabecera que depende de la versión de PostgREST del proyecto
+remoto, así que volvería a diferir en cuanto Supabase la actualice.
+
+**Para cerrar el #5 hace falta Docker de verdad**, o alguien que corra
+`pnpm db:types` en su máquina y commitee el resultado. Lo que sí se puede hacer
+sin Docker es lo de arriba: leer el diff del log de CI y decidir si lo que difiere
+es formato o es una migración que falta.
 
 ---
 
@@ -346,16 +394,16 @@ esté la cuenta.
 Esta tabla existe para contestar de un vistazo «¿esto lo puedo hacer yo, o hace
 falta algo que no tengo?». Ordenada por lo que desbloquea.
 
-| Qué                                            | ¿Pide accesos?                 | Qué hace falta de verdad                                                                                                                                                           |
-| ---------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Los avisos por correo** (L2 2.e y L3)        | Sí, al final                   | El código se puede escribir hoy entero. Lo que espera es el **dominio verificado en Resend**, y por tanto el dominio. Los pasos, en [`PLAN-LOGISTICA.md` § 2.e](PLAN-LOGISTICA.md) |
-| **La posición del motorizado en vivo** ([#29]) | Sí: una migración              | La migración está escrita en el issue. Con el MCP de Supabase es un `apply_migration`, y después `pnpm db:types`                                                                   |
-| **El mapa de Despacho** ([#30])                | No, pero espera a una decisión | El plan de teselas (P1 número 4). No es una credencial: es elegir proveedor y pagarlo                                                                                              |
-| **Las liquidaciones** ([#28])                  | No                             | Una respuesta de la dueña: cómo se le paga a un motorizado. Sin ella se construye la tabla equivocada                                                                              |
-| **La fase L5**, couriers externos              | Sí, pero no tuyos              | Credenciales de Dropi PA o Servientrega. Hay que pedirlas fuera                                                                                                                    |
-| **El Botón de Pago de Yappy**                  | Sí, pero no tuyos              | Su especificación, que no está publicada. Ver [`YAPPY.md`](YAPPY.md)                                                                                                               |
-| **Cerrar el issue [#5]** (los tipos)           | Sí: mirar CI                   | Abrir el resumen del job de CI, leer el diff, y commitear el generado o escribir la migración que falte                                                                            |
-| **La prueba del bucket privado**               | Sí: el panel abierto           | Subir una foto de entrega y comprobar que su enlace da 403 sin sesión. Paso 4 de este documento                                                                                    |
+| Qué                                            | ¿Pide accesos?                 | Qué hace falta de verdad                                                                                                                                                                      |
+| ---------------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Los avisos por correo** (L2 2.e y L3)        | Sí, al final                   | El código se puede escribir hoy entero. Lo que espera es el **dominio verificado en Resend**, y por tanto el dominio. Los pasos, en [`PLAN-LOGISTICA.md` § 2.e](PLAN-LOGISTICA.md)            |
+| **La posición del motorizado en vivo** ([#29]) | Sí: una migración              | La migración está escrita en el issue. Con el MCP de Supabase es un `apply_migration`, y después `pnpm db:types`                                                                              |
+| **El mapa de Despacho** ([#30])                | No, pero espera a una decisión | El plan de teselas (P1 número 4). No es una credencial: es elegir proveedor y pagarlo                                                                                                         |
+| **Las liquidaciones** ([#28])                  | No                             | Una respuesta de la dueña: cómo se le paga a un motorizado. Sin ella se construye la tabla equivocada                                                                                         |
+| **La fase L5**, couriers externos              | Sí, pero no tuyos              | Credenciales de Dropi PA o Servientrega. Hay que pedirlas fuera                                                                                                                               |
+| **El Botón de Pago de Yappy**                  | Sí, pero no tuyos              | Su especificación, que no está publicada. Ver [`YAPPY.md`](YAPPY.md)                                                                                                                          |
+| **Cerrar el issue [#5]** (los tipos)           | **Docker**, no accesos         | El MCP de Supabase **no sirve** para esto: genera distinto que la CLI local (ver paso 2). Hace falta `pnpm db:types` en una máquina con Docker. Leer el diff del log de CI sí se puede sin él |
+| **La prueba del bucket privado**               | Sí: el panel abierto           | Subir una foto de entrega y comprobar que su enlace da 403 sin sesión. Paso 4 de este documento                                                                                               |
 
 [#5]: https://github.com/juanarrietabusiness-pixel/tommalopty/issues/5
 
@@ -377,15 +425,15 @@ hay que hacer**, que está escrito porque ya salió caro.
 
 **Qué herramienta corresponde a cada paso:**
 
-| Paso                       | MCP de Supabase                    | MCP de Cloudflare                     |
-| -------------------------- | ---------------------------------- | ------------------------------------- |
-| Aplicar una migración      | `apply_migration`, **una por una** | —                                     |
-| Ver qué hay aplicado       | `list_migrations`, `list_tables`   | —                                     |
-| Comprobar permisos y datos | `execute_sql`                      | —                                     |
-| Regenerar los tipos        | `generate_typescript_types`        | —                                     |
-| Avisos de seguridad        | `get_advisors`                     | —                                     |
-| Buckets de R2              | —                                  | `r2_buckets_list`, `r2_bucket_create` |
-| Ver los Workers publicados | —                                  | `workers_list`, `workers_get_worker`  |
+| Paso                       | MCP de Supabase                                                               | MCP de Cloudflare                     |
+| -------------------------- | ----------------------------------------------------------------------------- | ------------------------------------- |
+| Aplicar una migración      | `apply_migration`, **una por una**                                            | —                                     |
+| Ver qué hay aplicado       | `list_migrations`, `list_tables`                                              | —                                     |
+| Comprobar permisos y datos | `execute_sql`                                                                 | —                                     |
+| Regenerar los tipos        | ⚠️ `generate_typescript_types` **no** equivale a `pnpm db:types` — ver paso 2 | —                                     |
+| Avisos de seguridad        | `get_advisors`                                                                | —                                     |
+| Buckets de R2              | —                                                                             | `r2_buckets_list`, `r2_bucket_create` |
+| Ver los Workers publicados | —                                                                             | `workers_list`, `workers_get_worker`  |
 
 **Tres cosas que conviene decirle explícitamente**, porque son las que un
 asistente no puede adivinar y aquí cuestan caro:
