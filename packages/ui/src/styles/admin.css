@@ -1358,3 +1358,50 @@
     display: none;
   }
 }
+
+/* --- Importador de productos ---------------------------------------------- */
+.importador > .card + .card,
+.importador > .card + form {
+  margin-top: 20px;
+}
+
+.importador textarea {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.8rem;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* La interpretación del precio y los avisos van pequeños y apagados: informan
+   sin competir con el dato, que es lo que se viene a leer. */
+.importador-aviso {
+  font-size: 0.72rem;
+  color: var(--color-muted);
+  margin-top: 2px;
+}
+
+.importador-descartes {
+  margin-bottom: 16px;
+  font-size: 0.82rem;
+}
+
+.importador-descartes summary {
+  cursor: pointer;
+  color: var(--color-warning);
+  font-weight: 600;
+}
+
+.importador-descartes ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: var(--color-muted);
+}
+
+.importador-descartes li {
+  margin-bottom: 4px;
+}
+
+/* Una tabla ancha no puede ensanchar la página: se desplaza dentro de su caja. */
+.tabla-scroll {
+  overflow-x: auto;
+}

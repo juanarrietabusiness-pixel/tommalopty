@@ -26,9 +26,14 @@ export default async function CatalogPage({
       title="Productos"
       description="Catálogo completo. Los productos archivados dejan de verse en la tienda pero conservan su histórico de pedidos."
       actions={
-        <Link href="/catalogo/nuevo" className="btn btn-dark btn-sm">
-          Nuevo producto
-        </Link>
+        <>
+          <Link href="/catalogo/importar" className="btn btn-outline btn-sm">
+            Importar
+          </Link>
+          <Link href="/catalogo/nuevo" className="btn btn-dark btn-sm">
+            Nuevo producto
+          </Link>
+        </>
       }
     >
       <form className="toolbar" action="/catalogo" method="get">
