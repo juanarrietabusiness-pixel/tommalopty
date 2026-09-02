@@ -132,6 +132,29 @@ select column_name from information_schema.columns
 
 Con el MCP: `list_migrations` y `list_tables`.
 
+### ⚠️ Antes de escribir `db push`: mirar cómo quedó registrado el historial
+
+**Este proyecto tiene las migraciones aplicadas por MCP, no por `db push`.** Y
+`apply_migration` registra la versión con la hora a la que se aplicó, no con el
+timestamp del nombre del fichero. Cuando eso pasa, `supabase db push` no ve las
+suyas registradas y **anuncia que las quince están pendientes**.
+
+Volver a aplicarlas sobre una base que ya las tiene falla, o —peor— tiene éxito a
+medias y deja el esquema en un estado que nadie escribió.
+
+Se comprueba en un segundo, y conviene hacerlo antes de escribir nada:
+
+```bash
+supabase migration list        # compara los ficheros locales con lo registrado
+```
+
+Si las versiones remotas no coinciden con los nombres de los ficheros, se
+reconcilia con `supabase migration repair --status applied <version>`, borrando
+antes las filas espurias de `supabase_migrations.schema_migrations`. **Reparar el
+historial no toca el esquema**: solo corrige la lista de lo que consta aplicado.
+
+Con el MCP, `list_migrations` enseña lo mismo sin instalar nada.
+
 ---
 
 ## 2 · Regenerar los tipos y confirmar que no difieren
