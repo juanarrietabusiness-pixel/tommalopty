@@ -9,3 +9,5 @@ export * from './variant';
 export * from './geo';
 export * from './direccion';
 export * from './motorizado';
+export * from './rutas';
+export * from './asignacion';
