@@ -631,9 +631,11 @@ bajar en cada paso.
 
 ### Fase L4 · La comunidad de motorizados dentro de la plataforma
 
-> **Estado: L4.1 construida.** Rol, fichas, permisos, alta desde el panel,
-> asignación y la aplicación del motorizado con sus tres pantallas. Falta L4.2:
-> rutas, mapa en vivo y liquidaciones. Al final está lo que se hizo y lo que no.
+> **Estado: L4.1 construida, y L4.2 casi.** Rol, fichas, permisos, alta desde el
+> panel, la aplicación del motorizado, la pantalla de despacho con asignación
+> sugerida y el orden de ruta. Falta el mapa de esa pantalla, la posición en vivo
+> y las liquidaciones —estas últimas bloqueadas por **D5**, que es una decisión
+> de negocio y no de código—. Al final está lo que se hizo y lo que no.
 
 Es la fase más grande y la que más valor propio aporta: es el activo de la
 clienta, y ningún courier externo se lo replica.
@@ -745,8 +747,58 @@ envío a otro pedido» usa un pedido que existe de verdad — con un identificad
 inventado lo rechazaba la clave foránea y el test pasaba en verde sin haber
 probado nada.
 
+#### Lo que se construyó en L4.2
+
+- **Las dos decisiones, en el dominio y puras.** `rutas.ts` propone el orden de
+  una ruta —vecino más cercano y después 2-opt para deshacer los cruces— y
+  `asignacion.ts` propone a quién darle cada envío. Van ahí y no en una pantalla
+  porque son lo que hay que poder discutir con casos escritos a mano, sin red ni
+  base de datos.
+- **La distancia es en línea recta y el código lo dice.** En una ciudad con
+  sentidos únicos y un canal por el medio, dos paradas a trescientos metros
+  pueden estar a quince minutos. Por eso la función se llama «proponer» y
+  devuelve el ahorro estimado: para que quien reparte decida si hacerle caso. Se
+  cambia por un servicio de rutas cuando quien reparte empiece a ignorar
+  sistemáticamente el orden propuesto — esa es la señal, no el volumen.
+- **Las tres señales se comparan sin números mágicos.** La zona manda y no se
+  negocia; la carga se paga en kilómetros. Cada entrega pendiente cuesta 2 km,
+  así que la regla se lee en voz alta: «prefiero mandar a alguien dos kilómetros
+  más lejos antes que ponerle una cuarta entrega a quien ya lleva tres».
+- **La cercanía sale de lo que ya lleva encima**, no de una posición en vivo que
+  todavía no existe. Un motorizado con tres paradas en San Francisco es el
+  candidato natural para la cuarta.
+- **Pantalla de despacho**: sin asignar a la izquierda, candidatos con su motivo
+  a la derecha, y debajo lo que lleva cada uno con el orden propuesto y los
+  kilómetros que ahorra.
+
+**Se elige tocando y no arrastrando, y es una desviación consciente del plan.**
+Arrastrar no se puede hacer con el teclado, y este repositorio pasa auditoría de
+accesibilidad en cada PR; además, un arrastre fallido en una lista larga suelta
+el envío en el motorizado de al lado sin que nadie se entere.
+
+**La sugerencia explica y no decide.** Cada candidato sale con su motivo, y los
+que no se pueden proponer salen igual, al final, diciendo por qué: saber que
+fulano está en pausa vale tanto como saber a quién proponer.
+
+**Un test que no probaba nada, cazado antes de commitear.** El primero del 2-opt
+usaba un cuadrado y pasaba en verde con el 2-opt desactivado, porque el vecino
+más cercano ya resuelve un cuadrado. Se sustituyó por un caso encontrado
+buscándolo sobre miles de combinaciones: seis coordenadas reales de Ciudad de
+Panamá donde la diferencia es 25,7 km contra 18,2.
+
 #### Lo que queda pendiente de esta fase
 
+- **4.c · El mapa de la pantalla de despacho.** La decisión se toma hoy con la
+  lista y los motivos, que es lo que de verdad la dirige; el mapa es orientación.
+  Va después del proveedor de teselas con plan (P1 número 4 de `ESTADO.md`):
+  poner un mapa más sobre una cuota que ya no cubre la tienda es adelantar el
+  problema.
+- **4.c · La posición del motorizado en vivo.** Necesita que la aplicación la
+  envíe y una columna donde guardarla. Es lo único de L4.2 que pide migración.
+- **4.d · Liquidaciones.** **No está bloqueada por código sino por D5**, que
+  sigue sin decidir: ¿empleados o independientes? ¿cobran contra entrega?
+  ¿tarifa fija o por zona? Construir `courier_settlements` sin saberlo es
+  construir la tabla equivocada.
 - **4.b · La firma en pantalla.** La foto de la prueba de entrega ya está: el
   motorizado la sube al cerrar y va a un bucket sin dominio público. Falta la
   firma, que necesita un lienzo táctil y es otra tarea.
@@ -754,8 +806,10 @@ probado nada.
   reparto urbano eso no es opcional, pero es trabajo de service worker y cola
   local, y va después de que la aplicación se use y se sepa dónde falla de
   verdad.
-- **4.c · Rutas y mapa en vivo.** La pantalla de despacho con asignación
-  sugerida, la optimización de ruta y la posición del motorizado. Es L4.2.
+- **4.c · El mapa de la pantalla de despacho y la posición en vivo.** La
+  pantalla existe con su asignación sugerida y su orden de ruta; lo que falta es
+  el mapa en el centro y la posición del motorizado, que necesita que la
+  aplicación la envíe. Ver «Lo que se construyó en L4.2».
 - **4.d · Liquidaciones.** Depende de **D5**: si los motorizados cobran contra
   entrega o van por tarifa variable. La tarifa por entrega ya se guarda en la
   ficha, que es la mitad del dato.

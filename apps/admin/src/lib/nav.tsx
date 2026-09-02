@@ -27,6 +27,9 @@ export function getNavGroups(role: Enums<'user_role'>): AdminNavGroup[] {
       title: 'Ventas',
       items: [
         { label: 'Pedidos', href: '/pedidos', icon: <ReceiptIcon /> },
+        // Despacho va aquí y no en Administración a propósito: se abre todos los
+        // días, como Pedidos, y no cuando hay que configurar algo.
+        { label: 'Despacho', href: '/despacho', icon: <BoxIcon /> },
         { label: 'Clientes / CRM', href: '/clientes', icon: <UsersIcon /> },
         { label: 'Descuentos', href: '/descuentos', icon: <TagIcon /> },
       ],

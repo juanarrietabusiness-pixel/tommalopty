@@ -136,12 +136,29 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # El aviso solo, sin el diff, no se puede accionar: dice que algo difiere y
+      # no dice qué, y las sesiones sin Docker no pueden generarlo para mirarlo.
+      # Por eso la diferencia va al resumen del job. Sigue siendo aviso y no
+      # fallo a propósito (ver issue #5): primero hay que ver qué difiere.
       - name: Comprobar que los tipos generados están al día
         run: |
           supabase gen types typescript --local > /tmp/types-actuales.ts
-          if ! diff -q packages/db/src/generated/database.types.ts /tmp/types-actuales.ts > /dev/null 2>&1; then
-            echo "::warning::Los tipos generados difieren del esquema. Ejecuta 'pnpm db:types' y commitea."
+
+          if diff -q packages/db/src/generated/database.types.ts /tmp/types-actuales.ts > /dev/null 2>&1; then
+            echo "### Tipos generados" >> "$GITHUB_STEP_SUMMARY"
+            echo "Coinciden con el esquema." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
+
+          echo "::warning::Los tipos generados difieren del esquema. Ejecuta 'pnpm db:types' y commitea. Ver issue #5."
+
+          {
+            echo "### Tipos generados"
+            echo "Difieren del esquema. Izquierda: lo commiteado. Derecha: lo que genera Supabase."
+            echo '```diff'
+            diff -u packages/db/src/generated/database.types.ts /tmp/types-actuales.ts | head -300 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   build:
     name: Build de producción

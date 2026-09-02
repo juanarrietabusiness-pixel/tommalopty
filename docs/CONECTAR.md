@@ -17,17 +17,44 @@ El 1 de septiembre de 2026, una sesión con los conectores de Supabase y
 Cloudflare puestos ejecutó esta guía. **Lo que queda —del 6 en adelante— cuelga
 todo del dominio, y el dominio hay que comprarlo.**
 
-| Paso                      | Estado                                                                                                            |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| 1 · Las tres migraciones  | ✅ Aplicadas en orden. `courier` en el enum, `couriers`/`courier_zones` con sus políticas, `payments.receipt_key` |
-| 2 · Regenerar los tipos   | ✅ 44 tablas y 1277 campos comparados uno a uno. Cuatro diferencias reales, corregidas                            |
-| 3 · Advisors de seguridad | ✅ Revisados. Dos hallazgos reales arreglados; el resto, explicado abajo                                          |
-| 4 · El bucket privado     | ✅ `nebula-media-privada` existe. **Falta la prueba de punta a punta** (el 403 sin sesión)                        |
-| 5 · Revocar `anon`        | ✅ Migración 0033, tabla por tabla, con 36 tests nuevos. Cierra el [issue #24]                                    |
-| 6 · El dominio            | 🔲 **Bloqueado**: hay que comprarlo. Es el P1 número 2                                                            |
-| 7 · Antes de abrir        | 🔲 Backups, Cloudflare Access, plan de teselas, cuentas a nombre del negocio                                      |
+| Paso                      | Estado                                                                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 · Las tres migraciones  | ✅ Aplicadas en orden. `courier` en el enum, `couriers`/`courier_zones` con sus políticas, `payments.receipt_key`                                       |
+| 2 · Regenerar los tipos   | ⚠️ 44 tablas y 1277 campos comparados uno a uno contra staging, y cuatro diferencias corregidas — pero **CI sigue avisando de que difieren**. Ver abajo |
+| 3 · Advisors de seguridad | ✅ Revisados. Dos hallazgos reales arreglados; el resto, explicado abajo                                                                                |
+| 4 · El bucket privado     | ✅ `nebula-media-privada` existe. **Falta la prueba de punta a punta** (el 403 sin sesión)                                                              |
+| 5 · Revocar `anon`        | ✅ Migración 0033, tabla por tabla, con 36 tests nuevos. Cierra el [issue #24]                                                                          |
+| 6 · El dominio            | 🔲 **Bloqueado**: hay que comprarlo. Es el P1 número 2                                                                                                  |
+| 7 · Antes de abrir        | 🔲 Backups, Cloudflare Access, plan de teselas, cuentas a nombre del negocio                                                                            |
+| 8 · Lo de después         | 🔲 Lo que pide accesos de cada fase que queda. Está al final de este documento                                                                          |
 
 [issue #24]: https://github.com/juanarrietabusiness-pixel/tommalopty/issues/24
+
+### Lo nuevo desde entonces: la fase L4.2, y lo que **no** pide
+
+El 2 de septiembre entró la pantalla de **Despacho** (`/despacho` en el panel):
+a quién darle cada envío con el motivo de cada candidato, y en qué orden
+conviene repartir, con los kilómetros que ahorra.
+
+**No pide nada de ti.** Ni migración, ni variable nueva, ni bucket, ni
+credencial. Usa las tablas que el paso 1 ya aplicó (`couriers`, `courier_zones`,
+`shipments`) y dos funciones puras del dominio. **Lo único que hace falta para
+verla es volver a publicar**: Actions → «Publicar en staging» → Run workflow.
+
+Se dice aquí porque la pregunta natural al leer «fase nueva» es «¿y qué tengo
+que enchufar?», y esta vez la respuesta es «nada».
+
+Lo que sí queda de L4.2, y por qué no está:
+
+| Qué                                    | Por qué falta                                                                                                                   | Issue |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| La **posición del motorizado en vivo** | Es lo único de la fase que pide migración, y está escrita en el issue lista para aplicar                                        | [#29] |
+| El **mapa** de la pantalla             | Aparcado a propósito **detrás del plan de teselas**: un mapa abierto toda la jornada consume más cuota que decenas de checkouts | [#30] |
+| Las **liquidaciones**                  | No espera a un programador: espera a que la dueña conteste cómo se le paga a un motorizado                                      | [#28] |
+
+[#28]: https://github.com/juanarrietabusiness-pixel/tommalopty/issues/28
+[#29]: https://github.com/juanarrietabusiness-pixel/tommalopty/issues/29
+[#30]: https://github.com/juanarrietabusiness-pixel/tommalopty/issues/30
 
 ### Lo que se encontró al hacerlo, y que no estaba previsto
 
@@ -36,7 +63,9 @@ todo del dominio, y el dominio hay que comprarlo.**
   `Update` —las dos son columnas que Postgres calcula solo, y quien las editó a
   mano las omitió por eso mismo—, y `audit_log.ip_address` y
   `products.search_vector` tenían un tipo más específico del que produce el
-  generador. Corregidos los cuatro; ahora el fichero coincide exactamente.
+  generador. Corregidos los cuatro. **Aun así CI sigue avisando de que difieren**,
+  y el porqué está en el paso 2: la comparación a mano fue contra staging, y CI
+  genera desde las migraciones del repositorio.
 - **`anon` tenía menos privilegios en staging que los que describe el issue #24.**
   No porque el issue se equivocara, sino porque `pg_default_acl` tiene una entrada
   por cada rol que crea tablas: la de `supabase_admin` concede los siete, la de
@@ -103,6 +132,29 @@ select column_name from information_schema.columns
 
 Con el MCP: `list_migrations` y `list_tables`.
 
+### ⚠️ Antes de escribir `db push`: mirar cómo quedó registrado el historial
+
+**Este proyecto tiene las migraciones aplicadas por MCP, no por `db push`.** Y
+`apply_migration` registra la versión con la hora a la que se aplicó, no con el
+timestamp del nombre del fichero. Cuando eso pasa, `supabase db push` no ve las
+suyas registradas y **anuncia que las quince están pendientes**.
+
+Volver a aplicarlas sobre una base que ya las tiene falla, o —peor— tiene éxito a
+medias y deja el esquema en un estado que nadie escribió.
+
+Se comprueba en un segundo, y conviene hacerlo antes de escribir nada:
+
+```bash
+supabase migration list        # compara los ficheros locales con lo registrado
+```
+
+Si las versiones remotas no coinciden con los nombres de los ficheros, se
+reconcilia con `supabase migration repair --status applied <version>`, borrando
+antes las filas espurias de `supabase_migrations.schema_migrations`. **Reparar el
+historial no toca el esquema**: solo corrige la lista de lo que consta aplicado.
+
+Con el MCP, `list_migrations` enseña lo mismo sin instalar nada.
+
 ---
 
 ## 2 · Regenerar los tipos y confirmar que no difieren
@@ -119,6 +171,32 @@ git diff --stat packages/db/src/generated/database.types.ts
 
 Si el diff sale vacío, las ediciones a mano eran correctas. Si no, **el generado
 manda**: se commitea y se comprueba que `pnpm typecheck` sigue pasando.
+
+**⚠️ Este paso está a medias, y conviene saberlo antes de darlo por bueno.** Los
+1277 campos se compararon uno a uno contra el esquema real de staging y las
+cuatro diferencias se corrigieron — pero **CI sigue avisando de que difieren** en
+cada ejecución sobre `main`, la última incluida (`22f36d2`).
+
+No son afirmaciones contradictorias: se compararon cosas distintas. La
+comparación a mano fue contra **staging**; CI genera desde las **migraciones del
+repositorio**, en un Supabase local. Que difieran significa una de dos cosas, y
+las dos importan:
+
+- staging tiene algo que las migraciones no reproducen —lo cual haría que una
+  base nueva no saliera igual—, **o**
+- el generador escribe un detalle de formato distinto del que se escribió a mano.
+
+Lo segundo es inofensivo; lo primero no. **Hasta ahora nadie podía distinguirlo,
+porque el aviso decía que algo difería y no decía qué.** Desde el 2 de
+septiembre, CI vuelca el diff completo en el resumen del job, así que la
+respuesta está a un clic: Actions → la última ejecución de CI → job **«Esquema y
+políticas RLS»** → resumen.
+
+**Lo que hay que hacer con eso:** mirarlo, y según lo que diga, o commitear el
+generado, o escribir la migración que falta. Cuando el diff salga vacío, el aviso
+se puede convertir en fallo duro —es la segunda mitad del
+[issue #5](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/5)— y
+entonces esto no se vuelve a acumular en silencio.
 
 ---
 
@@ -260,6 +338,75 @@ esté la cuenta.
 | **Cloudflare Access sobre el panel**           | Hoy la pantalla de acceso del panel es alcanzable por cualquiera que sepa la URL. RLS protege los datos, no la puerta |
 | **Un plan de teselas del mapa**                | Hoy es CARTO sin clave; su cuota razonable no cubre una tienda abierta. Se cambia con `NEXT_PUBLIC_MAP_TILES_URL`     |
 | **Las cuentas a nombre del negocio**           | Supabase, Cloudflare, Resend, Yappy y Meta. Lo que quede a nombre de otra persona se queda atrás en el traspaso       |
+
+---
+
+## 8 · Lo que queda del plan, y qué accesos pide cada cosa
+
+Esta tabla existe para contestar de un vistazo «¿esto lo puedo hacer yo, o hace
+falta algo que no tengo?». Ordenada por lo que desbloquea.
+
+| Qué                                            | ¿Pide accesos?                 | Qué hace falta de verdad                                                                                                                                                           |
+| ---------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Los avisos por correo** (L2 2.e y L3)        | Sí, al final                   | El código se puede escribir hoy entero. Lo que espera es el **dominio verificado en Resend**, y por tanto el dominio. Los pasos, en [`PLAN-LOGISTICA.md` § 2.e](PLAN-LOGISTICA.md) |
+| **La posición del motorizado en vivo** ([#29]) | Sí: una migración              | La migración está escrita en el issue. Con el MCP de Supabase es un `apply_migration`, y después `pnpm db:types`                                                                   |
+| **El mapa de Despacho** ([#30])                | No, pero espera a una decisión | El plan de teselas (P1 número 4). No es una credencial: es elegir proveedor y pagarlo                                                                                              |
+| **Las liquidaciones** ([#28])                  | No                             | Una respuesta de la dueña: cómo se le paga a un motorizado. Sin ella se construye la tabla equivocada                                                                              |
+| **La fase L5**, couriers externos              | Sí, pero no tuyos              | Credenciales de Dropi PA o Servientrega. Hay que pedirlas fuera                                                                                                                    |
+| **El Botón de Pago de Yappy**                  | Sí, pero no tuyos              | Su especificación, que no está publicada. Ver [`YAPPY.md`](YAPPY.md)                                                                                                               |
+| **Cerrar el issue [#5]** (los tipos)           | Sí: mirar CI                   | Abrir el resumen del job de CI, leer el diff, y commitear el generado o escribir la migración que falte                                                                            |
+| **La prueba del bucket privado**               | Sí: el panel abierto           | Subir una foto de entrega y comprobar que su enlace da 403 sin sesión. Paso 4 de este documento                                                                                    |
+
+[#5]: https://github.com/juanarrietabusiness-pixel/tommalopty/issues/5
+
+---
+
+## Cómo pedirle esto a Claude Code
+
+Si vas a hacerlo con una sesión de Claude Code con los conectores puestos, esto
+ahorra la mitad del camino. **No hace falta explicarle el proyecto**: está
+escrito. Basta con señalarle dónde.
+
+**Lo primero que conviene decirle**, literal:
+
+> Lee `docs/CONECTAR.md` y `docs/ESTADO.md` antes de tocar nada. Tengo los
+> conectores de Supabase y Cloudflare puestos sobre el proyecto real.
+
+A partir de ahí sabe el orden, las verificaciones y —lo que más vale— **lo que no
+hay que hacer**, que está escrito porque ya salió caro.
+
+**Qué herramienta corresponde a cada paso:**
+
+| Paso                       | MCP de Supabase                    | MCP de Cloudflare                     |
+| -------------------------- | ---------------------------------- | ------------------------------------- |
+| Aplicar una migración      | `apply_migration`, **una por una** | —                                     |
+| Ver qué hay aplicado       | `list_migrations`, `list_tables`   | —                                     |
+| Comprobar permisos y datos | `execute_sql`                      | —                                     |
+| Regenerar los tipos        | `generate_typescript_types`        | —                                     |
+| Avisos de seguridad        | `get_advisors`                     | —                                     |
+| Buckets de R2              | —                                  | `r2_buckets_list`, `r2_bucket_create` |
+| Ver los Workers publicados | —                                  | `workers_list`, `workers_get_worker`  |
+
+**Tres cosas que conviene decirle explícitamente**, porque son las que un
+asistente no puede adivinar y aquí cuestan caro:
+
+1. **Que staging tiene datos reales.** Sin eso, un `db reset` es una sugerencia
+   razonable. Con eso, no vuelve a proponerlo.
+2. **Que revoque `anon` tabla por tabla y nunca con un bucle.** Un bucle dejó
+   esta tienda once días sin catálogo, y la lección está en
+   [`ESTADO.md` § 4](ESTADO.md).
+3. **Que un aviso del linter es una pregunta, no una orden.** El paso 3 lleva la
+   lista de los que hay que dejar como están, con su porqué. Revocarle el
+   `execute` a `is_staff()` para dejar los advisors en verde tumbaría la tienda
+   entera.
+
+**Y lo que NO hay que darle:** ninguna credencial pegada en el chat. Los
+conectores ya son el acceso; una clave escrita en una conversación se queda en
+esa conversación.
+
+**Al terminar la sesión**, si los conectores eran de una cuenta personal,
+revócalos. Es lo mismo que se le pide a cualquiera que entre a una base de datos
+que no es suya.
 
 ---
 

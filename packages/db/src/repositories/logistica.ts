@@ -303,3 +303,27 @@ export async function listMiDia(client: Client, desdeISO: string): Promise<Shipm
   if (error) throw error;
   return (data ?? []).map(toShipment);
 }
+
+/* --- Despacho --------------------------------------------------------------- */
+
+/**
+ * Los envíos que todavía están en la calle o esperando salir.
+ *
+ * Es la pantalla de despacho entera en una consulta: los que no tienen a nadie
+ * y los que ya van asignados. Los dos hacen falta — sin los asignados no se
+ * puede saber cuánto lleva encima cada motorizado, que es la mitad de la
+ * decisión de a quién darle el siguiente.
+ *
+ * Lo entregado, fallido y devuelto se queda fuera: la pantalla es «qué hay que
+ * mover ahora», y una lista que crece para siempre deja de servir para eso.
+ */
+export async function listShipmentsPendientes(client: Client): Promise<Shipment[]> {
+  const { data, error } = await client
+    .from('shipments')
+    .select(CAMPOS_ENVIO)
+    .in('status', ['pendiente', 'asignado', 'recogido', 'en_ruta'])
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []).map(toShipment);
+}
