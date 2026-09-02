@@ -14,8 +14,17 @@
 ## ✅ Estado: los pasos 1 a 5 están hechos
 
 El 1 de septiembre de 2026, una sesión con los conectores de Supabase y
-Cloudflare puestos ejecutó esta guía. **Lo que queda —del 6 en adelante— cuelga
-todo del dominio, y el dominio hay que comprarlo.**
+Cloudflare puestos ejecutó esta guía.
+
+> ### Si solo lees tres líneas
+>
+> **Hoy hay exactamente una migración pendiente: `20260902120000_credenciales.sql`,
+> en el apartado 9.** Va con una variable de entorno, y las dos juntas son lo
+> único que separa a la dueña de poder poner sus propias credenciales sin
+> llamarte.
+>
+> Las migraciones de los apartados 1 a 5 **ya están aplicadas**: no las repitas.
+> Y todo lo demás —del 6 en adelante— cuelga del dominio, que hay que comprar.
 
 | Paso                      | Estado                                                                                                                                                  |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -74,6 +83,10 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 Ese valor va a GitHub → Settings → Secrets and variables → Actions, como
 **secreto** llamado `CREDENCIALES_CLAVE_MAESTRA`.
+
+**Y después hay que volver a publicar.** El despliegue es quien lleva el secreto
+al Worker; ponerlo en GitHub y no publicar deja la pantalla igual de bloqueada,
+sin ninguna pista de por qué. El resumen del despliegue lo dice cuando falta.
 
 Es la única variable que hace falta para que las demás dejen de hacer falta. No
 puede vivir en la base de datos: guardar la llave encima del cofre no es cifrar.
@@ -160,10 +173,14 @@ primeros son los que hacen que lo ya construido empiece a funcionar.
 
 ---
 
-## 1 · Aplicar las tres migraciones pendientes
+## 1 · Las tres migraciones de los motorizados · ✅ YA APLICADAS
 
-**Qué desbloquea:** los motorizados y los ficheros privados. Sin esto, el panel
-tiene una pantalla de Motorizados que no puede leer su tabla.
+> **No las vuelvas a aplicar.** Este apartado se queda como registro de qué
+> hicieron y de la trampa del historial que viene después, que sí te hace falta.
+> **La única migración pendiente hoy es la del apartado 9.**
+
+**Qué desbloqueó:** los motorizados y los ficheros privados. Sin ellas, el panel
+tenía una pantalla de Motorizados que no podía leer su tabla.
 
 | Migración                              | Qué hace                                                                                                                                              |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
