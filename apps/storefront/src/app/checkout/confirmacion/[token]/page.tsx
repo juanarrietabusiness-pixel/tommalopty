@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { money, shortDate } from '@nebula/ui';
 import { getSupabaseServiceClient, isSupabaseConfigured } from '@/lib/supabase';
+import { EventoDePagina } from '@/components/eventos-de-pagina';
 import { sendServerEvent } from '@/lib/tracking';
 
 export const metadata: Metadata = {
@@ -47,13 +48,21 @@ export default async function OrderConfirmationPage({
 
   const isPaid = order.payment_status === 'paid';
 
+  // El mismo identificador para los dos canales. El comentario de abajo prometía
+  // deduplicación desde el principio, pero el evento solo salía por servidor: no
+  // había nada que deduplicar, y las compras de quien tiene el navegador
+  // bloqueando `connect.facebook.net` se contaban una vez en vez de ninguna...
+  // y las de todos los demás, también una. Con los dos canales, una compra
+  // sobrevive a que falle cualquiera de ellos, y Meta las une por este id.
+  const eventoDeCompra = `purchase-${order.order_number}`;
+
   // El evento de compra solo se emite cuando el dinero entró, y con un
   // `event_id` derivado del pedido: recargar la página no inventa conversiones
   // nuevas ni rompe la deduplicación de Meta.
   if (isPaid) {
     void sendServerEvent({
       eventName: 'Purchase',
-      eventId: `purchase-${order.order_number}`,
+      eventId: eventoDeCompra,
       user: { email: order.email },
       customData: {
         currency: order.currency,
@@ -70,6 +79,20 @@ export default async function OrderConfirmationPage({
 
   return (
     <div className="container section">
+      {isPaid ? (
+        <EventoDePagina
+          evento="Purchase"
+          eventId={eventoDeCompra}
+          datos={{
+            currency: order.currency,
+            value: order.total,
+            content_type: 'product',
+            content_ids: (order.order_items ?? []).map((item) => item.sku ?? item.id),
+            num_items: (order.order_items ?? []).length,
+          }}
+        />
+      ) : null}
+
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
         <h1 className="page-title">{isPaid ? '¡Gracias por tu compra!' : 'Pedido registrado'}</h1>
         <p className="page-subtitle">

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter, Poppins } from 'next/font/google';
 import { CartProvider, SiteFooter, SiteHeader } from '@nebula/ui';
 import { MetaPixel } from '@/components/meta-pixel';
+import { ajustesPublicos } from '@/lib/ajustes-publicos';
 import { siteUrl } from '@/lib/site';
 import { getAnnouncement, getBrand, getNavigation, toNavItems } from '@/lib/storefront-data';
 import './globals.css';
@@ -42,10 +43,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [brand, navigation, announcement] = await Promise.all([
+  const [brand, navigation, announcement, ajustes] = await Promise.all([
     getBrand(),
     getNavigation(),
     getAnnouncement(),
+    ajustesPublicos(),
   ]);
 
   return (
@@ -76,7 +78,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             ]}
           />
         </CartProvider>
-        <MetaPixel />
+        <MetaPixel pixelId={ajustes.metaPixelId} />
       </body>
     </html>
   );

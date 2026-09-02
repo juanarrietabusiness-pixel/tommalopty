@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { ProductGrid, SectionHead } from '@nebula/ui';
 import { searchProducts } from '@nebula/db';
 import { getSupabaseAnonClient, isSupabaseConfigured } from '@/lib/supabase';
+import { EventoDePagina } from '@/components/eventos-de-pagina';
 import { toProductCards } from '@/lib/mappers';
 
 export const metadata: Metadata = {
@@ -46,6 +47,24 @@ export default async function SearchPage({
           Buscar
         </button>
       </form>
+
+      {/* Search: le dice a Meta qué busca la gente y si encuentra algo. Una
+          búsqueda sin resultados es una señal comercial —hay demanda de algo que
+          no está en catálogo— y hasta hoy se perdía entera.
+
+          El `event_id` sale del término, así que recargar la misma búsqueda no
+          la cuenta dos veces. */}
+      {term ? (
+        <EventoDePagina
+          evento="Search"
+          eventId={`search-${term.toLowerCase()}`}
+          datos={{
+            search_string: term,
+            content_type: 'product',
+            content_ids: products.slice(0, 10).map((p) => p.id),
+          }}
+        />
+      ) : null}
 
       {term ? (
         <ProductGrid
