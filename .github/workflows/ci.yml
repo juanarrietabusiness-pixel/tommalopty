@@ -152,11 +152,21 @@ jobs:
 
           echo "::warning::Los tipos generados difieren del esquema. Ejecuta 'pnpm db:types' y commitea. Ver issue #5."
 
+          diff -u packages/db/src/generated/database.types.ts /tmp/types-actuales.ts \
+            | head -300 > /tmp/types.diff || true
+
+          # El diff va al log **y** al resumen, y no solo al resumen: el resumen lo
+          # lee una persona en la interfaz de Actions, pero el log es lo único que
+          # puede leer por API quien depure esto sin Docker — que es exactamente
+          # quien no puede generar el fichero para mirarlo.
+          echo "--- Diferencias (izquierda: lo commiteado; derecha: lo que genera Supabase) ---"
+          cat /tmp/types.diff
+
           {
             echo "### Tipos generados"
             echo "Difieren del esquema. Izquierda: lo commiteado. Derecha: lo que genera Supabase."
             echo '```diff'
-            diff -u packages/db/src/generated/database.types.ts /tmp/types-actuales.ts | head -300 || true
+            cat /tmp/types.diff
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
