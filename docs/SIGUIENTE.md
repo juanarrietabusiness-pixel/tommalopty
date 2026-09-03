@@ -14,14 +14,20 @@
 
 En este orden, porque cada uno hace visible lo siguiente:
 
-1. **Publica lo que hay.** Actions → «Publicar en staging» → Run workflow. Todo
-   lo construido en septiembre está mergeado y sin publicar.
-2. **Abre la bóveda de credenciales** ([#33](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/33)):
-   una variable y una migración, en [`CONECTAR.md` § 9](CONECTAR.md). Es lo que
-   permite que la dueña ponga sus propias claves sin llamar a nadie.
-3. **Mira el diff de los tipos** en el resumen del job de CI, y ciérra el
-   [#5](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/5). Ya se
-   sabe que no es deriva de esquema: es formato. Falta regenerar con Docker.
+1. **Publica lo que hay.** Actions → «Publicar en staging» → Run workflow. Los
+   Workers se publicaron por última vez el 2 de septiembre; si empujas algo,
+   vuelve a publicar. (La bóveda además **necesita** una publicación después de
+   poner su secreto — ver el punto 2.)
+2. **Termina la bóveda de credenciales** ([#33](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/33)):
+   la **migración ya está aplicada y verificada** (3 sep). Queda **solo** poner el
+   secreto `CREDENCIALES_CLAVE_MAESTRA` en GitHub → Settings → Secrets, y volver a
+   publicar. Los pasos, en [`CONECTAR.md` § 9](CONECTAR.md). Es lo que permite que
+   la dueña ponga sus propias claves sin llamar a nadie.
+3. **Los tipos ya se regeneraron de verdad** y el
+   [#5](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/5) está
+   resuelto en código (no era deriva de esquema, era formato: el fichero estaba
+   escrito a mano). Lo único que puede quedar es que CI avise de una sola línea,
+   `PostgrestVersion`; si es así, es un cierre trivial. Mira el próximo CI.
 
 Con eso, lo construido deja de estar esperando.
 
