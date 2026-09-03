@@ -4,7 +4,6 @@ export type {
   Tables,
   TablesInsert,
   TablesUpdate,
-  Views,
   Enums,
 } from './generated/database.types';
 
