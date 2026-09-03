@@ -47,6 +47,38 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
+  // Comprobación de rol, no solo de sesión (#12). Sin esto, un cliente de la
+  // tienda con sesión iniciada pasaba el middleware; lo frenaban `PanelPage` y
+  // RLS por debajo, pero el middleware daba la falsa impresión de cubrir el
+  // panel entero, y la página que alguien añada sin `PanelPage` no tendría nada
+  // que la protegiese. Aquí se convierte en la frontera que aparenta ser.
+  //
+  // La lista de admitidos es la misma que `entraAlPanel` en `lib/auth.ts`, en
+  // vez de importarla, porque el middleware corre en el borde y no debe arrastrar
+  // el código de servidor (react cache, next/navigation) de ese módulo.
+  if (user && !isLoginRoute) {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('role, is_active')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    // Solo se bloquea cuando se sabe con certeza que no es staff: perfil
+    // encontrado y su rol no es de panel, o está inactivo. Ante un error
+    // transitorio de la base se deja pasar —un operador legítimo no se queda
+    // fuera por un fallo de red—, porque `requireStaff` y RLS siguen debajo.
+    if (!error) {
+      const esStaff =
+        profile != null &&
+        profile.is_active === true &&
+        (profile.role === 'operator' || profile.role === 'admin' || profile.role === 'superadmin');
+
+      if (!esStaff) {
+        return NextResponse.redirect(new URL('/entrar?error=sin_permisos', request.url));
+      }
+    }
+  }
+
   return response;
 }
 

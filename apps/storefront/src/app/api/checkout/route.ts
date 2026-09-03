@@ -105,10 +105,13 @@ export async function POST(request: Request) {
       quantity: line.quantity,
     })),
     p_shipping_address: input.shippingAddress,
-    p_shipping_method_id: input.shippingMethodId ?? null,
-    p_discount_code: input.discountCode ?? null,
-    p_phone: input.phone ?? null,
-    p_customer_note: input.customerNote ?? null,
+    // Los tipos generados declaran estos parámetros como opcionales (`?: string`),
+    // no como `string | null`. En SQL cada uno es `default null`, así que omitirlos
+    // —pasando `undefined`, que supabase-js no serializa— usa ese mismo default.
+    p_shipping_method_id: input.shippingMethodId ?? undefined,
+    p_discount_code: input.discountCode ?? undefined,
+    p_phone: input.phone ?? undefined,
+    p_customer_note: input.customerNote ?? undefined,
     p_first_name: input.shippingAddress.firstName,
     p_last_name: input.shippingAddress.lastName,
   });

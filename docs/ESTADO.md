@@ -1,6 +1,7 @@
 # Estado de la plataforma
 
-> **Última actualización:** 2 de septiembre de 2026 (bóveda de credenciales, panel de
+> **Última actualización:** 3 de septiembre de 2026 (migración de la bóveda
+> **aplicada** en staging y tipos generados de verdad; antes: panel de
 > integraciones, eventos de Meta, importación de productos y auditoría de interfaz).
 > Este documento es el punto de entrada para quien retome el trabajo. Dice qué
 > hay publicado, qué está roto, qué se sabe de cada fallo abierto y qué se
@@ -13,12 +14,15 @@
 
 > **¿Tienes acceso a Supabase y a Cloudflare?** Lo tuyo es
 > [`CONECTAR.md`](CONECTAR.md), que lleva la lista ordenada con su verificación.
-> **Los pasos 1 a 5 ya están hechos** —migraciones aplicadas, tipos verificados,
-> advisors revisados, bucket privado creado y `anon` revocado— y lo que queda de
-> esa lista cuelga todo del mismo sitio: **comprar el dominio**. Con una
-> excepción que conviene saber antes de empezar: **CI sigue avisando de que los
-> tipos generados difieren**, aunque se compararon campo a campo contra staging.
-> Punto 21 de la lista de pendientes.
+> **Los pasos 1 a 5 y la migración de la bóveda (paso 9.b) ya están hechos**
+> —migraciones aplicadas, advisors revisados, bucket privado creado, `anon`
+> revocado y, desde el 3 de septiembre, la tabla `integration_credentials` creada
+> y verificada—. Lo que queda de esa lista cuelga casi todo de **comprar el
+> dominio**, más dos cosas: para que la bóveda funcione de verdad falta **poner la
+> variable `CREDENCIALES_CLAVE_MAESTRA` y volver a publicar** (una persona), y
+> **CI puede seguir avisando de una única línea, `PostgrestVersion`**, ahora que
+> los tipos se regeneraron de verdad. El secreto de la bóveda es el P2 número 4;
+> lo demás cerrado el 3 de septiembre está en la nota del apartado 3.
 
 ---
 
@@ -54,7 +58,7 @@ navegador de cualquiera que abra la tienda. Lo que protege los datos es RLS, no
 el secreto de esa clave.
 
 Las tres del correo **todavía no están puestas, y no es un olvido**: `EMAIL_FROM`
-necesita un dominio verificado en Resend, y el dominio es el P1 número 2. El
+necesita un dominio verificado en Resend, y el dominio es el P1 número 1. El
 despliegue ya sabe leerlas y cargarlas en el Worker; mientras falten, lo dice en
 su resumen y la tienda funciona igual, solo que sin avisar a nadie. Los pasos de
 instalación, cuando haya dominio, están en
@@ -107,18 +111,18 @@ Nada de lo que hace toca la tienda, la base de datos ni el hosting.
 
 #### Cómo se autentica de verdad cada servicio
 
-| Servicio                   | Para qué                                    | Cómo entra la credencial                                                                                             | Estado hoy                                  |
-| -------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| **Supabase**               | Base de datos, autenticación, RLS           | `NEXT_PUBLIC_SUPABASE_URL` + anon key (variables) y `SUPABASE_SERVICE_ROLE_KEY` (secreto)                            | ✅ Puesto (staging)                         |
-| **Cloudflare Workers**     | Servir las dos aplicaciones                 | `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` (secretos de Actions)                                               | ✅ Puesto                                   |
-| **Cloudflare R2**          | Imágenes de producto                        | Enlace `r2_buckets` en `wrangler.jsonc` + `R2_PUBLIC_URL`                                                            | ✅ Puesto, bucket `nebula-media`            |
-| **Cloudflare R2 privado**  | Prueba de entrega y comprobante de abono    | Enlace `r2_buckets` (`MEDIA_PRIVADA`). **Sin dominio público, y no debe tenerlo**                                    | ✅ Creado, `nebula-media-privada`           |
-| **Resend**                 | Correo transaccional                        | `RESEND_API_KEY` (secreto) + `EMAIL_FROM`                                                                            | 🔲 Falta. Necesita dominio                  |
-| **Meta**                   | Píxel y Conversions API                     | `NEXT_PUBLIC_META_PIXEL_ID` + `META_CONVERSIONS_ACCESS_TOKEN`                                                        | 🔲 Falta                                    |
-| **Yappy · Botón**          | Cobrar en el checkout                       | `YAPPY_MERCHANT_ID`, `YAPPY_SECRET_KEY`, `YAPPY_DOMAIN_URL`                                                          | 🔲 Falta especificación y credenciales      |
-| **Yappy · Integración**    | Conciliar cobros                            | `YAPPY_API_URL`, `YAPPY_API_KEY`, `YAPPY_API_SECRET_KEY`                                                             | 🔲 Falta el host de la API                  |
-| **Teselas del mapa**       | Las imágenes del mapa                       | `NEXT_PUBLIC_MAP_TILES_URL`                                                                                          | ⚠️ CARTO sin clave, sin plan                |
-| **Bóveda de credenciales** | Que la dueña pegue sus claves sin desplegar | `CREDENCIALES_CLAVE_MAESTRA` (secreto). **La única variable que hace falta para que las demás dejen de hacer falta** | 🔲 Falta la variable y aplicar su migración |
+| Servicio                   | Para qué                                    | Cómo entra la credencial                                                                                             | Estado hoy                                                    |
+| -------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| **Supabase**               | Base de datos, autenticación, RLS           | `NEXT_PUBLIC_SUPABASE_URL` + anon key (variables) y `SUPABASE_SERVICE_ROLE_KEY` (secreto)                            | ✅ Puesto (staging)                                           |
+| **Cloudflare Workers**     | Servir las dos aplicaciones                 | `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` (secretos de Actions)                                               | ✅ Puesto                                                     |
+| **Cloudflare R2**          | Imágenes de producto                        | Enlace `r2_buckets` en `wrangler.jsonc` + `R2_PUBLIC_URL`                                                            | ✅ Puesto, bucket `nebula-media`                              |
+| **Cloudflare R2 privado**  | Prueba de entrega y comprobante de abono    | Enlace `r2_buckets` (`MEDIA_PRIVADA`). **Sin dominio público, y no debe tenerlo**                                    | ✅ Creado, `nebula-media-privada`                             |
+| **Resend**                 | Correo transaccional                        | `RESEND_API_KEY` (secreto) + `EMAIL_FROM`                                                                            | 🔲 Falta. Necesita dominio                                    |
+| **Meta**                   | Píxel y Conversions API                     | `NEXT_PUBLIC_META_PIXEL_ID` + `META_CONVERSIONS_ACCESS_TOKEN`                                                        | 🔲 Falta                                                      |
+| **Yappy · Botón**          | Cobrar en el checkout                       | `YAPPY_MERCHANT_ID`, `YAPPY_SECRET_KEY`, `YAPPY_DOMAIN_URL`                                                          | 🔲 Falta especificación y credenciales                        |
+| **Yappy · Integración**    | Conciliar cobros                            | `YAPPY_API_URL`, `YAPPY_API_KEY`, `YAPPY_API_SECRET_KEY`                                                             | 🔲 Falta el host de la API                                    |
+| **Teselas del mapa**       | Las imágenes del mapa                       | `NEXT_PUBLIC_MAP_TILES_URL`                                                                                          | ⚠️ CARTO sin clave, sin plan                                  |
+| **Bóveda de credenciales** | Que la dueña pegue sus claves sin desplegar | `CREDENCIALES_CLAVE_MAESTRA` (secreto). **La única variable que hace falta para que las demás dejen de hacer falta** | ⚠️ Migración aplicada (3 sep); falta la variable y republicar |
 
 Los nombres exactos y sus valores de ejemplo están en
 [`.env.example`](../.env.example). Las reglas de qué va como secreto y qué como
@@ -303,46 +307,53 @@ Lo que **no** funciona: ver el punto 3.
 ## 3. Lo que falta, por orden de urgencia
 
 Ordenado por lo que cuesta si no se hace, no por lo que cuesta hacerlo. Los
-cuatro primeros bloquean la apertura; el resto se puede hacer con la tienda ya
+tres primeros bloquean la apertura; el resto se puede hacer con la tienda ya
 funcionando.
+
+> **Cerrado el 3 de septiembre** (con los conectores puestos; código en el
+> PR [#36](https://github.com/juanarrietabusiness-pixel/tommalopty/pull/36)):
+> migración de la bóveda aplicada ([#33](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/33), falta el secreto + republicar),
+> tipos regenerados ([#5](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/5)),
+> caducidad de reservas agendada con `pg_cron` ([#2](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/2)),
+> `validate_discount` sin fuga de clientes ajenos ([#8](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/8)),
+> el middleware del panel comprueba rol ([#12](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/12)),
+> y la ISR pública ([#6](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/6), ya estaba).
 
 ### 🔴 P1 · Impide abrir al público
 
-| #     | Qué falta                                            | Por qué es crítico                                                                                                                                    | Quién puede hacerlo                            |
-| ----- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| ~~1~~ | ~~**El mapa del checkout no muestra las imágenes**~~ | **Resuelto.** El mapa se previsualiza, y desde hoy además rellena la dirección sola. Queda un matiz de proveedor: ver 3.1                             | —                                              |
-| 2     | **Dominio propio** y los dos Workers apuntados a él  | Hoy las URL son `workers.dev`. No se puede dar a clientes reales, ni cobrar, ni pasar la revisión de una pasarela                                     | La dueña (comprar el dominio) + desarrollo     |
-| 3     | **Páginas legales** completadas y revisadas          | Términos, privacidad, envíos y devoluciones son plantillas. Sin ellas no se puede vender legalmente en Panamá, y ninguna pasarela aprueba el comercio | La dueña + alguien que conozca la ley panameña |
-| 4     | **Proveedor de teselas del mapa con plan**           | Hoy se usa CARTO sin clave. Su cuota razonable no cubre una tienda en producción                                                                      | Decisión de la dueña (coste) + desarrollo      |
+| #   | Qué falta                                           | Por qué es crítico                                                                                                                                    | Quién puede hacerlo                            |
+| --- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| 1   | **Dominio propio** y los dos Workers apuntados a él | Hoy las URL son `workers.dev`. No se puede dar a clientes reales, ni cobrar, ni pasar la revisión de una pasarela                                     | La dueña (comprar el dominio) + desarrollo     |
+| 2   | **Páginas legales** completadas y revisadas         | Términos, privacidad, envíos y devoluciones son plantillas. Sin ellas no se puede vender legalmente en Panamá, y ninguna pasarela aprueba el comercio | La dueña + alguien que conozca la ley panameña |
+| 3   | **Proveedor de teselas del mapa con plan**          | Hoy se usa CARTO sin clave. Su cuota razonable no cubre una tienda en producción                                                                      | Decisión de la dueña (coste) + desarrollo      |
 
 ### 🟠 P2 · Se puede abrir sin ello, pero duele pronto
 
-| #     | Qué falta                                                                                                                                                                                                                                                                             | Qué pasa si no está                                                                                                                                                                                                                                                                       |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 5     | **Los avisos automáticos por correo** (L2 2.e y L3): despachado, en camino, entregado, recordatorio de vencimiento                                                                                                                                                                    | El cliente llama por teléfono para preguntar dónde está su pedido. Es el trabajo manual que la plataforma existía para quitar                                                                                                                                                             |
-| 6     | **Cloudflare Access sobre el panel**                                                                                                                                                                                                                                                  | El panel administrativo es alcanzable por cualquiera que sepa la URL. RLS protege los datos, pero la pantalla de acceso queda expuesta a fuerza bruta                                                                                                                                     |
-| 7     | **Backups de Supabase con retención definida**                                                                                                                                                                                                                                        | Un borrado accidental no tiene vuelta atrás                                                                                                                                                                                                                                               |
-| ~~8~~ | ~~**Crear el bucket privado en Cloudflare**~~ **Hecho.** `nebula-media-privada` existe y el binding `MEDIA_PRIVADA` ya lo alcanza. Falta la comprobación de punta a punta: subir una prueba de entrega y confirmar que su enlace da 403 sin sesión ([`CONECTAR.md`](CONECTAR.md) § 4) |
-| 9b    | **Aplicar la migración de la bóveda y poner `CREDENCIALES_CLAVE_MAESTRA`**: es lo único que separa a la dueña de poder pegar sus propias credenciales. Sin ello el panel avisa y todo sigue leyendo variables de entorno                                                              |
-| 9     | **Pasarela de pago real conectada**                                                                                                                                                                                                                                                   | Hoy los pedidos se registran pero no se cobran en línea. Los abonos manuales sí funcionan. De Yappy falta **solo el Botón de Pago**, y falta porque falta su especificación: ver [`YAPPY.md`](YAPPY.md). Es una decisión de negocio pendiente ([ADR 0006](adr/0006-pasarela-al-final.md)) |
+| #   | Qué falta                                                                                                          | Qué pasa si no está                                                                                                                                                                                                                                                                       |
+| --- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4   | **El secreto de la bóveda** `CREDENCIALES_CLAVE_MAESTRA` **y republicar**                                          | Es lo único que separa a la dueña de pegar sus propias credenciales. La migración ya está aplicada; sin el secreto el panel avisa y todo sigue leyendo variables de entorno ([#33](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/33))                                    |
+| 5   | **Los avisos automáticos por correo** (L2 2.e y L3): despachado, en camino, entregado, recordatorio de vencimiento | El cliente llama por teléfono para preguntar dónde está su pedido. Es el trabajo manual que la plataforma existía para quitar                                                                                                                                                             |
+| 6   | **Cloudflare Access sobre el panel**                                                                               | El panel administrativo es alcanzable por cualquiera que sepa la URL. RLS protege los datos, pero la pantalla de acceso queda expuesta a fuerza bruta                                                                                                                                     |
+| 7   | **Backups de Supabase con retención definida**                                                                     | Un borrado accidental no tiene vuelta atrás                                                                                                                                                                                                                                               |
+| 8   | **Pasarela de pago real conectada**                                                                                | Hoy los pedidos se registran pero no se cobran en línea. Los abonos manuales sí funcionan. De Yappy falta **solo el Botón de Pago**, y falta porque falta su especificación: ver [`YAPPY.md`](YAPPY.md). Es una decisión de negocio pendiente ([ADR 0006](adr/0006-pasarela-al-final.md)) |
 
 ### 🟡 P3 · Deuda conocida, sin urgencia
 
-| #   | Qué                                                                                                                                                                                                                                                                                               |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 10  | **La URL pública de R2 sigue en `r2.dev`**: hay que pasarla a dominio propio antes de producción                                                                                                                                                                                                  |
-| 11  | **`http://localhost:3000/**` falta en las Redirect URLs de Supabase**: sin eso, registrarse desde el entorno de desarrollo no confirma cuentas                                                                                                                                                    |
-| 12  | **La posición del motorizado en ruta**: la aplicación y la pantalla de despacho ya existen; falta que el teléfono envíe la posición y una columna donde guardarla. Es lo único de L4.2 que pide migración ([#29](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/29))              |
-| 13  | **`/cuenta/direcciones` es solo lectura**: no se pueden guardar ni reutilizar direcciones con su punto                                                                                                                                                                                            |
-| 14  | **La cabecera de la tienda se esconde con `:has()`** en la página del motorizado, en vez de mover las rutas a un grupo con su propio layout. Atajo consciente; se borra cuando alguien haga esa reorganización                                                                                    |
-| 15  | **La pantalla de integraciones lee `NEXT_PUBLIC_META_PIXEL_ID` de forma dinámica**, así que dirá «pendiente» aunque esté configurada. Cosmético, afecta a una fila                                                                                                                                |
-| 16  | **`NEXT_PUBLIC_ADMIN_URL` no lo lee nadie**: se declara en `.env.example` y el despliegue lo pasa, pero ningún código lo usa. O se usa, o se quita: una variable que se configura y no hace nada es media hora de alguien buscando por qué                                                        |
-| 17  | **Las cuentas de servicio deberían estar a nombre del negocio** antes de abrir. Ver el apartado «Cuando la plataforma pase a la dueña» del punto 1                                                                                                                                                |
-| 18  | **_Leaked Password Protection_ está desactivado en Supabase**: comprueba las contraseñas nuevas contra HaveIBeenPwned. Es un interruptor en Authentication → Policies, sin coste y sin cambios de código                                                                                          |
-| 19  | **La prueba de punta a punta del bucket privado sigue sin hacerse**: subir una foto de entrega y confirmar que su enlace da 403 en una ventana sin sesión. El bucket ya existe; lo que falta es alguien con el panel abierto                                                                      |
-| 20  | **El mapa de la pantalla de Despacho**: se dejó fuera a propósito, y va detrás del plan de teselas (P1 número 4). Un mapa abierto toda la jornada consume más cuota que decenas de checkouts ([#30](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/30))                           |
-| 20b | **La auditoría de interfaz dejó dos cosas sin cerrar**: no se ha medido el contraste más allá de lo que comprueba axe, ni el rendimiento percibido (LCP, CLS) sobre una conexión lenta. Ninguna de las dos es un fallo conocido; son medidas que no se han tomado                                 |
-| 21  | **Los tipos generados siguen difiriendo del esquema en CI**, aunque se verificaron campo a campo contra staging. Desde ahora CI enseña el diff en el resumen del job, para que la próxima ejecución diga **qué** difiere ([#5](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/5)) |
+| #   | Qué                                                                                                                                                                                                                                                                                                                                         |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 9   | **El buzón abierto de `leads`** ([#9](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/9)) y **el checkout de invitado con correo ajeno** ([#10](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/10)): revisados, con el plan escrito en cada issue. Esperan un visto bueno de diseño/negocio, no programación |
+| 10  | **La URL pública de R2 sigue en `r2.dev`**: hay que pasarla a dominio propio antes de producción                                                                                                                                                                                                                                            |
+| 11  | **`http://localhost:3000/**` falta en las Redirect URLs de Supabase**: sin eso, registrarse desde el entorno de desarrollo no confirma cuentas                                                                                                                                                                                              |
+| 12  | **La posición del motorizado en ruta**: la aplicación y la pantalla de despacho ya existen; falta que el teléfono envíe la posición y una columna donde guardarla. Es lo único de L4.2 que pide migración ([#29](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/29))                                                        |
+| 13  | **`/cuenta/direcciones` es solo lectura**: no se pueden guardar ni reutilizar direcciones con su punto                                                                                                                                                                                                                                      |
+| 14  | **La cabecera de la tienda se esconde con `:has()`** en la página del motorizado, en vez de mover las rutas a un grupo con su propio layout. Atajo consciente; se borra cuando alguien haga esa reorganización                                                                                                                              |
+| 15  | **La pantalla de integraciones lee `NEXT_PUBLIC_META_PIXEL_ID` de forma dinámica**, así que dirá «pendiente» aunque esté configurada. Cosmético, afecta a una fila                                                                                                                                                                          |
+| 16  | **`NEXT_PUBLIC_ADMIN_URL` no lo lee nadie**: se declara en `.env.example` y el despliegue lo pasa, pero ningún código lo usa. O se usa, o se quita: una variable que se configura y no hace nada es media hora de alguien buscando por qué                                                                                                  |
+| 17  | **Las cuentas de servicio deberían estar a nombre del negocio** antes de abrir. Ver el apartado «Cuando la plataforma pase a la dueña» del punto 1                                                                                                                                                                                          |
+| 18  | **_Leaked Password Protection_ está desactivado en Supabase**: comprueba las contraseñas nuevas contra HaveIBeenPwned. Es un interruptor en Authentication → Policies, sin coste y sin cambios de código                                                                                                                                    |
+| 19  | **La prueba de punta a punta del bucket privado sigue sin hacerse**: subir una foto de entrega y confirmar que su enlace da 403 en una ventana sin sesión. El bucket ya existe; lo que falta es alguien con el panel abierto                                                                                                                |
+| 20  | **El mapa de la pantalla de Despacho**: se dejó fuera a propósito, y va detrás del plan de teselas (P1 número 3). Un mapa abierto toda la jornada consume más cuota que decenas de checkouts ([#30](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/30))                                                                     |
+| 21  | **La auditoría de interfaz dejó dos cosas sin cerrar**: no se ha medido el contraste más allá de lo que comprueba axe, ni el rendimiento percibido (LCP, CLS) sobre una conexión lenta. Ninguna de las dos es un fallo conocido; son medidas que no se han tomado                                                                           |
 
 ---
 
@@ -374,7 +385,7 @@ tres campos. Detalles que importan y ya están decididos:
   su respuesta en `direccion.test.ts`.**
 
 **Lo que queda, y es de la dueña, no de programación:** el proveedor de teselas
-(P1 número 4). Hoy es CARTO sin clave, y su cuota razonable no cubre una tienda
+(P1 número 3). Hoy es CARTO sin clave, y su cuota razonable no cubre una tienda
 abierta.
 
 **Un dato que ahorra media tarde a quien depure esto:** hay entornos que

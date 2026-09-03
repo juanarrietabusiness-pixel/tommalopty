@@ -10,35 +10,45 @@
 
 ---
 
-## Lo primero, y son veinte minutos
+## Lo que se cerró el 3 de septiembre
 
-En este orden, porque cada uno hace visible lo siguiente:
+Con los conectores de Supabase y Cloudflare puestos sobre el proyecto real. El
+código va en el **PR [#36](https://github.com/juanarrietabusiness-pixel/tommalopty/pull/36)**;
+las acciones de infraestructura se hicieron directamente en staging.
 
-1. **Publica lo que hay.** Actions → «Publicar en staging» → Run workflow. Todo
-   lo construido en septiembre está mergeado y sin publicar.
-2. **Abre la bóveda de credenciales** ([#33](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/33)):
-   una variable y una migración, en [`CONECTAR.md` § 9](CONECTAR.md). Es lo que
-   permite que la dueña ponga sus propias claves sin llamar a nadie.
-3. **Mira el diff de los tipos** en el resumen del job de CI, y ciérra el
-   [#5](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/5). Ya se
-   sabe que no es deriva de esquema: es formato. Falta regenerar con Docker.
-
-Con eso, lo construido deja de estar esperando.
+- **Bóveda ([#33](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/33))** — migración aplicada y verificada. Queda solo el secreto y republicar (abajo).
+- **Tipos ([#5](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/5))** — regenerados de verdad; puede quedar una línea (`PostgrestVersion`) en CI.
+- **Caducidad de reservas ([#2](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/2))** — `pg_cron` activado en staging, job cada 15 min.
+- **`validate_discount` ([#8](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/8))** y **middleware del panel ([#12](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/12))** — arreglados.
+- **ISR pública ([#6](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/6))** — ya estaba resuelta; cerrada.
 
 ---
 
-## Cómo está repartido el trabajo que queda
+## Lo primero: publica, y termina la bóveda
+
+1. **Publica lo que hay.** Actions → «Publicar en staging» → Run workflow. Si
+   empujas algo (o mergeas el PR #36), vuelve a publicar.
+2. **Termina la bóveda** ([#33](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/33)):
+   la migración ya está. Queda **solo** poner el secreto
+   `CREDENCIALES_CLAVE_MAESTRA` en GitHub → Settings → Secrets, y **volver a
+   publicar** (el despliegue es quien lleva el secreto al Worker). Pasos en
+   [`CONECTAR.md` § 9](CONECTAR.md).
+
+---
+
+## Qué queda pendiente, por lo que lo bloquea
 
 La pregunta que ahorra tiempo no es «¿qué falta?» sino **«¿qué lo está
 bloqueando?»**, porque la respuesta cambia a quién hay que ir a buscar.
 
-| Lo bloquea…                 | Qué queda ahí                                                                                                                                                                                                                                             | Qué hacer                                                               |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| **Nada. Es programar**      | Los avisos de correo que faltan (en camino, entregado, recordatorio de saldo), el envío de la posición del motorizado desde el teléfono ([#29](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/29)), `/cuenta/direcciones` de solo lectura | Se puede hacer hoy, sin accesos                                         |
-| **Un acceso que tú tienes** | La bóveda ([#33](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/33)), los tipos ([#5](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/5)), la prueba del bucket privado, backups, Cloudflare Access                        | [`CONECTAR.md`](CONECTAR.md)                                            |
-| **Comprar algo**            | El dominio (bloquea Resend, R2 y las pasarelas), el plan de teselas del mapa (bloquea también el mapa de despacho, [#30](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/30))                                                              | Es de la dueña. Pídelo cuanto antes                                     |
-| **Una decisión de negocio** | Las liquidaciones de motorizados ([#28](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/28))                                                                                                                                               | Una pregunta a la dueña, con las cuatro respuestas posibles ya escritas |
-| **Un tercero**              | El Botón de Pago de Yappy y el host de su API, las credenciales de Dropi/Servientrega, la revisión legal                                                                                                                                                  | Correos escritos en [`ESTADO.md`](ESTADO.md) § 5                        |
+| Lo bloquea…                 | Qué queda ahí                                                                                                                                                                                                                                                            | Qué hacer                                                               |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| **Nada. Es programar**      | Los avisos de correo que faltan (en camino, entregado, recordatorio de saldo), el envío de la posición del motorizado desde el teléfono ([#29](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/29)), `/cuenta/direcciones` de solo lectura                | Se puede hacer hoy, sin accesos                                         |
+| **Una decisión de diseño**  | El buzón abierto de `leads` ([#9](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/9)) y el checkout de invitado con correo ajeno ([#10](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/10)) — el plan concreto está escrito en cada issue | Un visto bueno, y se implementa                                         |
+| **Un acceso que tú tienes** | El secreto de la bóveda + republicar, la prueba del bucket privado, backups, Cloudflare Access, _Leaked Password Protection_                                                                                                                                             | [`CONECTAR.md`](CONECTAR.md)                                            |
+| **Comprar algo**            | El dominio (bloquea Resend, R2 y las pasarelas), el plan de teselas del mapa (bloquea también el mapa de despacho, [#30](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/30))                                                                             | Es de la dueña. Pídelo cuanto antes                                     |
+| **Una decisión de negocio** | Las liquidaciones de motorizados ([#28](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/28))                                                                                                                                                              | Una pregunta a la dueña, con las cuatro respuestas posibles ya escritas |
+| **Un tercero**              | El Botón de Pago de Yappy y el host de su API, las credenciales de Dropi/Servientrega, la revisión legal                                                                                                                                                                 | Correos escritos en [`ESTADO.md`](ESTADO.md) § 5                        |
 
 **Casi nada de lo que queda es programar.** Conviene saberlo antes de planificar
 una semana de desarrollo: lo que bloquea la apertura son un dominio, unas páginas
@@ -52,7 +62,7 @@ legales y dos respuestas de Yappy.
 | --------------------------------- | ------------------------------------------ | --------------------------------------- |
 | Pantalla de **Despacho**          | Panel `/despacho`                          | Nada. Publicar                          |
 | **Motorizados** con su app        | Panel `/motorizados`, tienda `/motorizado` | Nada. Publicar                          |
-| **Bóveda de credenciales**        | Panel `/configuracion`                     | Una variable y una migración            |
+| **Bóveda de credenciales**        | Panel `/configuracion`                     | Solo el secreto y republicar            |
 | **Importar productos**            | Panel `/catalogo/importar`                 | Nada. Publicar                          |
 | **Eventos de Meta** completos     | Toda la tienda                             | El píxel, que ya se pega en el panel    |
 | **Mapa que rellena la dirección** | Tienda `/checkout`                         | Nada. Un plan de teselas antes de abrir |

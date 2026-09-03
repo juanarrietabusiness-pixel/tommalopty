@@ -1,9 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database, Views } from '../generated/database.types';
+import type { Database, Tables } from '../generated/database.types';
 
 type Client = SupabaseClient<Database>;
 
-export type CatalogProduct = Views<'product_catalog'>;
+// El helper `Tables<>` del generador resuelve contra `Tables & Views`, así que
+// también sirve para las vistas como `product_catalog`. El generador no exporta
+// un helper `Views` aparte.
+export type CatalogProduct = Tables<'product_catalog'>;
 
 export interface ListProductsOptions {
   categorySlug?: string;

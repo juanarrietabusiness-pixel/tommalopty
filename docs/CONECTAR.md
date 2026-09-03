@@ -18,25 +18,26 @@ Cloudflare puestos ejecutó esta guía.
 
 > ### Si solo lees tres líneas
 >
-> **Hoy hay exactamente una migración pendiente: `20260902120000_credenciales.sql`,
-> en el apartado 9.** Va con una variable de entorno, y las dos juntas son lo
-> único que separa a la dueña de poder poner sus propias credenciales sin
-> llamarte.
+> **Ya no hay ninguna migración pendiente.** El 3 de septiembre se aplicó la
+> última, `20260902120000_credenciales.sql` (apartado 9), y se verificó. De la
+> bóveda queda **solo** poner el secreto `CREDENCIALES_CLAVE_MAESTRA` y volver a
+> publicar — eso es de una persona, no de la base.
 >
-> Las migraciones de los apartados 1 a 5 **ya están aplicadas**: no las repitas.
-> Y todo lo demás —del 6 en adelante— cuelga del dominio, que hay que comprar.
+> Las migraciones de los apartados 1 a 5 y la del 9 **ya están aplicadas**: no las
+> repitas. Y todo lo demás —del 6 en adelante— cuelga del dominio, que hay que
+> comprar.
 
-| Paso                      | Estado                                                                                                                                                  |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 · Las tres migraciones  | ✅ Aplicadas en orden. `courier` en el enum, `couriers`/`courier_zones` con sus políticas, `payments.receipt_key`                                       |
-| 2 · Regenerar los tipos   | ⚠️ 44 tablas y 1277 campos comparados uno a uno contra staging, y cuatro diferencias corregidas — pero **CI sigue avisando de que difieren**. Ver abajo |
-| 3 · Advisors de seguridad | ✅ Revisados. Dos hallazgos reales arreglados; el resto, explicado abajo                                                                                |
-| 4 · El bucket privado     | ✅ `nebula-media-privada` existe. **Falta la prueba de punta a punta** (el 403 sin sesión)                                                              |
-| 5 · Revocar `anon`        | ✅ Migración 0033, tabla por tabla, con 36 tests nuevos. Cierra el [issue #24]                                                                          |
-| 6 · El dominio            | 🔲 **Bloqueado**: hay que comprarlo. Es el P1 número 2                                                                                                  |
-| 7 · Antes de abrir        | 🔲 Backups, Cloudflare Access, plan de teselas, cuentas a nombre del negocio                                                                            |
-| 8 · Lo de después         | 🔲 Lo que pide accesos de cada fase que queda. Está al final de este documento                                                                          |
-| 9 · La bóveda             | 🔲 **Nuevo.** Una migración y una variable, y la dueña deja de necesitarte para poner sus credenciales                                                  |
+| Paso                      | Estado                                                                                                                                                                 |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 · Las tres migraciones  | ✅ Aplicadas en orden. `courier` en el enum, `couriers`/`courier_zones` con sus políticas, `payments.receipt_key`                                                      |
+| 2 · Regenerar los tipos   | ✅ Regenerados de verdad desde staging (3 sep) y pasados por el Prettier de CI. El fichero a mano se sustituyó; puede quedar una línea (`PostgrestVersion`). Ver abajo |
+| 3 · Advisors de seguridad | ✅ Revisados. Dos hallazgos reales arreglados; el resto, explicado abajo                                                                                               |
+| 4 · El bucket privado     | ✅ `nebula-media-privada` existe. **Falta la prueba de punta a punta** (el 403 sin sesión)                                                                             |
+| 5 · Revocar `anon`        | ✅ Migración 0033, tabla por tabla, con 36 tests nuevos. Cierra el [issue #24]                                                                                         |
+| 6 · El dominio            | 🔲 **Bloqueado**: hay que comprarlo. Es el P1 número 2                                                                                                                 |
+| 7 · Antes de abrir        | 🔲 Backups, Cloudflare Access, plan de teselas, cuentas a nombre del negocio                                                                                           |
+| 8 · Lo de después         | 🔲 Lo que pide accesos de cada fase que queda. Está al final de este documento                                                                                         |
+| 9 · La bóveda             | ⚠️ Migración **aplicada y verificada** (3 sep). Falta solo la variable `CREDENCIALES_CLAVE_MAESTRA` y republicar, que es de una persona                                |
 
 [issue #24]: https://github.com/juanarrietabusiness-pixel/tommalopty/issues/24
 
@@ -96,7 +97,7 @@ Es el mismo compromiso que hace n8n con `N8N_ENCRYPTION_KEY`.
 secretos guardados no se recuperan —hay que volver a pegarlos— y si se cambia,
 igual. No es catastrófico, pero es una tarde.
 
-### 9.b · La migración
+### 9.b · La migración · ✅ APLICADA Y VERIFICADA (3 sep)
 
 `20260902120000_credenciales.sql`. Crea `integration_credentials`, y tiene dos
 rarezas deliberadas que conviene no «arreglar»:
@@ -109,21 +110,34 @@ rarezas deliberadas que conviene no «arreglar»:
 - **Revoca `anon` explícitamente**, por lo que ya sabemos de los privilegios por
   omisión de Supabase.
 
-**Después:** `pnpm db:types`. Y entonces se pueden borrar los tipos escritos a
-mano de `packages/db/src/repositories/credenciales.ts`, que están ahí solo porque
-la migración no estaba aplicada cuando se escribió el código.
+**Después:** ~~`pnpm db:types`~~ **Hecho (3 sep):** los tipos se regeneraron y
+`integration_credentials` ya está en `database.types.ts`. Queda como limpieza
+opcional tipar el cliente de `packages/db/src/repositories/credenciales.ts` (hoy
+usa un cliente sin tipar a propósito, con sus DTO a mano `CredencialCifrada`/
+`FilaCredencial`, y funciona); ya no es un bloqueo, es una costura que se puede
+cerrar cuando alguien pase por ahí.
 
-**Cómo verificar:**
+**Cómo se verificó (3 sep), y qué queda:**
+
+Lo que sí se pudo comprobar desde la base, y pasó:
+
+- La tabla existe, con **RLS activo y cero políticas**.
+- `anon` y `authenticated` **revocados**; solo `postgres` y `service_role`
+  conservan privilegios.
+- La prueba que de verdad la valida (paso 4 de abajo): `set local role
+authenticated; select ... from public.integration_credentials` devuelve
+  **`permission denied for table integration_credentials`** — una denegación a
+  nivel de privilegio, más fuerte todavía que RLS.
+
+Lo que **falta**, y necesita el panel abierto con el secreto ya puesto:
 
 1. Panel → **Integraciones**: debe desaparecer el aviso amarillo de «falta la
-   clave maestra».
+   clave maestra». (Solo cuando `CREDENCIALES_CLAVE_MAESTRA` esté puesto y se
+   haya republicado.)
 2. Pega una credencial de prueba y guarda. Al recargar tiene que verse `••••` y
    sus cuatro últimos caracteres, **nunca el valor**.
 3. En SQL: `select clave, es_secreto, pista from public.integration_credentials;`
    — `valor_cifrado` empieza por `v1.` y no se parece a lo que pegaste.
-4. Y la que de verdad prueba la tabla: consulta
-   `select * from public.integration_credentials` **con un rol de usuario, no con
-   service_role**. Tiene que fallar.
 
 **Qué no hacer:** no le pongas una política RLS «para poder mirarla desde el
 panel». Mirarla desde el panel es exactamente lo que no debe poder hacerse.
@@ -250,31 +264,38 @@ git diff --stat packages/db/src/generated/database.types.ts
 Si el diff sale vacío, las ediciones a mano eran correctas. Si no, **el generado
 manda**: se commitea y se comprueba que `pnpm typecheck` sigue pasando.
 
-**⚠️ Este paso está a medias, y conviene saberlo antes de darlo por bueno.** Los
-1277 campos se compararon uno a uno contra el esquema real de staging y las
-cuatro diferencias se corrigieron — pero **CI sigue avisando de que difieren** en
-cada ejecución sobre `main`, la última incluida (`22f36d2`).
+**✅ Resuelto en código el 3 de septiembre, y la causa no era deriva de esquema.**
+El fichero commiteado no era salida del generador: era una **reescritura a mano**
+—`export interface Database` en vez de `export type`, campos en orden humano en
+vez de alfabético, con cabecera JSDoc y sin el bloque `__InternalSupabase`—. CI
+genera con `supabase gen types` + Prettier y compara byte a byte; contra un
+fichero de otro formato, esa comparación **no podía salir vacía nunca**, dijera lo
+que dijera del esquema. Por eso el aviso llevaba abierto desde agosto.
 
-No son afirmaciones contradictorias: se compararon cosas distintas. La
-comparación a mano fue contra **staging**; CI genera desde las **migraciones del
-repositorio**, en un Supabase local. Que difieran significa una de dos cosas, y
-las dos importan:
+Se regeneró de verdad desde staging (que hoy es exactamente las 33 migraciones,
+incluida la de la bóveda aplicada el mismo día) y se pasó por el **mismo Prettier
+que usa CI**. Al hacerlo afloraron tres discrepancias reales que el formato a mano
+tapaba, y se corrigieron:
 
-- staging tiene algo que las migraciones no reproducen —lo cual haría que una
-  base nueva no saliera igual—, **o**
-- el generador escribe un detalle de formato distinto del que se escribió a mano.
+- Faltaba la tabla `integration_credentials`.
+- El generador mete las vistas en una sección `Views:` y su helper `Tables<>`
+  resuelve contra `Tables & Views`; no hay un helper `Views` aparte. Se cambió
+  `Views<'product_catalog'>` y `Views<'report_low_stock'>` por `Tables<...>`.
+- `create_order` declara sus parámetros opcionales como `?: string`, no como
+  `string | null`; el checkout pasaba `?? null`. Como en SQL son `default null`,
+  se cambió a `?? undefined` (mismo comportamiento, tipos correctos).
 
-Lo segundo es inofensivo; lo primero no. **Hasta ahora nadie podía distinguirlo,
-porque el aviso decía que algo difería y no decía qué.** Desde el 2 de
-septiembre, CI vuelca el diff completo en el resumen del job, así que la
-respuesta está a un clic: Actions → la última ejecución de CI → job **«Esquema y
-políticas RLS»** → resumen.
+Verificado en local: `format:check`, `lint` (7/7), `typecheck` (6/6), tests (401
+pasados, 142 de RLS omitidos sin Postgres).
 
-**Lo que hay que hacer con eso:** mirarlo, y según lo que diga, o commitear el
-generado, o escribir la migración que falta. Cuando el diff salga vacío, el aviso
-se puede convertir en fallo duro —es la segunda mitad del
-[issue #5](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/5)— y
-entonces esto no se vuelve a acumular en silencio.
+**Lo único que puede quedar es una línea:** `__InternalSupabase.PostgrestVersion`
+sale de la versión de la base que genera los tipos. La regeneración fue contra
+staging (`14.5`); el Supabase local de CI podría reportar otra. Si el próximo CI
+deja el diff en esa sola línea, **confirma que no hay deriva de esquema** y es un
+cierre trivial (ajustar esa línea, o hacer que la comparación la ignore). Cuando
+el diff quede vacío, el aviso se puede convertir en fallo duro —la segunda mitad
+del [issue #5](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/5)—
+y esto no se vuelve a acumular en silencio.
 
 ---
 

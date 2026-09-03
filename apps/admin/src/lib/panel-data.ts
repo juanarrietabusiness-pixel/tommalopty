@@ -9,7 +9,7 @@ import {
   type ReglaDeDespacho,
   type ShipmentStatus,
 } from '@nebula/domain';
-import type { Enums, Tables, Views } from '@nebula/db';
+import type { Enums, Tables } from '@nebula/db';
 import {
   getCustomer,
   getCustomerOrders,
@@ -127,7 +127,7 @@ export async function cargarReportes(days: number) {
 }
 
 /** Las variantes por debajo de su umbral, con la forma de `report_low_stock`. */
-function bajoStockDemo(limite: number): Views<'report_low_stock'>[] {
+function bajoStockDemo(limite: number): Tables<'report_low_stock'>[] {
   return demo.INVENTARIO_DEMO.filter(
     (inv) => inv.quantity - inv.reserved_quantity <= inv.low_stock_threshold,
   )
