@@ -281,22 +281,23 @@ panel de `https://nebula-admin.juanarrietabusiness.workers.dev`.
 
 **Panel administrativo** (`nebula-admin`, entra `operator`, `admin` o `superadmin`):
 
-| Pantalla         | Ruta                                 | Qué hace                                                                   |
-| ---------------- | ------------------------------------ | -------------------------------------------------------------------------- |
-| Entrar           | `/entrar`                            | Acceso del equipo. Un motorizado **no** entra aquí                         |
-| Resumen          | `/`                                  | Ventas del día, pedidos por estado, lo que hay que atender                 |
-| Pedidos          | `/pedidos`                           | Listado, filtros, detalle, abonos y envíos                                 |
-| Guía de envío    | `/pedidos/[id]/guia/[shipmentId]`    | La etiqueta 4×6" con su QR, lista para imprimir                            |
-| **Despacho**     | `/despacho`                          | **L4.2.** A quién darle cada envío, con el motivo, y en qué orden repartir |
-| **Motorizados**  | `/motorizados`                       | **L4.1.** Alta, zonas, documentos y estado de cada uno                     |
-| Clientes (CRM)   | `/clientes`, `/clientes/[id]`        | Ficha, histórico y notas                                                   |
-| Catálogo         | `/catalogo`                          | Productos, variantes, imágenes                                             |
-| Inventario       | `/catalogo/inventario`               | Existencias y ajustes                                                      |
-| Descuentos       | `/descuentos`                        | Códigos y reglas                                                           |
-| Contenido        | `/contenido/{banners,paginas,menus}` | El CMS de la tienda                                                        |
-| Reportes         | `/reportes`                          | Ventas, productos, clientes                                                |
-| Usuarios y roles | `/usuarios`                          | Quién es qué                                                               |
-| Zonas de reparto | `/configuracion/zonas`               | Las zonas que usa la cotización **y la sugerencia de despacho**            |
+| Pantalla           | Ruta                                 | Qué hace                                                                   |
+| ------------------ | ------------------------------------ | -------------------------------------------------------------------------- |
+| Entrar             | `/entrar`                            | Acceso del equipo. Un motorizado **no** entra aquí                         |
+| Resumen            | `/`                                  | Ventas del día, pedidos por estado, lo que hay que atender                 |
+| Pedidos            | `/pedidos`                           | Listado, filtros, detalle, abonos y envíos                                 |
+| Guía de envío      | `/pedidos/[id]/guia/[shipmentId]`    | La etiqueta 4×6" con su QR, lista para imprimir                            |
+| **Despacho**       | `/despacho`                          | **L4.2.** A quién darle cada envío, con el motivo, y en qué orden repartir |
+| **Motorizados**    | `/motorizados`                       | **L4.1.** Alta, zonas, documentos y estado de cada uno                     |
+| Clientes (CRM)     | `/clientes`, `/clientes/[id]`        | Ficha, histórico y notas                                                   |
+| Catálogo           | `/catalogo`                          | Productos, variantes, imágenes                                             |
+| Inventario         | `/catalogo/inventario`               | Existencias y ajustes                                                      |
+| Descuentos         | `/descuentos`                        | Códigos y reglas                                                           |
+| Contenido          | `/contenido/{banners,paginas,menus}` | El CMS de la tienda                                                        |
+| Reportes           | `/reportes`                          | Ventas, productos, clientes                                                |
+| Usuarios y roles   | `/usuarios`                          | Quién es qué                                                               |
+| Zonas de reparto   | `/configuracion/zonas`               | Las zonas que usa la cotización **y la sugerencia de despacho**            |
+| **Almacenamiento** | `/configuracion/almacenamiento`      | **Qué hay en el bucket que ninguna fila referencia, y barrerlo**           |
 
 **Tienda y clientes** (`nebula-storefront`):
 
@@ -379,7 +380,7 @@ funcionando.
 | 9   | **El buzón abierto de `leads`** ([#9](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/9)) y **el checkout de invitado con correo ajeno** ([#10](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/10)): revisados, con el plan escrito en cada issue. Esperan un visto bueno de diseño/negocio, no programación                                                                                                                                                                               |
 | 9b  | ~~**Las cinco vistas conservan privilegios para `anon`**~~ **Resuelto (3 sep).** Migración `20260903180000_anon_fuera_de_las_vistas.sql`, vista por vista: `product_catalog` se queda solo con `SELECT` —la tienda lo necesita, verificado tras aplicar— y los cuatro informes sin nada. Fijado con un test que afirma la lista entera, así que una vista nueva sin decidir qué ve el público también lo rompe ([#38](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/38))                                 |
 | 9c  | ~~**Huecos de cobertura**~~ **Resuelto (3 sep).** Cinco tests nuevos: la bóveda no la alcanza ningún rol con sesión y sigue con RLS sin políticas; los privilegios de `anon` sobre las cinco vistas; y la regresión de #8 en sus dos mitades (un visitante no sondea el límite de otro, y a su dueño sí se le aplica). El test de «tabla nueva» pasa a llamarse «creada por una migración» y dice qué **no** cubre: el ACL de `supabase_admin` ([#39](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/39)) |
-| 10  | **La URL pública de R2 sigue en `r2.dev`**: hay que pasarla a dominio propio antes de producción                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 10  | **La URL pública de R2 sigue en `r2.dev`**: hay que pasarla a dominio propio antes de producción. **Barrer los huérfanos antes del cambio, no después**: al cambiar el origen, las URL viejas dejan de resolverse a una clave y esas imágenes pasarían a contarse como sobrantes (`/configuracion/almacenamiento`)                                                                                                                                                                                                        |
 | 11  | **`http://localhost:3000/**` falta en las Redirect URLs de Supabase**: sin eso, registrarse desde el entorno de desarrollo no confirma cuentas                                                                                                                                                                                                                                                                                                                                                                            |
 | 12  | **La posición del motorizado en ruta**: la aplicación y la pantalla de despacho ya existen; falta que el teléfono envíe la posición y una columna donde guardarla. Es lo único de L4.2 que pide migración ([#29](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/29))                                                                                                                                                                                                                                      |
 | 13  | **`/cuenta/direcciones` es solo lectura**: no se pueden guardar ni reutilizar direcciones con su punto                                                                                                                                                                                                                                                                                                                                                                                                                    |
