@@ -63,19 +63,23 @@ export async function middleware(request: NextRequest) {
       .eq('id', user.id)
       .maybeSingle();
 
-    // Solo se bloquea cuando se sabe con certeza que no es staff: perfil
-    // encontrado y su rol no es de panel, o está inactivo. Ante un error
-    // transitorio de la base se deja pasar —un operador legítimo no se queda
-    // fuera por un fallo de red—, porque `requireStaff` y RLS siguen debajo.
-    if (!error) {
-      const esStaff =
-        profile != null &&
-        profile.is_active === true &&
-        (profile.role === 'operator' || profile.role === 'admin' || profile.role === 'superadmin');
+    // Solo se bloquea con una respuesta **afirmativa** de que no es staff: un
+    // perfil leído cuyo rol no entra al panel, o que está desactivado.
+    //
+    // Ni un error de la base ni una fila ausente cuentan como esa respuesta, y
+    // la diferencia importa: si no, un fallo de red o una lectura que llega
+    // antes de que la cookie de sesión esté asentada devuelven a un operador
+    // legítimo a la pantalla de acceso, que es exactamente la fricción que se
+    // intentaba quitar. En esos dos casos se deja pasar y deciden las capas de
+    // abajo, que siguen ahí: `requireStaff` en `PanelPage` y RLS.
+    const noEsStaff =
+      !error &&
+      profile != null &&
+      (profile.is_active !== true ||
+        (profile.role !== 'operator' && profile.role !== 'admin' && profile.role !== 'superadmin'));
 
-      if (!esStaff) {
-        return NextResponse.redirect(new URL('/entrar?error=sin_permisos', request.url));
-      }
+    if (noEsStaff) {
+      return NextResponse.redirect(new URL('/entrar?error=sin_permisos', request.url));
     }
   }
 
