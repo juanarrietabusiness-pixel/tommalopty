@@ -505,6 +505,32 @@ test.describe('panel · lo irreversible pregunta antes', () => {
     expect(await alAceptar, 'aceptar debería llamar al servidor').toBe(true);
   });
 
+  test('borrar una imagen pregunta, y cancelar la deja donde estaba', async ({ page }) => {
+    // Este camino no se podía probar hasta que el producto de demostración tuvo
+    // imágenes (#53) — y es el borrado más irreversible del panel: desde el #43
+    // se lleva también el fichero de R2.
+    await page.goto(`${PANEL_URL}/catalogo/${ID('p1')}`);
+
+    const imagenes = page.locator('.product-images > li');
+    const antes = await imagenes.count();
+    expect(antes, 'el producto de demostración debería tener imágenes').toBeGreaterThan(0);
+
+    let preguntado = '';
+    page.once('dialog', async (dialogo) => {
+      preguntado = dialogo.message();
+      await dialogo.dismiss();
+    });
+
+    await page
+      .getByRole('button', { name: /^Borrar la imagen/ })
+      .first()
+      .click();
+
+    expect(preguntado).toMatch(/no se puede deshacer/i);
+    expect(preguntado).toMatch(/almacenamiento/i);
+    await expect(imagenes).toHaveCount(antes);
+  });
+
   test('archivar un producto también pregunta', async ({ page }) => {
     await page.goto(`${PANEL_URL}/catalogo/${ID('p1')}`);
 
@@ -522,5 +548,32 @@ test.describe('panel · lo irreversible pregunta antes', () => {
     expect(preguntado).toMatch(/deja de verse en la tienda/i);
     // Y dice cómo volver atrás, porque archivar sí se deshace.
     expect(preguntado).toMatch(/volver a publicar/i);
+  });
+});
+
+/**
+ * Dos cosas que la auditoría dejó al aire (#53 y #55).
+ */
+test.describe('panel · el listado dice lo que hay', () => {
+  test('el catálogo enseña la foto del producto, no un cuadro vacío', async ({ page }) => {
+    // La columna existía con su CSS —`.table-thumb img`— pero se pintaba un
+    // `<div>` vacío, así que eran cuadrados grises repetidos. Quien gestiona un
+    // catálogo lo reconoce por la foto antes que por el título.
+    await page.goto(`${PANEL_URL}/catalogo`);
+
+    const miniatura = page.locator('.table-thumb img').first();
+    await expect(miniatura).toBeVisible();
+    // Con texto alternativo: una miniatura sin él es ruido para un lector de
+    // pantalla, y son una por fila.
+    await expect(miniatura).toHaveAttribute('alt', /.+/);
+  });
+
+  test('un filtro sin resultados no dice que la tienda esté vacía', async ({ page }) => {
+    // Filtrar por «reembolsado» sin ninguno decía «Todavía no hay pedidos» en
+    // una tienda con mil vendidos. Asusta, y además esconde la salida.
+    await page.goto(`${PANEL_URL}/pedidos?pago=refunded&q=zzzznoexiste`);
+
+    await expect(page.getByText('Todavía no hay pedidos')).toHaveCount(0);
+    await expect(page.getByText(/ningún resultado con estos filtros/i)).toBeVisible();
   });
 });

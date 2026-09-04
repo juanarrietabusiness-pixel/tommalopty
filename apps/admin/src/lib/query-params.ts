@@ -42,3 +42,19 @@ export const PAYMENT_STATUSES = [
 export const POR_PAGINA = 50;
 
 export { paginar, parsePagina, type Paginado } from '@nebula/ui/admin';
+
+/**
+ * Qué poner cuando un listado sale vacío.
+ *
+ * Distingue «no hay nada» de «tu filtro no encontró nada», que es la diferencia
+ * entre asustarse y entender. Filtrar por «reembolsado» sin ninguno decía
+ * «Todavía no hay pedidos» en una tienda con mil vendidos.
+ *
+ * Y con filtros puestos lo que hace falta no es un mensaje de bienvenida sino
+ * la salida: por eso quien llama recibe también la dirección sin filtrar.
+ */
+export function mensajeVacio(hayFiltros: boolean, sinFiltros: string): string {
+  return hayFiltros
+    ? 'Ningún resultado con estos filtros. Prueba a quitarlos o a buscar otra cosa.'
+    : sinFiltros;
+}

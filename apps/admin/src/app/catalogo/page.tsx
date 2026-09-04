@@ -3,7 +3,7 @@ import { money, number } from '@nebula/ui';
 import { DataTable, StatusBadge } from '@nebula/ui/admin';
 import { PanelPage } from '@/components/panel-page';
 import { cargarCatalogo, type FilaCatalogo } from '@/lib/panel-data';
-import { PRODUCT_STATUSES, parseEnumParam } from '@/lib/query-params';
+import { PRODUCT_STATUSES, mensajeVacio, parseEnumParam } from '@/lib/query-params';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +15,8 @@ export default async function CatalogPage({
   searchParams: Promise<{ q?: string; estado?: string }>;
 }) {
   const { q, estado } = await searchParams;
+
+  const hayFiltros = Boolean(q || estado);
 
   const rows: CatalogRow[] = await cargarCatalogo({
     search: q,
@@ -62,14 +64,25 @@ export default async function CatalogPage({
       <DataTable
         rows={rows}
         rowKey={(row) => row.id}
-        emptyMessage="Todavía no hay productos. Crea el primero para empezar."
+        emptyMessage={mensajeVacio(
+          hayFiltros,
+          'Todavía no hay productos. Crea el primero para empezar.',
+        )}
         columns={[
           {
             key: 'title',
             header: 'Producto',
             render: (row) => (
               <div className="cell-product">
-                <div className="table-thumb" />
+                <div className="table-thumb">
+                  {/* Un `<img>` y no `next/image`: la URL viene de R2 o, en el
+                      recorrido de demostración, de un data URI, y ninguno de los
+                      dos gana nada pasando por el optimizador. */}
+                  {row.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={row.imageUrl} alt={row.imageAlt ?? ''} loading="lazy" />
+                  ) : null}
+                </div>
                 <div>
                   <Link href={`/catalogo/${row.id}`} className="cell-strong">
                     {row.title}

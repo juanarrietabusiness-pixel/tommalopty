@@ -10,6 +10,7 @@ import {
   paginar,
   parseEnumParam,
   parsePagina,
+  mensajeVacio,
 } from '@/lib/query-params';
 import { cargarPedidos } from '@/lib/panel-data';
 
@@ -32,6 +33,7 @@ export default async function OrdersPage({
   });
 
   const pagina = paginar(total, pedida, POR_PAGINA);
+  const hayFiltros = Boolean(params.q || params.estado || params.pago);
 
   // Pedir una página que no existe —un enlace viejo, un filtro que redujo la
   // lista— devolvería una tabla vacía con «1.240 pedidos» en la cabecera, que
@@ -81,7 +83,7 @@ export default async function OrdersPage({
       <DataTable
         rows={orders}
         rowKey={(order) => order.id}
-        emptyMessage="Todavía no hay pedidos."
+        emptyMessage={mensajeVacio(hayFiltros, 'Todavía no hay pedidos.')}
         columns={[
           {
             key: 'number',
