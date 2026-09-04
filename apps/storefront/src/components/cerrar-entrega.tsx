@@ -123,7 +123,19 @@ export function CerrarEntrega({
 
       // Al cerrar, de vuelta a la lista: la siguiente entrega es lo que quiere
       // ver, no la que acaba de terminar.
+      //
+      // `refresh()` antes del `push`, y no solo `push` (#56). No está demostrado
+      // que hiciera falta —a diferencia del bug de inicio de sesión (#42), aquí
+      // no cambia la sesión, y `/motorizado` es `force-dynamic`—, pero tiene la
+      // misma forma: navegar justo después de una mutación, hacia una pantalla
+      // cuyo contenido depende de esa mutación.
+      //
+      // Cuesta una línea, y el coste de equivocarse no es simétrico: si la
+      // lista siguiera enseñando la entrega recién cerrada, quien la ve está en
+      // la calle, con una mano en el manillar, y concluiría —con razón— que la
+      // foto no se guardó. Y la volvería a subir.
       if (resultado.ok && IRREVERSIBLES.includes(destino)) {
+        router.refresh();
         router.push('/motorizado');
         return;
       }

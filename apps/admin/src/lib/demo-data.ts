@@ -792,3 +792,51 @@ export const VENTAS_DIARIAS_DEMO = Array.from({ length: 14 }, (_, i) => {
     revenue: Math.round(base * variacion * 100) / 100,
   };
 });
+
+/**
+ * Imágenes de ejemplo, como data URI.
+ *
+ * Un SVG incrustado y no una URL: el modo demostración corre sin R2 y sin red,
+ * así que cualquier dirección externa daría un hueco roto — que es justo lo que
+ * esta pantalla venía a dejar de enseñar.
+ *
+ * Existen además por una razón práctica: sin imágenes en el producto de
+ * ejemplo, el camino de «borrar una imagen» no se puede recorrer ni a mano ni
+ * en un test.
+ */
+function imagenDeEjemplo(fondo: string, texto: string): string {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">` +
+    `<rect width="400" height="400" fill="${fondo}"/>` +
+    `<text x="200" y="215" font-family="sans-serif" font-size="34" fill="#ffffff" ` +
+    `text-anchor="middle">${texto}</text></svg>`;
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+export const IMAGENES_DEMO = [
+  {
+    id: uuid('i1'),
+    product_id: uuid('p1'),
+    url: imagenDeEjemplo('#3f5c46', 'Café'),
+    alt: 'Bolsa de café de ejemplo',
+    position: 0,
+    is_primary: true,
+  },
+  {
+    id: uuid('i2'),
+    product_id: uuid('p1'),
+    url: imagenDeEjemplo('#7a5c3a', 'Grano'),
+    alt: 'Granos de café de ejemplo',
+    position: 1,
+    is_primary: false,
+  },
+  {
+    id: uuid('i3'),
+    product_id: uuid('p2'),
+    url: imagenDeEjemplo('#5c4a6b', 'Taza'),
+    alt: 'Taza de ejemplo',
+    position: 0,
+    is_primary: true,
+  },
+];

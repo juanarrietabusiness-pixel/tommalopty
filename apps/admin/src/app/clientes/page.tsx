@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { DataTable, Paginacion } from '@nebula/ui/admin';
 import { PanelPage } from '@/components/panel-page';
 import { cargarClientes } from '@/lib/panel-data';
-import { POR_PAGINA, paginar, parsePagina } from '@/lib/query-params';
+import { POR_PAGINA, mensajeVacio, paginar, parsePagina } from '@/lib/query-params';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +24,7 @@ export default async function CustomersPage({
   });
 
   const pagina = paginar(total, pedida, POR_PAGINA);
+  const hayFiltros = Boolean(params.q || params.etiqueta);
 
   // Igual que en pedidos: una página que no existe se corrige en la dirección,
   // no se enseña como una tabla vacía debajo del total completo.
@@ -62,7 +63,7 @@ export default async function CustomersPage({
       <DataTable
         rows={customers}
         rowKey={(customer) => customer.id}
-        emptyMessage="Todavía no hay clientes registrados."
+        emptyMessage={mensajeVacio(hayFiltros, 'Todavía no hay clientes registrados.')}
         columns={[
           {
             key: 'name',

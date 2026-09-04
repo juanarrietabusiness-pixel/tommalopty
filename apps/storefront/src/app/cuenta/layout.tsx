@@ -3,12 +3,23 @@ import { redirect } from 'next/navigation';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
 import { SignOutButton } from '@/components/sign-out-button';
 
+/**
+ * Favoritos no está en esta lista a propósito (#52).
+ *
+ * La pantalla existe y lee `wishlist_items`, pero **nadie escribe nunca en esa
+ * tabla**: no hay botón de guardar en ninguna ficha de producto. Enlazada, solo
+ * podía decir «Todavía no has guardado productos» para siempre, y quien entraba
+ * concluía —con razón— que algo estaba roto.
+ *
+ * Se esconde en vez de borrarse: la pantalla y su consulta funcionan, y el día
+ * que exista el botón de guardar basta con devolver esta línea. Una pantalla
+ * que miente es peor que una que todavía no está.
+ */
 const ACCOUNT_LINKS = [
   { label: 'Resumen', href: '/cuenta' },
   { label: 'Mis pedidos', href: '/cuenta/pedidos' },
   { label: 'Direcciones', href: '/cuenta/direcciones' },
   { label: 'Mis datos', href: '/cuenta/datos' },
-  { label: 'Favoritos', href: '/cuenta/favoritos' },
 ];
 
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
@@ -20,9 +31,9 @@ export default async function AccountLayout({ children }: { children: React.Reac
     return (
       <div className="container">
         <div className="notice notice-info" style={{ marginBottom: 24 }}>
-          <strong>Recorrido de demostración.</strong> El área de cliente se muestra con pedidos,
-          direcciones y favoritos de ejemplo, sin base de datos ni inicio de sesión. Con Supabase
-          conectado, cada persona ve aquí sus propios datos.
+          <strong>Recorrido de demostración.</strong> El área de cliente se muestra con pedidos, y
+          direcciones de ejemplo, sin base de datos ni inicio de sesión. Con Supabase conectado,
+          cada persona ve aquí sus propios datos.
         </div>
         <div className="account-layout">
           <aside>

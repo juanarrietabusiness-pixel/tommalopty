@@ -281,6 +281,26 @@ export interface FilaCatalogo {
   price: number | null;
   sku: string | null;
   stock: number;
+  /** La principal, o la primera si ninguna lo es. `null` si el producto no tiene. */
+  imageUrl: string | null;
+  imageAlt: string | null;
+}
+
+/**
+ * La imagen que representa al producto en un listado.
+ *
+ * La principal si la hay; si no, la primera por posición. Mismo criterio que
+ * usa la ficha pública, para que el panel y la tienda no discrepen sobre cuál
+ * es «la foto» de un producto.
+ */
+function imagenPrincipal(
+  imagenes: { url: string; alt: string | null; is_primary: boolean; position: number }[],
+): { imageUrl: string | null; imageAlt: string | null } {
+  const elegida = [...imagenes].sort(
+    (a, b) => Number(b.is_primary) - Number(a.is_primary) || a.position - b.position,
+  )[0];
+
+  return { imageUrl: elegida?.url ?? null, imageAlt: elegida?.alt ?? null };
 }
 
 export async function cargarCatalogo(options: {
@@ -307,6 +327,7 @@ export async function cargarCatalogo(options: {
         price: variante?.price ?? null,
         sku: variante?.sku ?? null,
         stock: inv ? Math.max(inv.quantity - inv.reserved_quantity, 0) : 0,
+        ...imagenPrincipal(demo.IMAGENES_DEMO.filter((i) => i.product_id === p.id)),
       };
     });
   }
@@ -315,7 +336,7 @@ export async function cargarCatalogo(options: {
   let query = supabase
     .from('products')
     .select(
-      'id, title, slug, status, is_featured, product_variants (price, sku, is_default, inventory (quantity, reserved_quantity))',
+      'id, title, slug, status, is_featured, product_images (url, alt, is_primary, position), product_variants (price, sku, is_default, inventory (quantity, reserved_quantity))',
     )
     .order('created_at', { ascending: false })
     .limit(100);
@@ -334,6 +355,7 @@ export async function cargarCatalogo(options: {
       : variant?.inventory;
 
     return {
+      ...imagenPrincipal(product.product_images ?? []),
       id: product.id,
       title: product.title,
       slug: product.slug,
@@ -412,7 +434,13 @@ export async function cargarProducto(id: string): Promise<ProductoEditable | nul
       compareAtPrice: variante?.compare_at_price ?? null,
       sku: variante?.sku ?? null,
       quantity: inv?.quantity ?? null,
-      images: [],
+      images: demo.IMAGENES_DEMO.filter((i) => i.product_id === p.id).map((i) => ({
+        id: i.id,
+        url: i.url,
+        alt: i.alt,
+        position: i.position,
+        isPrimary: i.is_primary,
+      })),
       variants: demo.VARIANTES_DEMO.filter((v) => v.product_id === p.id).map((v) => {
         const stock = demo.INVENTARIO_DEMO.find((i) => i.variant_id === v.id);
         return {
