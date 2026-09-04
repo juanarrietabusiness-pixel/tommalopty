@@ -7,6 +7,7 @@ import { storage } from '@nebula/integrations';
 import { borrarAbono, registrarAbono } from '@/lib/actions/abonos';
 import { IDLE } from '@/lib/actions/result';
 import { FieldError, FormFeedback, SubmitButton, propsDeCampo } from './form';
+import { BotonDestructivo } from './boton-destructivo';
 
 const METODOS: { valor: string; etiqueta: string }[] = [
   { valor: 'manual', etiqueta: 'Efectivo o transferencia' },
@@ -137,19 +138,12 @@ export function AbonosForm({
 
 export function BorrarAbonoButton({ paymentId, orderId }: { paymentId: string; orderId: string }) {
   return (
-    <form
-      action={async () => {
-        await borrarAbono(paymentId, orderId);
-      }}
-      onSubmit={(evento) => {
-        if (!window.confirm('¿Borrar este abono? El saldo se recalculará.')) {
-          evento.preventDefault();
-        }
-      }}
+    <BotonDestructivo
+      etiqueta="Borrar este abono"
+      confirmacion="¿Borrar este abono? El saldo del pedido se recalcula y no se puede deshacer."
+      alConfirmar={() => borrarAbono(paymentId, orderId)}
     >
-      <button type="submit" className="btn btn-outline btn-sm">
-        Borrar
-      </button>
-    </form>
+      Borrar
+    </BotonDestructivo>
   );
 }
