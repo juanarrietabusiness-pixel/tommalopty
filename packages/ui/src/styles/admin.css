@@ -1451,3 +1451,139 @@
 .tabla-scroll {
   overflow-x: auto;
 }
+
+/* ============================================================================
+   ESQUELETO DE CARGA Y PANTALLA DE ERROR (#47)
+   ========================================================================== */
+
+/*
+ * El esqueleto que se ve mientras carga una pantalla del panel.
+ *
+ * Las medidas no son decorativas: reproducen la altura de lo que van a
+ * sustituir para que al llegar el contenido real no salte nada de sitio.
+ */
+.esqueleto {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, #e7eae2 25%, #f2f4ee 37%, #e7eae2 63%);
+  background-size: 400% 100%;
+  animation: esqueleto-brillo 1.4s ease infinite;
+}
+
+/* Dentro de la barra lateral, que es oscura, el mismo gris no se ve. */
+.admin-sidebar .esqueleto {
+  background: rgba(255, 255, 255, 0.07);
+  animation: esqueleto-latido 1.4s ease infinite;
+}
+
+.esqueleto-marca {
+  width: 132px;
+  height: 22px;
+}
+.esqueleto-titulo {
+  width: 84px;
+  height: 9px;
+  margin: 14px 0 10px 8px;
+}
+.esqueleto-enlace {
+  height: 30px;
+  margin: 0 0 6px;
+}
+.esqueleto-h1 {
+  width: 220px;
+  height: 17px;
+}
+.esqueleto-bloque {
+  height: 168px;
+  margin-bottom: 18px;
+}
+
+@keyframes esqueleto-brillo {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+@keyframes esqueleto-latido {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/*
+ * Una animación que no para es justo lo que hay que apagar aquí: para quien
+ * marca «reducir movimiento» esto es una pantalla entera parpadeando. Se queda
+ * la forma, se va el movimiento.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto,
+  .admin-sidebar .esqueleto {
+    animation: none;
+  }
+}
+
+/*
+ * La pantalla de error. No hereda del armazón porque no puede: cuando esto se
+ * pinta, la consulta que monta el menú es justo la que ha fallado.
+ */
+.admin-error {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 72px 24px;
+  text-align: center;
+}
+.admin-error h1 {
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin: 0 0 12px;
+}
+.admin-error p {
+  color: var(--color-muted);
+  line-height: 1.6;
+  margin: 0 0 24px;
+}
+.admin-error-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/*
+ * El punto que gira en el enlace que se acaba de pulsar.
+ *
+ * Va aquí y no en un `loading.tsx` porque el respaldo de un `Suspense` no llega
+ * a verse en una navegación de cliente: React mantiene la pantalla anterior
+ * mientras dura la transición. Este indicador sí sobrevive, porque vive dentro
+ * del enlace y no del contenido que se está sustituyendo.
+ */
+.admin-nav-cargando {
+  width: 12px;
+  height: 12px;
+  margin-left: auto;
+  flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: admin-nav-girar 0.7s linear infinite;
+}
+
+@keyframes admin-nav-girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/*
+ * Sin movimiento, el indicador tiene que seguir diciendo lo mismo: se queda
+ * quieto y se distingue por el color, no por el giro.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .admin-nav-cargando {
+    animation: none;
+    border-color: var(--color-accent);
+  }
+}

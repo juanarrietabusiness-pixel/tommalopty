@@ -255,3 +255,58 @@ test.describe('panel · recorrido de demostración', () => {
     });
   });
 });
+
+/**
+ * Las tres pantallas que el panel no tenía (#47).
+ *
+ * Las 25 pantallas son `force-dynamic` y consultan la base antes de pintar
+ * nada, y no había ni `loading.tsx`, ni `error.tsx`, ni `not-found.tsx`. Se
+ * notaba en dos sitios: al pulsar un enlace del menú no pasaba nada visible
+ * hasta que respondía el servidor, y un registro borrado caía en el 404 pelado
+ * de Next —sin menú, sin vuelta atrás— en mitad de una sesión iniciada.
+ */
+test.describe('panel · carga, error y no encontrado', () => {
+  test('una dirección que no existe cae dentro del panel, con su menú', async ({ page }) => {
+    await page.goto(`${PANEL_URL}/esta-ruta-no-existe`);
+
+    await expect(page.getByRole('heading', { name: /aquí no hay nada/i })).toBeVisible();
+    // Lo que lo diferencia del 404 por defecto: sigue habiendo por dónde salir.
+    await expect(page.getByRole('navigation', { name: /navegación del panel/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /ir al resumen/i })).toBeVisible();
+  });
+
+  test('un registro que ya no existe también', async ({ page }) => {
+    // El caso real: alguien abre el enlace guardado de un pedido que se borró.
+    await page.goto(`${PANEL_URL}/catalogo/${ID('ffff')}`);
+
+    await expect(page.getByRole('heading', { name: /aquí no hay nada/i })).toBeVisible();
+  });
+
+  test('el enlace pulsado avisa de que está trabajando', async ({ page }) => {
+    // El fallo tal y como se sentía: pulsas una sección, no pasa nada visible
+    // hasta que responde el servidor, y vuelves a pulsar.
+    //
+    // Se retrasa la respuesta a propósito, porque el servidor de demostración
+    // contesta al instante y esto solo aparece cuando la base tarda — que es
+    // exactamente el caso para el que existe. El retraso alcanza también a la
+    // precarga, y tiene que alcanzarla: Next pide `/clientes` en cuanto el
+    // enlace entra en pantalla, así que al pulsar ya la tendría hecha. Por eso
+    // la ruta se instala ANTES de abrir la página.
+    //
+    // Retrasarla, no descartarla: si la precarga falla, Next se cae a una
+    // navegación de documento completo y esto no participa. El test daría
+    // negativo por el motivo equivocado.
+    await page.route('**/clientes**', async (route) => {
+      await new Promise((listo) => setTimeout(listo, 1500));
+      await route.continue();
+    });
+
+    await page.goto(`${PANEL_URL}/`);
+    await page.getByRole('link', { name: 'Clientes / CRM' }).click();
+
+    // `toBeAttached` y no `toBeVisible`: lo que se afirma es el texto para
+    // lectores de pantalla, que va oculto a la vista a propósito. El punto que
+    // gira es su equivalente visible.
+    await expect(page.getByText('Cargando Clientes / CRM')).toBeAttached();
+  });
+});
