@@ -1,8 +1,16 @@
 import Link from 'next/link';
 import { money, shortDate } from '@nebula/ui';
-import { DataTable, StatusBadge } from '@nebula/ui/admin';
+import { redirect } from 'next/navigation';
+import { DataTable, Paginacion, StatusBadge } from '@nebula/ui/admin';
 import { PanelPage } from '@/components/panel-page';
-import { ORDER_STATUSES, PAYMENT_STATUSES, parseEnumParam } from '@/lib/query-params';
+import {
+  ORDER_STATUSES,
+  PAYMENT_STATUSES,
+  POR_PAGINA,
+  paginar,
+  parseEnumParam,
+  parsePagina,
+} from '@/lib/query-params';
 import { cargarPedidos } from '@/lib/panel-data';
 
 export const dynamic = 'force-dynamic';
@@ -10,14 +18,26 @@ export const dynamic = 'force-dynamic';
 export default async function OrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; estado?: string; pago?: string }>;
+  searchParams: Promise<{ q?: string; estado?: string; pago?: string; pagina?: string }>;
 }) {
   const params = await searchParams;
+  const pedida = parsePagina(params.pagina);
+
   const { orders, total } = await cargarPedidos({
     search: params.q,
     status: parseEnumParam(params.estado, ORDER_STATUSES),
     paymentStatus: parseEnumParam(params.pago, PAYMENT_STATUSES),
+    limit: POR_PAGINA,
+    offset: (pedida - 1) * POR_PAGINA,
   });
+
+  const pagina = paginar(total, pedida, POR_PAGINA);
+
+  // Pedir una página que no existe —un enlace viejo, un filtro que redujo la
+  // lista— devolvería una tabla vacía con «1.240 pedidos» en la cabecera, que
+  // es justo la contradicción que esto venía a quitar. Se corrige la dirección
+  // en vez de enseñar el hueco.
+  if (pagina.pagina !== pedida) redirect(hrefDePagina(params, pagina.pagina));
 
   return (
     <PanelPage title="Pedidos" description={`${total} pedidos registrados.`}>
@@ -92,6 +112,31 @@ export default async function OrdersPage({
           },
         ]}
       />
+
+      <Paginacion
+        pagina={pagina.pagina}
+        totalPaginas={pagina.totalPaginas}
+        desde={pagina.desde}
+        hasta={pagina.hasta}
+        total={total}
+        nombre="pedidos"
+        hrefDePagina={(n) => hrefDePagina(params, n)}
+      />
     </PanelPage>
   );
+}
+
+/** La misma dirección con otra página, conservando los filtros puestos. */
+function hrefDePagina(
+  params: { q?: string; estado?: string; pago?: string },
+  pagina: number,
+): string {
+  const busqueda = new URLSearchParams();
+  if (params.q) busqueda.set('q', params.q);
+  if (params.estado) busqueda.set('estado', params.estado);
+  if (params.pago) busqueda.set('pago', params.pago);
+  if (pagina > 1) busqueda.set('pagina', String(pagina));
+
+  const cola = busqueda.toString();
+  return cola ? `/pedidos?${cola}` : '/pedidos';
 }

@@ -1,21 +1,33 @@
 import Link from 'next/link';
 import { money, number, shortDate } from '@nebula/ui';
-import { DataTable } from '@nebula/ui/admin';
+import { redirect } from 'next/navigation';
+import { DataTable, Paginacion } from '@nebula/ui/admin';
 import { PanelPage } from '@/components/panel-page';
 import { cargarClientes } from '@/lib/panel-data';
+import { POR_PAGINA, paginar, parsePagina } from '@/lib/query-params';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; etiqueta?: string }>;
+  searchParams: Promise<{ q?: string; etiqueta?: string; pagina?: string }>;
 }) {
   const params = await searchParams;
+  const pedida = parsePagina(params.pagina);
+
   const { customers, total, tags } = await cargarClientes({
     search: params.q,
     tag: params.etiqueta,
+    limit: POR_PAGINA,
+    offset: (pedida - 1) * POR_PAGINA,
   });
+
+  const pagina = paginar(total, pedida, POR_PAGINA);
+
+  // Igual que en pedidos: una página que no existe se corrige en la dirección,
+  // no se enseña como una tabla vacía debajo del total completo.
+  if (pagina.pagina !== pedida) redirect(hrefDePagina(params, pagina.pagina));
 
   return (
     <PanelPage
@@ -101,6 +113,27 @@ export default async function CustomersPage({
           },
         ]}
       />
+
+      <Paginacion
+        pagina={pagina.pagina}
+        totalPaginas={pagina.totalPaginas}
+        desde={pagina.desde}
+        hasta={pagina.hasta}
+        total={total}
+        nombre="fichas"
+        hrefDePagina={(n) => hrefDePagina(params, n)}
+      />
     </PanelPage>
   );
+}
+
+/** La misma dirección con otra página, conservando los filtros puestos. */
+function hrefDePagina(params: { q?: string; etiqueta?: string }, pagina: number): string {
+  const busqueda = new URLSearchParams();
+  if (params.q) busqueda.set('q', params.q);
+  if (params.etiqueta) busqueda.set('etiqueta', params.etiqueta);
+  if (pagina > 1) busqueda.set('pagina', String(pagina));
+
+  const cola = busqueda.toString();
+  return cola ? `/clientes?${cola}` : '/clientes';
 }

@@ -32,3 +32,13 @@ export const PAYMENT_STATUSES = [
   'failed',
   'cancelled',
 ] as const;
+
+/**
+ * Cuántas filas por página en los listados paginados del panel.
+ *
+ * Las cuentas viven en `@nebula/ui/admin` —junto al componente que las pinta y
+ * donde hay con qué probarlas—; aquí queda solo la política de esta aplicación.
+ */
+export const POR_PAGINA = 50;
+
+export { paginar, parsePagina, type Paginado } from '@nebula/ui/admin';

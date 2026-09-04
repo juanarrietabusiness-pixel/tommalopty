@@ -33,6 +33,7 @@ import {
 import { getSupabaseServerClient, isSupabaseConfigured } from './supabase';
 import { esModoDemostracion } from './demo-mode';
 import * as demo from './demo-data';
+import { POR_PAGINA } from './query-params';
 
 /**
  * Capa de lectura del panel.
@@ -156,6 +157,8 @@ export async function cargarPedidos(options: {
   search?: string;
   status?: Enums<'order_status'>;
   paymentStatus?: Enums<'payment_status'>;
+  limit?: number;
+  offset?: number;
 }) {
   if (esModoDemostracion()) {
     const filtrados = demo.PEDIDOS_DEMO.filter((p) => {
@@ -169,11 +172,15 @@ export async function cargarPedidos(options: {
       }
       return true;
     });
-    return { orders: filtrados, total: filtrados.length };
+    // El modo demostración también pagina: si no, la pantalla se comporta
+    // distinto según haya base o no, y lo que se enseña deja de ser lo que hay.
+    const desde = options.offset ?? 0;
+    const hasta = desde + (options.limit ?? POR_PAGINA);
+    return { orders: filtrados.slice(desde, hasta), total: filtrados.length };
   }
 
   const supabase = await getSupabaseServerClient();
-  return listOrders(supabase, { ...options, limit: 50 });
+  return listOrders(supabase, { ...options, limit: options.limit ?? POR_PAGINA });
 }
 
 export async function cargarPedido(id: string) {
@@ -202,7 +209,12 @@ export async function cargarPedido(id: string) {
 
 /* --- Clientes / CRM -------------------------------------------------------- */
 
-export async function cargarClientes(options: { search?: string; tag?: string }) {
+export async function cargarClientes(options: {
+  search?: string;
+  tag?: string;
+  limit?: number;
+  offset?: number;
+}) {
   if (esModoDemostracion()) {
     const filtrados = demo.CLIENTES_DEMO.filter((c) => {
       if (options.tag && !c.tags.includes(options.tag)) return false;
@@ -214,8 +226,11 @@ export async function cargarClientes(options: { search?: string; tag?: string })
       return true;
     });
 
+    const desde = options.offset ?? 0;
+    const hasta = desde + (options.limit ?? POR_PAGINA);
+
     return {
-      customers: filtrados,
+      customers: filtrados.slice(desde, hasta),
       total: filtrados.length,
       tags: demo.ETIQUETAS_DEMO.map((t) => ({ id: t.id, name: t.name })),
     };
@@ -223,7 +238,7 @@ export async function cargarClientes(options: { search?: string; tag?: string })
 
   const supabase = await getSupabaseServerClient();
   const [{ customers, total }, { data: tags }] = await Promise.all([
-    listCustomers(supabase, { ...options, limit: 50 }),
+    listCustomers(supabase, { ...options, limit: options.limit ?? POR_PAGINA }),
     supabase.from('crm_tags').select('id, name'),
   ]);
 
