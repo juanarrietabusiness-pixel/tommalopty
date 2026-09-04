@@ -37,8 +37,18 @@ export default async function CatalogPage({
       }
     >
       <form className="toolbar" action="/catalogo" method="get">
-        <input type="search" name="q" defaultValue={q ?? ''} placeholder="Buscar por título…" />
-        <select name="estado" defaultValue={estado ?? ''}>
+        <input
+          type="search"
+          name="q"
+          defaultValue={q ?? ''}
+          placeholder="Buscar por título…"
+          aria-label="Buscar productos por título"
+        />
+        <select
+          name="estado"
+          aria-label="Filtrar por estado del producto"
+          defaultValue={estado ?? ''}
+        >
           <option value="">Todos los estados</option>
           <option value="active">Activos</option>
           <option value="draft">Borradores</option>

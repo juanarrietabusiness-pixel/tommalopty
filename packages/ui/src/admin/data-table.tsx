@@ -26,7 +26,14 @@ export function DataTable<T>({ columns, rows, rowKey, emptyMessage }: DataTableP
   }
 
   return (
-    <div className="table-wrap">
+    // `tabIndex` y `role="region"` porque esta caja se desplaza a lo ancho: en
+    // un teléfono una tabla ancha no cabe y `overflow-x: auto` la deja rodar.
+    // Sin foco, quien navega con teclado no puede moverla y las columnas de la
+    // derecha son inalcanzables. Lo cazó la auditoría del panel (#50).
+    //
+    // El nombre accesible es obligatorio en una región; sin él, un lector de
+    // pantalla anuncia «región» y no dice de qué.
+    <div className="table-wrap" tabIndex={0} role="region" aria-label="Tabla de datos">
       <table className="data-table">
         <thead>
           <tr>

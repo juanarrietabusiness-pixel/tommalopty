@@ -56,7 +56,12 @@
   font-size: 0.62rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #6f7a70;
+  /* 5.6:1 sobre `--color-primary-dark` (#0e2a20). El anterior —#6f7a70— daba
+   * 3.4:1 y no llegaba al 4.5:1 que pide WCAG AA: los títulos del menú se leían
+   * mal con poca luz o con la pantalla en ángulo. Lo cazó la auditoría al
+   * empezar a mirar el panel (#50), y salía en 19 de las 20 pantallas porque
+   * la barra lateral está en todas. */
+  color: #93a094;
   margin: 0 0 8px 10px;
   font-weight: 700;
 }
@@ -82,7 +87,16 @@
   color: #fff;
 }
 .admin-nav a[aria-current='page'] {
-  background: var(--color-accent);
+  /* El acento de marca (#ff5a1f) con texto blanco da 3.1:1, por debajo del
+   * 4.5:1 de WCAG AA — y este es el elemento que dice en qué pantalla estás.
+   * Se usa `--color-accent-darker`, que ya está en la paleta, en vez de
+   * inventar un color: 6.8:1, y sigue siendo el naranja de la marca.
+   *
+   * La alternativa era dejar el naranja vivo y poner el texto oscuro (5.6:1).
+   * Se descartó porque en una barra oscura el texto claro es lo que hay en
+   * todos los demás enlaces, y cambiarlo solo en el activo lo haría parecer
+   * deshabilitado. */
+  background: var(--color-accent-darker);
   color: #fff;
   font-weight: 600;
 }
@@ -101,7 +115,9 @@
   font-size: 0.8rem;
 }
 .admin-sidebar-footer span {
-  color: #7d8377;
+  /* 5.6:1 sobre la barra oscura; el anterior —#7d8377— daba 3.9:1. Es el rol de
+   * quien tiene la sesión abierta, así que conviene poder leerlo. */
+  color: #93a094;
 }
 
 /* --- Cabecera y contenido -------------------------------------------------- */

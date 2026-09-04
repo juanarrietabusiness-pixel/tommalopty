@@ -47,8 +47,13 @@ export default async function OrdersPage({
           name="q"
           defaultValue={params.q ?? ''}
           placeholder="Buscar por número o email…"
+          aria-label="Buscar pedidos por número o email"
         />
-        <select name="estado" defaultValue={params.estado ?? ''}>
+        <select
+          name="estado"
+          aria-label="Filtrar por estado del pedido"
+          defaultValue={params.estado ?? ''}
+        >
           <option value="">Todos los estados</option>
           <option value="pending">Pendiente</option>
           <option value="confirmed">Confirmado</option>
@@ -57,7 +62,11 @@ export default async function OrdersPage({
           <option value="delivered">Entregado</option>
           <option value="cancelled">Cancelado</option>
         </select>
-        <select name="pago" defaultValue={params.pago ?? ''}>
+        <select
+          name="pago"
+          aria-label="Filtrar por estado del pago"
+          defaultValue={params.pago ?? ''}
+        >
           <option value="">Cualquier pago</option>
           <option value="pending">Pago pendiente</option>
           <option value="paid">Pagado</option>
