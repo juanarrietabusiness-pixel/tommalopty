@@ -24,6 +24,7 @@
 > Mientras tanto la base va **por delante** de la aplicación desplegada, y se
 > revisó que no rompe nada: `validate_discount` no cambió de firma, y la
 > aplicación publicada es anterior a la bóveda y no consulta su tabla.
+
 > Este documento es el punto de entrada para quien retome el trabajo. Dice qué
 > hay publicado, qué está roto, qué se sabe de cada fallo abierto y qué se
 > aprendió por las malas. El plan de a dónde vamos está en
@@ -40,10 +41,12 @@
 > revocado y, desde el 3 de septiembre, la tabla `integration_credentials` creada
 > y verificada—. Lo que queda de esa lista cuelga casi todo de **comprar el
 > dominio**, más dos cosas: para que la bóveda funcione de verdad falta **poner la
-> variable `CREDENCIALES_CLAVE_MAESTRA` y volver a publicar** (una persona), y
-> **CI puede seguir avisando de una única línea, `PostgrestVersion`**, ahora que
-> los tipos se regeneraron de verdad. El secreto de la bóveda es el P2 número 4;
-> lo demás cerrado el 3 de septiembre está en la nota del apartado 3.
+> variable `CREDENCIALES_CLAVE_MAESTRA` y volver a publicar** (una persona, P2
+> número 4), y **CI sigue avisando de que los tipos difieren** — pero ya se sabe
+> exactamente por qué, y no es deriva de esquema: la sección `public` del diff
+> está vacía, y lo que sobra son los esquemas `graphql_public` y `storage` que
+> genera el CLI y no el generador que se usó ([#5](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/5)).
+> Lo demás cerrado el 3 de septiembre está en la nota del apartado 3.
 
 ---
 
