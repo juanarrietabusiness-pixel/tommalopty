@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { LogoMark } from '../components/icons';
+import { NavLinkContent } from './nav-link-content';
 
 export interface AdminNavItem {
   label: string;
@@ -68,8 +69,7 @@ export function AdminSidebar({ brandName, groups, currentPath, user }: AdminSide
               {group.items.map((item) => (
                 <li key={item.href}>
                   <Link href={item.href} aria-current={item.href === activo ? 'page' : undefined}>
-                    {item.icon}
-                    {item.label}
+                    <NavLinkContent icon={item.icon} label={item.label} />
                   </Link>
                 </li>
               ))}
