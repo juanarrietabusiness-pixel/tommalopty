@@ -123,3 +123,49 @@ export async function storeMedia(input: {
 
   return { ok: true, url, key };
 }
+
+/**
+ * Borra de R2 el objeto al que apunta una URL guardada.
+ *
+ * Existe porque hasta ahora no existía: borrar una imagen quitaba su fila de
+ * `product_images` y dejaba el fichero en el bucket **para siempre**. Cada
+ * imagen borrada desde que la tienda existe sigue ahí ocupando y costando.
+ *
+ * Nunca lanza, y devuelve qué pasó en vez de un booleano, porque quien llama
+ * necesita distinguir dos casos que se arreglan distinto:
+ *
+ * - `sin-clave`: la URL no es de nuestro dominio de medios, así que no hay nada
+ *   que borrar con seguridad. Pasa con imágenes anteriores a un cambio de
+ *   dominio público, y esas las recoge un barrido de huérfanos, no esto.
+ * - `error`: el bucket estaba y falló. Ahí sí hay un huérfano nuevo y conviene
+ *   que quede en el log.
+ *
+ * El orden lo decide quien llama, y la convención del proyecto —la de
+ * `borrarAbono`— es borrar primero la fila y después el objeto: si el objeto
+ * sobrevive, hay basura; si sobrevive la fila, hay una imagen rota en el
+ * catálogo, que es peor.
+ */
+export type DeleteMediaResult =
+  { ok: true; key: string } | { ok: false; reason: 'sin-bucket' | 'sin-clave' | 'error' };
+
+export async function deleteMediaByUrl(url: string): Promise<DeleteMediaResult> {
+  const clave = storage.mediaKeyFromUrl(url, process.env.NEXT_PUBLIC_R2_PUBLIC_URL);
+
+  if (!clave) {
+    console.warn(
+      `[media] no se pudo deducir la clave de "${url}": queda un huérfano en el bucket.`,
+    );
+    return { ok: false, reason: 'sin-clave' };
+  }
+
+  const bucket = getMediaBucket();
+  if (!bucket) return { ok: false, reason: 'sin-bucket' };
+
+  try {
+    await bucket.delete(clave);
+    return { ok: true, key: clave };
+  } catch (error) {
+    console.error(`[media] no se pudo borrar "${clave}" de R2`, error);
+    return { ok: false, reason: 'error' };
+  }
+}

@@ -6,6 +6,7 @@ import { isMenuLocation, normalizeMenuItems } from '@nebula/domain';
 import { getSupabaseServerClient } from '@/lib/supabase';
 import { toBlocks, toMenuJson } from '@/lib/cms-blocks';
 import { requireAdmin } from '@/lib/auth';
+import { deleteMediaByUrl } from '@/lib/storage';
 import {
   bloqueadoEnDemostracion,
   checkWrite,
@@ -78,10 +79,26 @@ export async function saveBanner(
   // El INSERT sí devuelve error si RLS lo rechaza; el UPDATE no, por eso se
   // comprueban las filas afectadas.
   if (input.id) {
+    // Qué imagen tenía antes, para poder limpiarla si la cambian. Se lee antes
+    // del UPDATE: después ya no hay forma de saber cuál era.
+    const { data: previo } = await supabase
+      .from('cms_banners')
+      .select('media_url')
+      .eq('id', input.id)
+      .maybeSingle();
+
     const problema = checkWrite(
       await supabase.from('cms_banners').update(payload).eq('id', input.id).select('id'),
     );
     if (problema) return problema;
+
+    // Cambiar la imagen de un banner dejaba la anterior en R2 para siempre.
+    // Solo se borra si de verdad cambió: guardar el formulario sin tocarla no
+    // debe llevarse la imagen que se sigue usando.
+    const anterior = previo?.media_url;
+    if (anterior && anterior !== payload.media_url) {
+      await deleteMediaByUrl(anterior);
+    }
   } else {
     const { error } = await supabase.from('cms_banners').insert(payload);
     if (error) return fromDatabaseError(error);
@@ -98,12 +115,25 @@ export async function deleteBanner(bannerId: string): Promise<ActionResult> {
   if (demo) return demo;
 
   const supabase = await getSupabaseServerClient();
+
+  // La URL de la imagen, antes de borrar la fila: es lo único que apunta al
+  // objeto en R2.
+  const { data: banner } = await supabase
+    .from('cms_banners')
+    .select('media_url')
+    .eq('id', bannerId)
+    .maybeSingle();
+
   const problema = checkWrite(
     await supabase.from('cms_banners').delete().eq('id', bannerId).select('id'),
     'No se borró el banner: tu rol no tiene permiso.',
   );
 
   if (problema) return problema;
+
+  // Después de la fila, como en el resto del proyecto: un huérfano en el bucket
+  // es molesto; un banner que apunta a una imagen que ya no existe, visible.
+  if (banner?.media_url) await deleteMediaByUrl(banner.media_url);
 
   revalidatePath('/contenido/banners');
   return success('Banner eliminado.');
