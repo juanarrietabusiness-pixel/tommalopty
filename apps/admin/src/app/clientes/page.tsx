@@ -40,8 +40,13 @@ export default async function CustomersPage({
           name="q"
           defaultValue={params.q ?? ''}
           placeholder="Buscar por nombre o email…"
+          aria-label="Buscar clientes por nombre o email"
         />
-        <select name="etiqueta" defaultValue={params.etiqueta ?? ''}>
+        <select
+          name="etiqueta"
+          aria-label="Filtrar por etiqueta"
+          defaultValue={params.etiqueta ?? ''}
+        >
           <option value="">Todas las etiquetas</option>
           {(tags ?? []).map((tag) => (
             <option key={tag.id} value={tag.name}>

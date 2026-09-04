@@ -261,7 +261,10 @@ button {
 .notice-warning {
   border-color: rgba(180, 83, 9, 0.3);
   background: rgba(180, 83, 9, 0.08);
-  color: var(--color-warning);
+  /* Mismo caso que `.tag-warning`: sobre su propio tinte, `--color-warning`
+   * queda en 4.50:1 clavado — es decir, en el filo, donde cualquier ajuste del
+   * fondo lo tira por debajo. #8f4207 da 6.4:1 y deja margen. */
+  color: #8f4207;
 }
 
 /* --- Etiquetas ------------------------------------------------------------ */
@@ -280,8 +283,15 @@ button {
   color: var(--color-muted);
 }
 .tag-accent {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
+  /* El acento vivo con texto blanco da 3.1:1, por debajo del 4.5:1 de AA. Es la
+   * misma corrección que se hizo en el enlace activo del menú, y por el mismo
+   * motivo: `--color-accent-darker` ya está en la paleta y sigue siendo el
+   * naranja de la marca, con 6.8:1.
+   *
+   * Esta regla la comparten el panel y la tienda, así que también arregla las
+   * etiquetas de «Destacado» del catálogo público. */
+  background: var(--color-accent-darker);
+  border-color: var(--color-accent-darker);
   color: #fff;
 }
 .tag-dark {
@@ -295,7 +305,14 @@ button {
   background: rgba(31, 122, 77, 0.1);
 }
 .tag-warning {
-  color: var(--color-warning);
+  /* Más oscuro que `--color-warning` a propósito, y solo aquí.
+   *
+   * El token vale sobre blanco, pero la etiqueta se pinta sobre un 10 % de sí
+   * misma —#f8eee6—, y ahí el mismo color cae a 4.39:1: por debajo del 4.5:1
+   * que pide AA, por poco y por eso mismo invisible en una revisión a ojo.
+   * Con #8f4207 sube a 6.2:1. Sus hermanas `success` (4.66) y `danger` (5.58)
+   * ya pasaban, así que no se tocan. */
+  color: #8f4207;
   border-color: rgba(180, 83, 9, 0.35);
   background: rgba(180, 83, 9, 0.1);
 }

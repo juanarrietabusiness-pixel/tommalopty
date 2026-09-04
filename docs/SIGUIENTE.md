@@ -134,5 +134,12 @@ Los end-to-end incluyen una **auditoría de accesibilidad WCAG 2.1 AA** en cada
 PR, y desde la auditoría de interfaz también comprueban que ninguna pantalla se
 desborde a lo ancho y que ningún campo baje de 16px en un dispositivo táctil.
 
+Qué cubre esa auditoría, dicho con precisión —porque hasta el 4 de septiembre la
+frase de arriba prometía más de lo que había—: las cinco pantallas del embudo de
+compra, **las veinte del panel**, la aplicación del motorizado, y una pantalla
+**con un error a la vista** tras enviar un formulario. Ese último caso importa
+más de lo que parece: axe solo ve lo que está pintado, así que auditar siempre
+el estado inicial deja fuera justo los mensajes que aparecen al fallar.
+
 En un entorno sin los navegadores de Playwright instalados:
 `PLAYWRIGHT_CHROMIUM_PATH=/ruta/a/chromium pnpm test:e2e`.

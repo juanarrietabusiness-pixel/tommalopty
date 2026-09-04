@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { PANEL_URL } from '../playwright.config';
 
 /**
  * Auditoría de accesibilidad con axe.
@@ -100,5 +101,84 @@ test.describe('semántica para lectores de pantalla', () => {
     await expect(page.getByRole('button', { name: /abrir carrito/i })).toBeVisible();
     await expect(page.getByRole('link', { name: /buscar/i })).toBeVisible();
     await expect(page.getByRole('link', { name: /mi cuenta/i })).toBeVisible();
+  });
+});
+
+/**
+ * El panel, que es donde se pasan ocho horas (#50).
+ *
+ * Hasta aquí la auditoría miraba cinco rutas de la tienda y ninguna del panel.
+ * Quien lo usa a diario es el equipo, y era justo lo que nadie comprobaba.
+ *
+ * Corre en modo demostración, contra el servidor del panel: sin base de datos,
+ * así que no hace falta sesión ni datos reales.
+ */
+const PANTALLAS_DEL_PANEL = [
+  ['resumen', '/'],
+  ['acceso', '/entrar'],
+  ['pedidos', '/pedidos'],
+  ['clientes', '/clientes'],
+  ['catálogo', '/catalogo'],
+  ['producto nuevo', '/catalogo/nuevo'],
+  ['categorías', '/catalogo/categorias'],
+  ['inventario', '/catalogo/inventario'],
+  ['importar', '/catalogo/importar'],
+  ['descuentos', '/descuentos'],
+  ['despacho', '/despacho'],
+  ['motorizados', '/motorizados'],
+  ['banners', '/contenido/banners'],
+  ['páginas', '/contenido/paginas'],
+  ['menús', '/contenido/menus'],
+  ['reportes', '/reportes'],
+  ['usuarios', '/usuarios'],
+  ['zonas', '/configuracion/zonas'],
+  ['integraciones', '/configuracion'],
+  ['almacenamiento', '/configuracion/almacenamiento'],
+] as const;
+
+test.describe('accesibilidad del panel', () => {
+  for (const [nombre, ruta] of PANTALLAS_DEL_PANEL) {
+    test(`panel · ${nombre} sin violaciones WCAG 2.1 AA`, async ({ page }) => {
+      await page.goto(`${PANEL_URL}${ruta}`);
+      const { violations } = await auditar(page);
+
+      expect(violations, describir(violations)).toEqual([]);
+    });
+  }
+});
+
+/**
+ * La pantalla con un error a la vista.
+ *
+ * axe solo ve lo que está pintado, así que auditar en el estado inicial deja
+ * fuera precisamente los mensajes que aparecen tras enviar un formulario — que
+ * es donde estaba el hueco del #49 y donde nadie lo habría visto.
+ */
+test.describe('accesibilidad con un error en pantalla', () => {
+  test('el panel, tras un envío que falla', async ({ page }) => {
+    await page.goto(`${PANEL_URL}/contenido/banners`);
+    await page
+      .getByRole('button', { name: /guardar/i })
+      .first()
+      .click();
+
+    // Se espera al aviso antes de auditar: auditar sin él es volver a mirar el
+    // estado inicial con otro nombre.
+    await expect(page.getByRole('alert').filter({ hasText: /no se guarda nada/i })).toBeVisible();
+
+    const { violations } = await auditar(page);
+    expect(violations, describir(violations)).toEqual([]);
+  });
+});
+
+/**
+ * La aplicación del motorizado: en la calle, en un teléfono y con una mano.
+ */
+test.describe('accesibilidad de la aplicación del motorizado', () => {
+  test('sin violaciones WCAG 2.1 AA', async ({ page }) => {
+    await page.goto('/motorizado');
+    const { violations } = await auditar(page);
+
+    expect(violations, describir(violations)).toEqual([]);
   });
 });
