@@ -162,7 +162,7 @@ jobs:
             exit 0
           fi
 
-          echo "::warning::Los tipos generados difieren del esquema. Ejecuta 'pnpm db:types' y commitea. Ver issue #5."
+          echo "::error::Los tipos generados difieren del esquema. Ejecuta 'pnpm db:types' y commitea. Ver issue #5."
 
           diff -u packages/db/src/generated/database.types.ts /tmp/types-actuales.ts \
             | head -300 > /tmp/types.diff || true
@@ -181,6 +181,17 @@ jobs:
             cat /tmp/types.diff
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+          # Falla el job, y no solo avisa. Esta es la segunda mitad del issue #5,
+          # y solo se pudo activar cuando el diff salió vacío por primera vez
+          # (4 de septiembre): mientras avisaba sin bloquear, la diferencia se
+          # acumuló desde agosto sin que nadie la mirara.
+          #
+          # Si esto se pone rojo tras actualizar la CLI de Supabase, lo más
+          # probable es que el generador haya cambiado su salida. La respuesta es
+          # regenerar y commitear —`pnpm db:types`—, no bajar esto a aviso otra
+          # vez: el fichero generado debe seguir a su generador.
+          exit 1
 
   build:
     name: Build de producción
