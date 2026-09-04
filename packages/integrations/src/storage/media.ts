@@ -158,3 +158,64 @@ export function publicMediaUrl(key: string, baseUrl: string | undefined): string
   if (!baseUrl) return null;
   return `${baseUrl.replace(/\/+$/, '')}/${key}`;
 }
+
+/**
+ * La inversa de `publicMediaUrl`: de la URL guardada a la clave del objeto.
+ *
+ * Hace falta porque `product_images` guarda **solo la URL**, no la clave. Sin
+ * esto, borrar una imagen quita la fila de la base y deja el fichero en R2 para
+ * siempre — que es exactamente la basura que se acumuló hasta ahora.
+ *
+ * Es una ruta de **borrado**, así que ante la duda devuelve `null` y no una
+ * clave aproximada: dejar un huérfano se arregla con un barrido; borrar el
+ * objeto equivocado, no. Las tres guardas, y el orden importa:
+ *
+ * 1. **El origen tiene que ser el configurado.** Una URL de otro dominio no es
+ *    nuestra y no se toca.
+ * 2. **Se descodifica antes de mirar si hay `..`**, porque `%2e%2e` es `..`
+ *    después de descodificar y no antes.
+ * 3. **La clave tiene que caer bajo un prefijo conocido** (`productos/`,
+ *    `cms/`). Aunque el bucket ya acota qué se puede borrar, esto impide que
+ *    una URL rara apunte a un objeto que no es una imagen de catálogo.
+ *
+ * Caso que **no** cubre a propósito: si el dominio público cambia, las URL
+ * viejas dejan de coincidir y devuelven `null`. Es lo correcto —no vamos a
+ * adivinar— y esos objetos los recoge el barrido de huérfanos.
+ */
+export function mediaKeyFromUrl(url: string, baseUrl: string | undefined): string | null {
+  if (!baseUrl) return null;
+
+  let objetivo: URL;
+  let base: URL;
+
+  try {
+    objetivo = new URL(url);
+    base = new URL(baseUrl);
+  } catch {
+    return null;
+  }
+
+  if (objetivo.origin !== base.origin) return null;
+
+  // El dominio público puede apuntar a una subcarpeta del bucket, así que la
+  // ruta de la base se descuenta antes de quedarse con la clave.
+  const raiz = base.pathname.replace(/\/+$/, '');
+  if (raiz && !objetivo.pathname.startsWith(`${raiz}/`)) return null;
+
+  const bruta = objetivo.pathname.slice(raiz.length).replace(/^\/+/, '');
+  if (!bruta) return null;
+
+  let clave: string;
+  try {
+    clave = decodeURIComponent(bruta);
+  } catch {
+    return null;
+  }
+
+  if (clave.includes('..')) return null;
+
+  const conocidos = Object.values(MEDIA_PREFIXES);
+  if (!conocidos.some((prefijo) => clave.startsWith(`${prefijo}/`))) return null;
+
+  return clave;
+}

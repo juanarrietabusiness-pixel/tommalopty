@@ -11,6 +11,7 @@ import {
 } from '@nebula/domain';
 import { getSupabaseServerClient } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/auth';
+import { deleteMediaByUrl } from '@/lib/storage';
 import {
   checkWrite,
   failure,
@@ -314,9 +315,11 @@ export async function deleteProductImage(
 
   const supabase = await getSupabaseServerClient();
 
+  // Se lee la `url` ANTES de borrar la fila: es lo único que apunta al objeto
+  // en R2, y después de borrarla ya no hay forma de saber qué fichero era.
   const { data: imagen, error: readError } = await supabase
     .from('product_images')
-    .select('id, is_primary')
+    .select('id, is_primary, url')
     .eq('id', imageId)
     .eq('product_id', productId)
     .maybeSingle();
@@ -335,6 +338,15 @@ export async function deleteProductImage(
   );
 
   if (problema) return problema;
+
+  // Y ahora el fichero. Después de la fila y no antes, por la misma razón que
+  // en `borrarAbono`: si falla esto queda un huérfano en el bucket, molesto
+  // pero invisible; al revés quedaría una imagen rota en el catálogo.
+  //
+  // No se propaga el fallo a quien borró: la imagen ya no está en el catálogo,
+  // que es lo que pidió. Lo que no puede es quedarse callado, y por eso
+  // `deleteMediaByUrl` lo deja en el log.
+  await deleteMediaByUrl(imagen.url);
 
   // Al borrar la principal, la siguiente pasa a serlo. Sin esto el producto se
   // queda sin imagen principal y el catálogo lo pinta sin foto teniéndolas.
