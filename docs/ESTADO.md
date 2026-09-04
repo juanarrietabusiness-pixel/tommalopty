@@ -1,29 +1,39 @@
 # Estado de la plataforma
 
-> **Última actualización:** 3 de septiembre de 2026 (auditoría de solo lectura
-> contra la infraestructura real; antes ese mismo día: migración de la bóveda
-> aplicada y tipos regenerados).
+> **Última actualización:** 4 de septiembre de 2026 (staging publicado al día,
+> con los hallazgos de la auditoría corregidos; queda la clave maestra).
 
-> ## 🔴 Lo que hay que saber antes de leer el resto
+> ## ⚠️ Lo único que falta para que la bóveda funcione
 >
-> **Staging no sirve lo que hay en `main`.** El último despliegue es del 2 de
-> septiembre (commit `eea6af6`) y desde entonces hay **12 commits mergeados sin
-> publicar**: la bóveda y su pantalla, importar productos, los eventos de Meta,
-> los arreglos de interfaz en móvil y todo el PR #36.
+> **Falta poner el secreto `CREDENCIALES_CLAVE_MAESTRA` y volver a publicar.**
+> Hasta entonces la pantalla de Integraciones no deja pegar credenciales y todo
+> se sigue leyendo de variables de entorno, como antes de que la bóveda
+> existiera. No hay nada roto: hay una pantalla que todavía no sirve.
 >
-> Y la consecuencia que menos se ve: el paso del despliegue que sube
-> `CREDENCIALES_CLAVE_MAESTRA` al Worker **se añadió después** de esa última
-> publicación, así que **no se ha ejecutado nunca**. La bóveda no puede funcionar
-> hoy aunque el secreto ya esté puesto en GitHub. Detalle en el
+> Se genera con:
+>
+> ```bash
+> node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+> ```
+>
+> y va a GitHub → Settings → Secrets and variables → Actions. **Y después hay que
+> volver a publicar**, porque el despliegue es quien lo lleva al Worker: ponerlo y
+> no publicar deja la pantalla igual de bloqueada. Pasos completos en
+> [`CONECTAR.md` § 9](CONECTAR.md); seguimiento en el
+> [issue #33](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/33).
+>
+> **Guárdalo donde guardes las contraseñas del negocio.** Si se pierde, los
+> secretos ya guardados no se recuperan: hay que volver a pegarlos.
+>
+> ### Cómo llegamos aquí, por si el dato sirve
+>
+> El 4 de septiembre se publicó staging **a propósito sin el secreto**, para dejar
+> de arrastrar doce commits sin servir. El despliegue lo detecta y **se salta** el
+> paso que sube la clave (`Cargar la clave maestra de credenciales` aparece como
+> omitido), y lo dice en su resumen. Antes de esa publicación el problema era peor
+> y menos visible: el paso ni siquiera existía en el workflow desplegado, así que
+> **no se había ejecutado nunca** — ver el
 > [issue #37](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/37).
->
-> Cuidado con una pista engañosa: en Cloudflare los Workers figuran modificados
-> el 2 de septiembre a las 20:53, pero eso son las **previsualizaciones de PR**,
-> no un despliegue a staging.
->
-> Mientras tanto la base va **por delante** de la aplicación desplegada, y se
-> revisó que no rompe nada: `validate_discount` no cambió de firma, y la
-> aplicación publicada es anterior a la bóveda y no consulta su tabla.
 
 > Este documento es el punto de entrada para quien retome el trabajo. Dice qué
 > hay publicado, qué está roto, qué se sabe de cada fallo abierto y qué se
@@ -354,13 +364,13 @@ funcionando.
 
 ### 🟠 P2 · Se puede abrir sin ello, pero duele pronto
 
-| #   | Qué falta                                                                                                          | Qué pasa si no está                                                                                                                                                                                                                                                                                                                                                                     |
-| --- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 4   | **Publicar en staging**, y con ello el secreto de la bóveda                                                        | Staging lleva **12 commits de retraso** y el paso que sube `CREDENCIALES_CLAVE_MAESTRA` al Worker no se ha ejecutado nunca: no existía en el último despliegue. Hasta publicar, nada de lo construido en septiembre está sirviendo ([#37](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/37), [#33](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/33)) |
-| 5   | **Los avisos automáticos por correo** (L2 2.e y L3): despachado, en camino, entregado, recordatorio de vencimiento | El cliente llama por teléfono para preguntar dónde está su pedido. Es el trabajo manual que la plataforma existía para quitar                                                                                                                                                                                                                                                           |
-| 6   | **Cloudflare Access sobre el panel**                                                                               | El panel administrativo es alcanzable por cualquiera que sepa la URL. RLS protege los datos, pero la pantalla de acceso queda expuesta a fuerza bruta                                                                                                                                                                                                                                   |
-| 7   | **Backups de Supabase con retención definida**                                                                     | Un borrado accidental no tiene vuelta atrás                                                                                                                                                                                                                                                                                                                                             |
-| 8   | **Pasarela de pago real conectada**                                                                                | Hoy los pedidos se registran pero no se cobran en línea. Los abonos manuales sí funcionan. De Yappy falta **solo el Botón de Pago**, y falta porque falta su especificación: ver [`YAPPY.md`](YAPPY.md). Es una decisión de negocio pendiente ([ADR 0006](adr/0006-pasarela-al-final.md))                                                                                               |
+| #   | Qué falta                                                                                                          | Qué pasa si no está                                                                                                                                                                                                                                                                                                                                             |
+| --- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4   | **El secreto `CREDENCIALES_CLAVE_MAESTRA` y volver a publicar**                                                    | Staging ya sirve `main` (publicado el 4 de septiembre), pero **a propósito sin este secreto**, así que la bóveda está inerte: Integraciones no deja pegar credenciales y todo sigue leyendo variables de entorno. Es el único paso que separa a la dueña de poner sus propias claves ([#33](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/33)) |
+| 5   | **Los avisos automáticos por correo** (L2 2.e y L3): despachado, en camino, entregado, recordatorio de vencimiento | El cliente llama por teléfono para preguntar dónde está su pedido. Es el trabajo manual que la plataforma existía para quitar                                                                                                                                                                                                                                   |
+| 6   | **Cloudflare Access sobre el panel**                                                                               | El panel administrativo es alcanzable por cualquiera que sepa la URL. RLS protege los datos, pero la pantalla de acceso queda expuesta a fuerza bruta                                                                                                                                                                                                           |
+| 7   | **Backups de Supabase con retención definida**                                                                     | Un borrado accidental no tiene vuelta atrás                                                                                                                                                                                                                                                                                                                     |
+| 8   | **Pasarela de pago real conectada**                                                                                | Hoy los pedidos se registran pero no se cobran en línea. Los abonos manuales sí funcionan. De Yappy falta **solo el Botón de Pago**, y falta porque falta su especificación: ver [`YAPPY.md`](YAPPY.md). Es una decisión de negocio pendiente ([ADR 0006](adr/0006-pasarela-al-final.md))                                                                       |
 
 ### 🟡 P3 · Deuda conocida, sin urgencia
 

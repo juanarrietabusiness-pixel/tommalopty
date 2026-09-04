@@ -24,15 +24,27 @@ las acciones de infraestructura se hicieron directamente en staging.
 
 ---
 
-## Lo primero: publica, y termina la bóveda
+## Lo primero, y es una sola cosa
 
-1. **Publica lo que hay.** Actions → «Publicar en staging» → Run workflow. Si
-   empujas algo (o mergeas el PR #36), vuelve a publicar.
-2. **Termina la bóveda** ([#33](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/33)):
-   la migración ya está. Queda **solo** poner el secreto
-   `CREDENCIALES_CLAVE_MAESTRA` en GitHub → Settings → Secrets, y **volver a
-   publicar** (el despliegue es quien lleva el secreto al Worker). Pasos en
-   [`CONECTAR.md` § 9](CONECTAR.md).
+**Poner el secreto `CREDENCIALES_CLAVE_MAESTRA` y volver a publicar.**
+
+Staging ya está al día: el 4 de septiembre se publicó `main` entero —los doce
+commits que llevaban meses sin servir, más los arreglos de la auditoría— y se
+comprobó en vivo que la tienda sirve su catálogo y que las pantallas nuevas
+(`/despacho`, `/catalogo/importar`, `/configuracion`, `/motorizado`) responden.
+
+Se publicó **a propósito sin el secreto**, para no seguir arrastrando el retraso.
+El despliegue lo detecta y se salta el paso que sube la clave, así que hoy la
+bóveda es una pantalla que todavía no sirve. Se arregla en dos minutos:
+
+1. `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`
+2. El valor va a GitHub → Settings → Secrets and variables → Actions, como
+   secreto `CREDENCIALES_CLAVE_MAESTRA`.
+3. **Actions → «Publicar en staging» → Run workflow.** Sin este tercer paso la
+   pantalla sigue bloqueada: el despliegue es quien lleva el secreto al Worker.
+
+Guárdalo donde guardes las contraseñas del negocio: si se pierde, los secretos
+ya guardados hay que volver a pegarlos.
 
 ---
 
