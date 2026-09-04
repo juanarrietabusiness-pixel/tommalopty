@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useState, useTransition } from 'react';
 import { slugify } from '@nebula/ui';
 import {
   MAX_MENU_ITEMS,
@@ -9,8 +9,8 @@ import {
   type MenuItem,
   type MenuLocation,
 } from '@nebula/domain';
-import { savePage, saveBanner, saveMenu } from '@/lib/actions/cms';
-import { IDLE } from '@/lib/actions/result';
+import { savePage, saveBanner, saveMenu, deleteBanner } from '@/lib/actions/cms';
+import { IDLE, type ActionResult } from '@/lib/actions/result';
 import { FieldError, FormFeedback, SubmitButton } from './form';
 import { ImageUpload } from './image-upload';
 
@@ -121,8 +121,52 @@ export function BannerForm({ initial }: { initial: BannerValues }) {
         Mostrar en la tienda
       </label>
 
-      <SubmitButton />
+      <div className="form-actions">
+        <SubmitButton />
+        {initial.id ? <BorrarBanner bannerId={initial.id} zona={initial.placement} /> : null}
+      </div>
     </form>
+  );
+}
+
+/**
+ * Borra el banner de una zona, y con él su imagen del almacenamiento.
+ *
+ * Es distinto de desmarcar «Mostrar en la tienda»: eso lo oculta y conserva el
+ * texto y la imagen para volver a encenderlo. Esto lo borra, y desde el PR #43
+ * la imagen se va también de R2. Por eso pregunta y aquello no.
+ *
+ * Va como `type="button"` dentro del mismo `<form>`: no envía nada, así que no
+ * compite con `saveBanner`, y anidar un formulario dentro de otro no es válido.
+ */
+function BorrarBanner({ bannerId, zona }: { bannerId: string; zona: BannerValues['placement'] }) {
+  const [state, setState] = useState<ActionResult>({ status: 'idle' });
+  const [pendiente, startTransition] = useTransition();
+
+  return (
+    <>
+      <button
+        type="button"
+        className="btn btn-outline btn-sm"
+        disabled={pendiente}
+        onClick={() => {
+          if (
+            !window.confirm(
+              `¿Borrar el banner de «${PLACEMENT_LABELS[zona]}»? Se elimina su imagen del almacenamiento y no se puede deshacer. Para ocultarlo sin perderlo, desmarca «Mostrar en la tienda».`,
+            )
+          ) {
+            return;
+          }
+
+          startTransition(async () => {
+            setState(await deleteBanner(bannerId));
+          });
+        }}
+      >
+        {pendiente ? 'Borrando…' : 'Borrar'}
+      </button>
+      <FormFeedback state={state} />
+    </>
   );
 }
 
