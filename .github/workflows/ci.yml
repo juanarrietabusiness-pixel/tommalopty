@@ -142,7 +142,7 @@ jobs:
       # fallo a propósito (ver issue #5): primero hay que ver qué difiere.
       - name: Comprobar que los tipos generados están al día
         run: |
-          supabase gen types typescript --local > /tmp/types-actuales.ts
+          supabase gen types typescript --local --schema public > /tmp/types-actuales.ts
 
           # Sin esto la comparación no puede salir bien nunca, y por eso este aviso
           # llevaba abierto desde agosto (issue #5): el fichero commiteado pasa por

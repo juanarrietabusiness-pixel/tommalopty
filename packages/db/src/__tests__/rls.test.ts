@@ -76,6 +76,22 @@ beforeAll(async () => {
     `insert into public.discounts (code, type, value) values ('RLSSECRETO', 'percentage', 20)
      on conflict (code) do nothing`,
   );
+
+  // Un cupón con límite por persona, y un canje que ya lo agotó para CLIENTE_A.
+  // Es lo que hace falta para comprobar el issue #8: sin él, «se sondea el
+  // límite de otro» no se puede ni plantear.
+  await client.query(
+    `insert into public.discounts (code, type, value, usage_limit_per_customer)
+     values ('RLSLIMITE', 'percentage', 10, 1)
+     on conflict (code) do nothing`,
+  );
+  await client.query(
+    `insert into public.discount_redemptions (discount_id, customer_id)
+     select d.id, c.id
+     from public.discounts d, public.customers c
+     where d.code = 'RLSLIMITE' and c.profile_id = $1`,
+    [CLIENTE_A],
+  );
   await client.query(
     `insert into public.crm_notes (customer_id, body)
      select c.id, 'Nota interna que el cliente no debe leer'
@@ -110,7 +126,11 @@ async function cleanup(db: Client): Promise<void> {
   await db.query(`delete from public.customers where email like '%@test.local'`);
   await db.query(`delete from auth.users where email like '%@test.local'`);
   await db.query(`delete from public.products where slug like 'rls-%'`);
-  await db.query(`delete from public.discounts where code = 'RLSSECRETO'`);
+  await db.query(
+    `delete from public.discount_redemptions r using public.discounts d
+      where r.discount_id = d.id and d.code = 'RLSLIMITE'`,
+  );
+  await db.query(`delete from public.discounts where code in ('RLSSECRETO', 'RLSLIMITE')`);
   await db.query(`delete from public.leads where source = 'rls-test'`);
   await db.query(`delete from public.crm_tags where name = 'rls-etiqueta'`);
 }
@@ -165,6 +185,40 @@ describeIfDb('visitante anónimo', () => {
       );
       expect(rows[0]?.is_valid).toBe(true);
       expect(Number(rows[0]?.amount)).toBe(20);
+    });
+  });
+
+  /**
+   * Issue #8: el `customer_id` es un parámetro de la función, y la función está
+   * concedida a `anon`. Antes del arreglo, pasar el id de otra persona hacía que
+   * la respuesta cambiara según cuántas veces lo hubiera canjeado **esa otra
+   * persona** — una fuga de información sobre terceros a golpe de anon key.
+   *
+   * Ahora el cliente sale de la sesión y el parámetro se ignora. Un visitante no
+   * tiene historial, así que el límite por persona no le aplica y el cupón sale
+   * válido, diga lo que diga el parámetro.
+   *
+   * Este test falla sin el arreglo: devolvería «Límite de usos por cliente
+   * alcanzado», que es justo el dato que no debe poder sonsacarse.
+   */
+  it('no puede sondear el límite por persona de otro cliente', async () => {
+    // El id se busca ANTES de suplantar a `anon`: el visitante no puede leer
+    // `customers`, y esa es precisamente la tabla de la que saldría el dato.
+    const { rows: fichas } = await client.query<{ id: string }>(
+      `select c.id from public.customers c where c.profile_id = $1`,
+      [CLIENTE_A],
+    );
+    const clienteAjeno = fichas[0]?.id;
+    expect(clienteAjeno).toBeDefined();
+
+    await asRole(client, { role: 'anon' }, async (db) => {
+      const { rows } = await db.query<{ is_valid: boolean; reason: string | null }>(
+        `select is_valid, reason from public.validate_discount('RLSLIMITE', 100, $1)`,
+        [clienteAjeno],
+      );
+
+      expect(rows[0]?.is_valid).toBe(true);
+      expect(rows[0]?.reason).toBeNull();
     });
   });
 
@@ -397,6 +451,23 @@ describeIfDb('cliente autenticado', () => {
         `select slug from public.products where slug = 'rls-borrador'`,
       );
       expect(rows).toHaveLength(0);
+    });
+  });
+
+  /**
+   * La otra mitad del issue #8, y la que impide «arreglarlo» rompiéndolo: que el
+   * parámetro se ignore no puede significar que el límite deje de existir. A su
+   * dueño —el que de verdad gastó el cupón— se le sigue aplicando, y ahora sale
+   * de su sesión en vez de un parámetro que cualquiera podía escribir.
+   */
+  it('a quien ya gastó el cupón sí se le aplica su límite, salido de la sesión', async () => {
+    await asRole(client, { role: 'authenticated', userId: CLIENTE_A }, async (db) => {
+      const { rows } = await db.query<{ is_valid: boolean; reason: string | null }>(
+        `select is_valid, reason from public.validate_discount('RLSLIMITE', 100)`,
+      );
+
+      expect(rows[0]?.is_valid).toBe(false);
+      expect(rows[0]?.reason).toMatch(/l[ií]mite de usos por cliente/i);
     });
   });
 });
