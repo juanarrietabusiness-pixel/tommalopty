@@ -1,9 +1,7 @@
 'use client';
 
-import { useState, useTransition } from 'react';
 import { archiveProduct } from '@/lib/actions/products';
-import type { ActionResult } from '@/lib/actions/result';
-import { FormFeedback } from './form';
+import { BotonDestructivo } from './boton-destructivo';
 
 /**
  * Archivar un producto de un clic.
@@ -21,32 +19,13 @@ import { FormFeedback } from './form';
  * vuelve, y esa no es una decisión que deba tomar un botón.
  */
 export function ArchivarProducto({ productId, titulo }: { productId: string; titulo: string }) {
-  const [state, setState] = useState<ActionResult>({ status: 'idle' });
-  const [pendiente, startTransition] = useTransition();
-
   return (
-    <>
-      <button
-        type="button"
-        className="btn btn-outline btn-sm"
-        disabled={pendiente}
-        onClick={() => {
-          if (
-            !window.confirm(
-              `¿Archivar «${titulo}»? Deja de verse en la tienda. Sus pedidos se conservan, y se puede volver a publicar desde el desplegable de Estado.`,
-            )
-          ) {
-            return;
-          }
-
-          startTransition(async () => {
-            setState(await archiveProduct(productId));
-          });
-        }}
-      >
-        {pendiente ? 'Archivando…' : 'Archivar'}
-      </button>
-      <FormFeedback state={state} />
-    </>
+    <BotonDestructivo
+      etiqueta={`Archivar ${titulo}`}
+      confirmacion={`¿Archivar «${titulo}»? Deja de verse en la tienda. Sus pedidos se conservan, y se puede volver a publicar desde el desplegable de Estado.`}
+      alConfirmar={() => archiveProduct(productId)}
+    >
+      Archivar
+    </BotonDestructivo>
   );
 }

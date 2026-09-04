@@ -1,13 +1,16 @@
 'use client';
 
-import { useActionState } from 'react';
 import { barrerHuerfanos } from '@/lib/actions/almacenamiento';
-import { IDLE, type ActionResult } from '@/lib/actions/result';
+import { BotonDestructivo } from './boton-destructivo';
 
 /**
  * El botón que borra. Pide confirmación diciendo **cuántos** ficheros se lleva,
  * porque «¿seguro?» sin una cifra no es una pregunta que alguien pueda
  * responder con criterio.
+ *
+ * Pasa por `BotonDestructivo` como el resto: además de la confirmación, eso le
+ * da el `role="alert"` del aviso, que pintándolo a mano se había quedado sin
+ * él —era el único borrado del panel cuyo resultado no se anunciaba.
  */
 export function BarridoHuerfanos({
   cuantos,
@@ -16,11 +19,6 @@ export function BarridoHuerfanos({
   cuantos: number;
   puedeBorrar: boolean;
 }) {
-  const [estado, formAction, pendiente] = useActionState<ActionResult, FormData>(
-    async () => barrerHuerfanos(),
-    IDLE,
-  );
-
   if (!puedeBorrar) {
     return (
       <p className="field-hint">
@@ -31,27 +29,13 @@ export function BarridoHuerfanos({
   }
 
   return (
-    <form
-      action={formAction}
-      onSubmit={(evento) => {
-        if (
-          !window.confirm(
-            `Se van a borrar ${cuantos} ficheros que ninguna fila referencia. No se puede deshacer. ¿Continuar?`,
-          )
-        ) {
-          evento.preventDefault();
-        }
-      }}
+    <BotonDestructivo
+      className="btn btn-dark"
+      disabled={cuantos === 0}
+      confirmacion={`Se van a borrar ${cuantos} ficheros que ninguna fila referencia. No se puede deshacer. ¿Continuar?`}
+      alConfirmar={() => barrerHuerfanos()}
     >
-      {estado.status !== 'idle' ? (
-        <div className={`notice notice-${estado.status === 'success' ? 'success' : 'error'}`}>
-          {estado.message}
-        </div>
-      ) : null}
-
-      <button type="submit" className="btn btn-dark" disabled={pendiente || cuantos === 0}>
-        {pendiente ? 'Borrando…' : `Borrar ${cuantos} ficheros huérfanos`}
-      </button>
-    </form>
+      {`Borrar ${cuantos} ficheros huérfanos`}
+    </BotonDestructivo>
   );
 }

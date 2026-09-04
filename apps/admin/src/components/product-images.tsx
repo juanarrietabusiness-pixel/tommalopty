@@ -10,6 +10,7 @@ import {
 import type { ImagenProducto } from '@/lib/panel-data';
 import type { ActionResult } from '@/lib/actions/result';
 import { FormFeedback } from './form';
+import { BotonDestructivo } from './boton-destructivo';
 
 /**
  * Galería de un producto: subir, marcar la principal y borrar.
@@ -83,7 +84,7 @@ export function ProductImages({
         </p>
       ) : (
         <ul className="product-images">
-          {images.map((image) => (
+          {images.map((image, indice) => (
             <li key={image.id} className={image.isPrimary ? 'is-primary' : undefined}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={image.url} alt={image.alt ?? ''} />
@@ -101,14 +102,14 @@ export function ProductImages({
                     Hacer principal
                   </button>
                 ) : null}
-                <button
-                  type="button"
-                  className="btn btn-outline btn-sm"
+                <BotonDestructivo
                   disabled={ocupado}
-                  onClick={() => ejecutar(() => deleteProductImage(productId, image.id))}
+                  etiqueta={`Borrar la imagen ${indice + 1}`}
+                  confirmacion="¿Borrar esta imagen? Se elimina también del almacenamiento y no se puede deshacer."
+                  alConfirmar={() => deleteProductImage(productId, image.id)}
                 >
                   Borrar
-                </button>
+                </BotonDestructivo>
               </div>
             </li>
           ))}

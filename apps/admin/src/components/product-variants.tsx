@@ -11,6 +11,7 @@ import {
 import { IDLE, type ActionResult } from '@/lib/actions/result';
 import type { VarianteEditable } from '@/lib/panel-data';
 import { FieldError, FormFeedback, SubmitButton, propsDeCampo } from './form';
+import { BotonDestructivo } from './boton-destructivo';
 
 /**
  * Variantes de un producto: alta, edición, cuál es la de por defecto y borrado.
@@ -106,19 +107,24 @@ export function ProductVariants({
                       Por defecto
                     </button>
                   ) : null}
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    disabled={pendiente || variants.length <= 1}
-                    title={
-                      variants.length <= 1
-                        ? 'Es la única variante: archiva el producto en vez de borrarla.'
-                        : undefined
-                    }
-                    onClick={() => ejecutar(() => deleteVariant(productId, variant.id))}
-                  >
-                    Borrar
-                  </button>
+                  {variants.length <= 1 ? (
+                    <span
+                      className="btn btn-outline btn-sm"
+                      aria-disabled="true"
+                      title="Es la única variante: archiva el producto en vez de borrarla."
+                    >
+                      Borrar
+                    </span>
+                  ) : (
+                    <BotonDestructivo
+                      disabled={pendiente}
+                      etiqueta={`Borrar la variante ${variant.title}`}
+                      confirmacion={`¿Borrar la variante «${variant.title}»? Se pierden su precio y su inventario, y no se puede deshacer.`}
+                      alConfirmar={() => deleteVariant(productId, variant.id)}
+                    >
+                      Borrar
+                    </BotonDestructivo>
+                  )}
                 </div>
               </li>
             ),

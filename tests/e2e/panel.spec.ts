@@ -434,3 +434,93 @@ test.describe('panel · los errores se anuncian', () => {
     await expect(aviso).toBeFocused();
   });
 });
+
+/**
+ * Nada irreversible se borra al primer clic (#51).
+ *
+ * La confirmación estaba justo al revés de donde hacía falta: borrar un abono
+ * y eliminar una zona preguntaban, y borrar una imagen —que desde el #43 se
+ * lleva también el fichero de R2— disparaba al primer clic, en una lista de
+ * miniaturas con los botones pegados unos a otros.
+ *
+ * Ahora todos pasan por `BotonDestructivo`, que exige un mensaje. El test
+ * comprueba las dos mitades: que se pregunta, y que decir «cancelar» NO borra
+ * — un diálogo que no frena nada es peor que ninguno, porque además tranquiliza.
+ */
+test.describe('panel · lo irreversible pregunta antes', () => {
+  test('borrar un banner pregunta diciendo qué se pierde', async ({ page }) => {
+    await page.goto(`${PANEL_URL}/contenido/banners`);
+
+    let preguntado = '';
+    page.once('dialog', async (dialogo) => {
+      preguntado = dialogo.message();
+      await dialogo.dismiss();
+    });
+
+    await page
+      .getByRole('button', { name: /^Borrar el banner/ })
+      .first()
+      .click();
+
+    // El mensaje tiene que decir qué se pierde y cuál es la salida no
+    // destructiva. Un «¿seguro?» pelado no es una pregunta que nadie pueda
+    // responder con criterio.
+    expect(preguntado).toMatch(/no se puede deshacer/i);
+    expect(preguntado).toMatch(/almacenamiento/i);
+    expect(preguntado).toMatch(/mostrar en la tienda/i);
+  });
+
+  test('cancelar no ejecuta la acción, y aceptar sí', async ({ page }) => {
+    // La mitad que importa de verdad: un diálogo que pregunta pero borra igual
+    // es peor que ninguno, porque además tranquiliza.
+    //
+    // Se mide por la petición al servidor y no por si aparece un aviso en
+    // pantalla. Escrito de la segunda forma, el test **no podía fallar**:
+    // comprobar que algo NO está se cumple de inmediato, antes de que diera
+    // tiempo a que apareciera. Una Server Action es un POST a la misma
+    // dirección, así que preguntar si salió o no es exacto y no depende del
+    // tiempo de renderizado.
+    await page.goto(`${PANEL_URL}/contenido/banners`);
+
+    const boton = page.getByRole('button', { name: /^Borrar el banner/ }).first();
+
+    const alCancelar = page
+      .waitForRequest((peticion) => peticion.method() === 'POST', { timeout: 2000 })
+      .then(() => true)
+      .catch(() => false);
+
+    page.once('dialog', (dialogo) => dialogo.dismiss());
+    await boton.click();
+    expect(await alCancelar, 'cancelar no debería llamar al servidor').toBe(false);
+
+    // Y aceptando sí sale: sin esta mitad, lo anterior pasaría también con un
+    // botón que no hace absolutamente nada.
+    const alAceptar = page
+      .waitForRequest((peticion) => peticion.method() === 'POST', { timeout: 5000 })
+      .then(() => true)
+      .catch(() => false);
+
+    page.once('dialog', (dialogo) => dialogo.accept());
+    await boton.click();
+    expect(await alAceptar, 'aceptar debería llamar al servidor').toBe(true);
+  });
+
+  test('archivar un producto también pregunta', async ({ page }) => {
+    await page.goto(`${PANEL_URL}/catalogo/${ID('p1')}`);
+
+    let preguntado = '';
+    page.once('dialog', async (dialogo) => {
+      preguntado = dialogo.message();
+      await dialogo.dismiss();
+    });
+
+    await page
+      .getByRole('button', { name: /^Archivar/ })
+      .first()
+      .click();
+
+    expect(preguntado).toMatch(/deja de verse en la tienda/i);
+    // Y dice cómo volver atrás, porque archivar sí se deshace.
+    expect(preguntado).toMatch(/volver a publicar/i);
+  });
+});

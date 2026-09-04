@@ -10,6 +10,7 @@ import {
 import { IDLE } from '@/lib/actions/result';
 import { FieldError, FormFeedback, SubmitButton, propsDeCampo } from './form';
 import { ZoneMap } from './zone-map';
+import { BotonDestructivo } from './boton-destructivo';
 
 export interface ZonaEditable extends DeliveryZone {
   description: string | null;
@@ -124,19 +125,12 @@ export function ZoneForm({ zona }: { zona?: ZonaEditable }) {
 
 export function ZoneDeleteButton({ id, nombre }: { id: string; nombre: string }) {
   return (
-    <form
-      action={async () => {
-        await deleteDeliveryZone(id);
-      }}
-      onSubmit={(evento) => {
-        if (!window.confirm(`¿Eliminar la zona «${nombre}»? No se puede deshacer.`)) {
-          evento.preventDefault();
-        }
-      }}
+    <BotonDestructivo
+      etiqueta={`Eliminar la zona ${nombre}`}
+      confirmacion={`¿Eliminar la zona «${nombre}»? Los pedidos de esa área dejan de cotizarse, y no se puede deshacer.`}
+      alConfirmar={() => deleteDeliveryZone(id)}
     >
-      <button type="submit" className="btn btn-outline btn-sm">
-        Eliminar
-      </button>
-    </form>
+      Eliminar
+    </BotonDestructivo>
   );
 }
