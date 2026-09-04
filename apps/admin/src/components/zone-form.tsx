@@ -8,7 +8,7 @@ import {
   updateDeliveryZone,
 } from '@/lib/actions/logistica';
 import { IDLE } from '@/lib/actions/result';
-import { FieldError, FormFeedback, SubmitButton } from './form';
+import { FieldError, FormFeedback, SubmitButton, propsDeCampo } from './form';
 import { ZoneMap } from './zone-map';
 
 export interface ZonaEditable extends DeliveryZone {
@@ -38,6 +38,7 @@ export function ZoneForm({ zona }: { zona?: ZonaEditable }) {
           required
           defaultValue={zona?.name}
           placeholder="Área metropolitana"
+          {...propsDeCampo(state, 'name')}
         />
         <FieldError state={state} field="name" />
       </div>
@@ -49,6 +50,7 @@ export function ZoneForm({ zona }: { zona?: ZonaEditable }) {
           name="description"
           defaultValue={zona?.description ?? ''}
           placeholder="Para qué sirve esta zona, si no es obvio por el nombre"
+          {...propsDeCampo(state, 'polygon')}
         />
       </div>
 
@@ -66,6 +68,7 @@ export function ZoneForm({ zona }: { zona?: ZonaEditable }) {
             step="0.01"
             defaultValue={zona?.shippingPrice ?? ''}
             placeholder="Vacío = usa el método de envío normal"
+            {...propsDeCampo(state, 'shippingPrice')}
           />
           <FieldError state={state} field="shippingPrice" />
         </div>

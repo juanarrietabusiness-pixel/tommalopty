@@ -11,7 +11,7 @@ import {
 } from '@nebula/domain';
 import { savePage, saveBanner, saveMenu, deleteBanner } from '@/lib/actions/cms';
 import { IDLE, type ActionResult } from '@/lib/actions/result';
-import { FieldError, FormFeedback, SubmitButton } from './form';
+import { FieldError, FormFeedback, SubmitButton, propsDeCampo } from './form';
 import { ImageUpload } from './image-upload';
 
 export interface BannerValues {
@@ -216,13 +216,20 @@ export function PageForm({ initial }: { initial?: PageValues }) {
             ) as HTMLInputElement | null;
             if (slugInput && !slugInput.value) slugInput.value = slugify(event.currentTarget.value);
           }}
+          {...propsDeCampo(state, 'title')}
         />
         <FieldError state={state} field="title" />
       </div>
 
       <div className="field">
         <label htmlFor="slug">Slug</label>
-        <input id="slug" name="slug" defaultValue={values.slug} required />
+        <input
+          id="slug"
+          name="slug"
+          defaultValue={values.slug}
+          required
+          {...propsDeCampo(state, 'slug')}
+        />
         <span className="field-hint">La página estará en /p/&lt;slug&gt;</span>
         <FieldError state={state} field="slug" />
       </div>
@@ -235,6 +242,7 @@ export function PageForm({ initial }: { initial?: PageValues }) {
           defaultValue={values.body}
           required
           style={{ minHeight: 220 }}
+          {...propsDeCampo(state, 'body')}
         />
         <span className="field-hint">
           Cada párrafo (separado por una línea en blanco) se guarda como un bloque.

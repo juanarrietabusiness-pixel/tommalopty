@@ -4,7 +4,7 @@ import { useActionState } from 'react';
 import { slugify } from '@nebula/ui';
 import { createProduct, updateProduct } from '@/lib/actions/products';
 import { IDLE, type ActionResult } from '@/lib/actions/result';
-import { FieldError, FormFeedback, SubmitButton } from './form';
+import { FieldError, FormFeedback, SubmitButton, propsDeCampo } from './form';
 
 export interface ProductFormValues {
   id?: string;
@@ -78,13 +78,20 @@ export function ProductForm({ initial }: { initial?: ProductFormValues }) {
                 defaultValue={values.title}
                 onBlur={handleTitleBlur}
                 required
+                {...propsDeCampo(state, 'title')}
               />
               <FieldError state={state} field="title" />
             </div>
 
             <div className="field">
               <label htmlFor="slug">Slug (URL)</label>
-              <input id="slug" name="slug" defaultValue={values.slug} required />
+              <input
+                id="slug"
+                name="slug"
+                defaultValue={values.slug}
+                required
+                {...propsDeCampo(state, 'slug')}
+              />
               <span className="field-hint">La ficha será /producto/&lt;slug&gt;</span>
               <FieldError state={state} field="slug" />
             </div>
@@ -131,6 +138,7 @@ export function ProductForm({ initial }: { initial?: ProductFormValues }) {
                     min="0"
                     defaultValue={values.price}
                     required
+                    {...propsDeCampo(state, 'price')}
                   />
                   <FieldError state={state} field="price" />
                 </div>
@@ -161,6 +169,7 @@ export function ProductForm({ initial }: { initial?: ProductFormValues }) {
                     type="number"
                     min="0"
                     defaultValue={values.quantity}
+                    {...propsDeCampo(state, 'quantity')}
                   />
                   <FieldError state={state} field="quantity" />
                 </div>

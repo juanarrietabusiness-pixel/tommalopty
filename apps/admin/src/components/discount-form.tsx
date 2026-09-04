@@ -3,7 +3,7 @@
 import { useActionState } from 'react';
 import { createDiscount } from '@/lib/actions/catalog-extra';
 import { IDLE } from '@/lib/actions/result';
-import { FieldError, FormFeedback, SubmitButton } from './form';
+import { FieldError, FormFeedback, SubmitButton, propsDeCampo } from './form';
 
 export function DiscountForm() {
   const [state, formAction] = useActionState(createDiscount, IDLE);
@@ -18,7 +18,13 @@ export function DiscountForm() {
 
       <div className="field">
         <label htmlFor="code">Código</label>
-        <input id="code" name="code" required placeholder="BIENVENIDA10" />
+        <input
+          id="code"
+          name="code"
+          required
+          placeholder="BIENVENIDA10"
+          {...propsDeCampo(state, 'code')}
+        />
         <span className="field-hint">
           Se guarda en mayúsculas y no distingue mayúsculas al canjear.
         </span>
@@ -37,7 +43,15 @@ export function DiscountForm() {
       <div className="field-row">
         <div className="field">
           <label htmlFor="value">Valor</label>
-          <input id="value" name="value" type="number" step="0.01" min="0" defaultValue={10} />
+          <input
+            id="value"
+            name="value"
+            type="number"
+            step="0.01"
+            min="0"
+            defaultValue={10}
+            {...propsDeCampo(state, 'value')}
+          />
           <FieldError state={state} field="value" />
         </div>
         <div className="field">

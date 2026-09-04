@@ -404,7 +404,7 @@ export function SelectorDeUbicacion({
       </div>
 
       {fallo ? (
-        <div className="notice notice-error">
+        <div role="alert" className="notice notice-error">
           {fallo === 'webgl'
             ? 'Tu navegador no puede mostrar mapas. Suele arreglarse activando la aceleración por hardware, o abriendo la tienda desde el teléfono.'
             : fallo === 'teselas'
@@ -438,7 +438,7 @@ export function SelectorDeUbicacion({
       ) : null}
 
       {fueraDePanama ? (
-        <div className="notice notice-error">
+        <div role="alert" className="notice notice-error">
           Ese punto está fuera de Panamá. Revísalo antes de continuar.
         </div>
       ) : null}

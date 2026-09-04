@@ -6,7 +6,7 @@ import { POLITICA_LABELS, decidirDespacho, type ReglaDeDespacho } from '@nebula/
 import { storage } from '@nebula/integrations';
 import { borrarAbono, registrarAbono } from '@/lib/actions/abonos';
 import { IDLE } from '@/lib/actions/result';
-import { FieldError, FormFeedback, SubmitButton } from './form';
+import { FieldError, FormFeedback, SubmitButton, propsDeCampo } from './form';
 
 const METODOS: { valor: string; etiqueta: string }[] = [
   { valor: 'manual', etiqueta: 'Efectivo o transferencia' },
@@ -82,6 +82,7 @@ export function AbonosForm({
               step="0.01"
               required
               placeholder={saldo > 0 ? saldo.toFixed(2) : '0.00'}
+              {...propsDeCampo(state, 'amount')}
             />
             <FieldError state={state} field="amount" />
           </div>
