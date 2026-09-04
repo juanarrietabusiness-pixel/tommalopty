@@ -429,8 +429,18 @@ describeSiHayBase('permisos de tabla', () => {
      * `alter default privileges` y nadie se entera hasta la siguiente auditoría.
      * Se crea una tabla de verdad porque preguntarle a `pg_default_acl` sería
      * comprobar la intención; esto comprueba el resultado.
+     *
+     * OJO CON LO QUE **NO** CUBRE, y por eso el nombre dice «por una migración».
+     * La tabla se crea con la conexión de este test, que es `postgres` — el rol
+     * que ejecuta las migraciones. Y `pg_default_acl` tiene una entrada por cada
+     * rol que crea tablas, que no conceden lo mismo: la de `postgres` ya no le
+     * da nada a `anon`, pero la de `supabase_admin` le sigue dando los ocho
+     * privilegios, `TRUNCATE` incluido. Una tabla creada desde el panel de
+     * Supabase nace abierta al público y este test no se entera. No se puede
+     * cambiar desde una migración; queda dicho aquí para que nadie lea de este
+     * test una garantía que no da.
      */
-    it('una tabla nueva nace sin nada para anon', async () => {
+    it('una tabla creada por una migración nace sin nada para anon', async () => {
       await client.query('create table public.zz_prueba_de_privilegios (id int)');
       try {
         const { rows } = await client.query<{ privilegios: string | null }>(
@@ -447,6 +457,80 @@ describeSiHayBase('permisos de tabla', () => {
       } finally {
         await client.query('drop table if exists public.zz_prueba_de_privilegios');
       }
+    });
+
+    /**
+     * La bóveda de credenciales, que es la tabla con más que perder del
+     * proyecto: ahí van a vivir las claves de Yappy, Meta y Resend.
+     *
+     * Lo que la protege no es una política, es **una ausencia de políticas**.
+     * Con RLS activo y cero políticas no pasa ningún rol con sesión, ni siquiera
+     * un superadministrador; solo `service_role`, que salta RLS y solo existe en
+     * el servidor. Eso es justo lo que alguien «arregla» sin querer el día que
+     * quiera mirar la tabla desde el panel, así que se fija aquí.
+     */
+    it('la bóveda no es alcanzable por ningún rol con sesión', async () => {
+      const { rows } = await client.query<Record<string, boolean>>(
+        `select has_table_privilege('anon', 'public.integration_credentials', 'SELECT')
+                  as anon_lee,
+                has_table_privilege('authenticated', 'public.integration_credentials', 'SELECT')
+                  as auth_lee,
+                has_table_privilege('service_role', 'public.integration_credentials', 'SELECT')
+                  as servicio_lee`,
+      );
+
+      expect(rows[0]).toEqual({ anon_lee: false, auth_lee: false, servicio_lee: true });
+    });
+
+    it('la bóveda sigue con RLS y sin una sola política, que es lo que la cierra', async () => {
+      const { rows } = await client.query<{ rls: boolean; politicas: number }>(
+        `select c.relrowsecurity as rls,
+                (select count(*)::int from pg_policies
+                  where schemaname = 'public' and tablename = 'integration_credentials')
+                  as politicas
+           from pg_class c
+           join pg_namespace n on n.oid = c.relnamespace
+          where n.nspname = 'public' and c.relname = 'integration_credentials'`,
+      );
+
+      expect(rows[0]).toEqual({ rls: true, politicas: 0 });
+    });
+
+    /**
+     * Las vistas, que es por donde se coló el issue #38.
+     *
+     * La revocación de la 0033 fue tabla por tabla y no las alcanzó, así que las
+     * cinco se quedaron con `INSERT`, `TRIGGER`, `REFERENCES` y `TRUNCATE` para
+     * `anon`. No abría nada —tienen `security_invoker=on`, y la RLS de las
+     * tablas base sí aplica— pero el invariante escrito decía otra cosa.
+     *
+     * Se afirma **la lista entera y no vista por vista** a propósito: así una
+     * vista nueva que alguien añada sin decidir qué ve el público también rompe
+     * este test, en vez de colarse como se coló la última vez.
+     */
+    it('anon solo lee el catálogo, y no toca ninguna vista de informes', async () => {
+      const { rows } = await client.query<{ vista: string; privilegios: string | null }>(
+        `select c.relname as vista,
+                string_agg(g.privilege_type, ',' order by g.privilege_type) as privilegios
+           from pg_class c
+           join pg_namespace n on n.oid = c.relnamespace
+           left join information_schema.role_table_grants g
+             on g.table_schema = 'public'
+            and g.table_name = c.relname
+            and g.grantee = 'anon'
+          where n.nspname = 'public' and c.relkind = 'v'
+          group by c.relname
+          order by c.relname`,
+      );
+
+      expect(rows).toEqual([
+        // La tienda la lee sin sesión: quitarle esto es dejarla sin catálogo.
+        { vista: 'product_catalog', privilegios: 'SELECT' },
+        { vista: 'report_conversion_funnel', privilegios: null },
+        { vista: 'report_low_stock', privilegios: null },
+        { vista: 'report_sales_daily', privilegios: null },
+        { vista: 'report_top_products', privilegios: null },
+      ]);
     });
   });
 });
