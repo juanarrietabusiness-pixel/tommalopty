@@ -1,16 +1,17 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@nebula/db';
 
 export function SignOutButton() {
-  const router = useRouter();
-
   async function handleSignOut() {
     const supabase = createSupabaseBrowserClient();
     await supabase.auth.signOut();
-    router.push('/');
-    router.refresh();
+    // Recarga completa: si no, la tienda sigue mostrando el estado de la sesión
+    // anterior —«Mi cuenta», favoritos— hasta que alguien recargue a mano.
+    // La regla de Next pide `router.push`, que es justo lo que falla aquí: tras un
+    // cambio de sesión hay que descartar la caché del router, no reutilizarla.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.assign('/');
   }
 
   return (

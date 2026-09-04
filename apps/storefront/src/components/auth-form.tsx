@@ -50,8 +50,11 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) throw signInError;
 
-      router.push(redirectTo);
-      router.refresh();
+      // Navegación completa: `router.push` resolvería desde la caché del router
+      // de Next, que todavía guarda la versión sin sesión de esa ruta. El
+      // comentario largo, con el porqué, está en
+      // `apps/admin/src/components/admin-login-form.tsx`.
+      window.location.assign(redirectTo);
     } catch (caught) {
       setError(
         caught instanceof Error
