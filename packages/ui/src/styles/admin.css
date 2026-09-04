@@ -1587,3 +1587,55 @@
     border-color: var(--color-accent);
   }
 }
+
+/*
+ * Pie de un listado paginado (#48).
+ *
+ * En móvil se apila: los dos botones y la posición no caben en 412px sin
+ * ensanchar la página, que es la trampa que este CSS ya documenta dos veces
+ * más arriba.
+ */
+.paginacion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+.paginacion-cuenta {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-muted);
+}
+.paginacion-cuenta strong {
+  color: var(--color-text);
+}
+.paginacion-botones {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.paginacion-posicion {
+  font-size: 0.8125rem;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+/* Un extremo de la lista: se ve que el botón existe, y que ahí no hay nada. */
+.paginacion [aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
+}
+
+@media (max-width: 560px) {
+  .paginacion {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .paginacion-botones {
+    justify-content: space-between;
+  }
+}

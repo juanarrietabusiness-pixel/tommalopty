@@ -354,3 +354,47 @@ test.describe('panel · las acciones llegan a la pantalla', () => {
     await expect(page.getByRole('button', { name: 'Borrar' }).first()).toBeVisible();
   });
 });
+
+/**
+ * La paginación de pedidos y clientes (#48).
+ *
+ * Las dos pantallas traían 50 filas, enseñaban el total completo en la cabecera
+ * —«1.240 pedidos registrados»— y no ofrecían página siguiente. Un pedido de
+ * hace dos meses era inalcanzable salvo que se recordara su número.
+ *
+ * El paginador en sí no sale aquí: con ocho pedidos de demostración cabe todo
+ * en una página y el pie se oculta a propósito. Lo que sí se puede comprobar
+ * con estos datos es el fallo que de verdad muerde, que es pedir una página que
+ * no existe — y ese caso no depende de cuántas filas haya.
+ *
+ * Tampoco hay aquí un test de `?pagina=abc`, y no por olvido: se escribió, y
+ * **pasaba igual con `parsePagina` sin validar**. Un `NaN` acaba en
+ * `slice(NaN, NaN)`, que devuelve la lista entera, así que la pantalla se ve
+ * bien y el test no distingue nada. Esa guarda se prueba donde sí puede fallar,
+ * en `packages/ui/src/admin/paginar.test.ts`.
+ */
+test.describe('panel · paginación', () => {
+  for (const [nombre, ruta, vacio] of [
+    ['pedidos', '/pedidos', 'Todavía no hay pedidos'],
+    ['clientes', '/clientes', 'Todavía no hay clientes'],
+  ] as const) {
+    test(`${nombre}: una página que no existe no enseña una tabla vacía`, async ({ page }) => {
+      // Un enlace guardado, o un filtro que redujo la lista. Sin sujetar la
+      // página al rango, la consulta pide un offset más allá del final y la
+      // pantalla queda vacía debajo del total completo: la contradicción que
+      // este issue venía a quitar.
+      await page.goto(`${PANEL_URL}${ruta}?pagina=900`);
+
+      await expect(page.getByText(vacio)).toHaveCount(0);
+      // Y se corrige la dirección, en vez de dejarla mintiendo.
+      //
+      // Con `expect.poll` y no leyendo `page.url()` una vez: Next resuelve el
+      // `redirect()` sirviendo ya el contenido correcto —arriba se comprueba—
+      // y ajustando el historial justo después, así que un muestreo único de
+      // la dirección llega antes de tiempo. Sola pasaba y dentro de la suite
+      // completa fallaba, que es como se ve un test que mide un instante en
+      // vez de un resultado.
+      await expect.poll(() => new URL(page.url()).searchParams.get('pagina')).toBeNull();
+    });
+  }
+});
