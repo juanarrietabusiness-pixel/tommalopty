@@ -4,6 +4,7 @@ import { PanelPage } from '@/components/panel-page';
 import { ProductForm, type ProductFormValues } from '@/components/product-form';
 import { ProductImages } from '@/components/product-images';
 import { ProductVariants } from '@/components/product-variants';
+import { ArchivarProducto } from '@/components/archivar-producto';
 import { cargarProducto } from '@/lib/panel-data';
 import { storefrontUrl } from '@/lib/site';
 
@@ -39,16 +40,21 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
       title={product.title}
       description={`Editando /producto/${product.slug}`}
       actions={
-        product.status === 'active' ? (
-          <Link
-            href={`${tienda}/producto/${product.slug}`}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="btn btn-outline btn-sm"
-          >
-            Ver en la tienda
-          </Link>
-        ) : null
+        <>
+          {product.status === 'active' ? (
+            <Link
+              href={`${tienda}/producto/${product.slug}`}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="btn btn-outline btn-sm"
+            >
+              Ver en la tienda
+            </Link>
+          ) : null}
+          {product.status !== 'archived' ? (
+            <ArchivarProducto productId={product.id} titulo={product.title} />
+          ) : null}
+        </>
       }
     >
       <div className="grid-sidebar">
