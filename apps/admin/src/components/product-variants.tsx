@@ -10,7 +10,7 @@ import {
 } from '@/lib/actions/products';
 import { IDLE, type ActionResult } from '@/lib/actions/result';
 import type { VarianteEditable } from '@/lib/panel-data';
-import { FieldError, FormFeedback, SubmitButton } from './form';
+import { FieldError, FormFeedback, SubmitButton, propsDeCampo } from './form';
 
 /**
  * Variantes de un producto: alta, edición, cuál es la de por defecto y borrado.
@@ -171,13 +171,19 @@ function VariantForm({
             maxLength={MAX_VARIANT_TITLE_LENGTH}
             placeholder="Talla M · Rojo"
             required
+            {...propsDeCampo(state, 'title')}
           />
           <FieldError state={state} field="title" />
         </div>
 
         <div className="field">
           <label htmlFor={`sku-${id}`}>SKU</label>
-          <input id={`sku-${id}`} name="sku" defaultValue={variant?.sku ?? ''} />
+          <input
+            id={`sku-${id}`}
+            name="sku"
+            defaultValue={variant?.sku ?? ''}
+            {...propsDeCampo(state, 'sku')}
+          />
           <FieldError state={state} field="sku" />
         </div>
       </div>
@@ -193,6 +199,7 @@ function VariantForm({
             min="0"
             defaultValue={variant?.price ?? ''}
             required
+            {...propsDeCampo(state, 'price')}
           />
           <FieldError state={state} field="price" />
         </div>
@@ -206,6 +213,7 @@ function VariantForm({
             step="0.01"
             min="0"
             defaultValue={variant?.compareAtPrice ?? ''}
+            {...propsDeCampo(state, 'compareAtPrice')}
           />
           <span className="field-hint">Déjalo vacío si no está en oferta.</span>
           <FieldError state={state} field="compareAtPrice" />
@@ -227,6 +235,7 @@ function VariantForm({
             min="0"
             step="1"
             defaultValue={0}
+            {...propsDeCampo(state, 'quantity')}
           />
           <span className="field-hint">Después se ajusta desde Inventario.</span>
           <FieldError state={state} field="quantity" />

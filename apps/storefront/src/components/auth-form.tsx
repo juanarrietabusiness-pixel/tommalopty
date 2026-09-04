@@ -76,7 +76,11 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
             : 'Crea tu cuenta para seguir tus pedidos y guardar favoritos.'}
         </p>
 
-        {error ? <div className="notice notice-error">{error}</div> : null}
+        {error ? (
+          <div role="alert" className="notice notice-error">
+            {error}
+          </div>
+        ) : null}
         {info ? <div className="notice notice-success">{info}</div> : null}
 
         <form onSubmit={handleSubmit}>

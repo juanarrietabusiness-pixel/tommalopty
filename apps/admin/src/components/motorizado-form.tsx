@@ -17,7 +17,7 @@ import {
   darDeBajaMotorizado,
 } from '@/lib/actions/motorizados';
 import { IDLE } from '@/lib/actions/result';
-import { FieldError, FormFeedback, SubmitButton } from './form';
+import { FieldError, FormFeedback, SubmitButton, propsDeCampo } from './form';
 
 export interface CandidatoAMotorizado {
   id: string;
@@ -91,7 +91,13 @@ export function MotorizadoForm({
           </>
         ) : (
           <>
-            <select id={`profileId-${id}`} name="profileId" required defaultValue="">
+            <select
+              id={`profileId-${id}`}
+              name="profileId"
+              required
+              defaultValue=""
+              {...propsDeCampo(state, 'profileId')}
+            >
               <option value="" disabled>
                 Elige la cuenta de la persona
               </option>
@@ -120,6 +126,7 @@ export function MotorizadoForm({
             required
             defaultValue={motorizado?.displayName}
             placeholder="Con el que lo llaman"
+            {...propsDeCampo(state, 'displayName')}
           />
           <FieldError state={state} field="displayName" />
         </div>
@@ -175,6 +182,7 @@ export function MotorizadoForm({
             min="0"
             defaultValue={motorizado?.rate ?? ''}
             placeholder="Déjalo vacío si va a sueldo"
+            {...propsDeCampo(state, 'rate')}
           />
           <FieldError state={state} field="rate" />
         </div>

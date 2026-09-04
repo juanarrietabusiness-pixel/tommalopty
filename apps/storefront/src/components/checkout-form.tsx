@@ -238,7 +238,11 @@ export function CheckoutForm({
     <form onSubmit={handleSubmit}>
       <div className="checkout-layout">
         <div>
-          {error ? <div className="notice notice-error">{error}</div> : null}
+          {error ? (
+            <div role="alert" className="notice notice-error">
+              {error}
+            </div>
+          ) : null}
 
           <section className="checkout-block">
             <h2>1 · Contacto</h2>

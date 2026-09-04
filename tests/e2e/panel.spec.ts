@@ -398,3 +398,39 @@ test.describe('panel · paginación', () => {
     });
   }
 });
+
+/**
+ * Que un error se anuncie, y no solo se pinte (#49).
+ *
+ * En toda la plataforma había **un** `aria-live` y **cero** `role="alert"`.
+ * Quien usa un lector de pantalla enviaba un formulario, fallaba, y no se
+ * enteraba: el foco seguía en el botón y el mensaje aparecía en un sitio que
+ * no se anuncia. Tampoco estaba atado a su campo, así que enfocarlo no leía
+ * nada.
+ *
+ * El error se provoca con el bloqueo del modo demostración, que es un fallo de
+ * verdad del mismo camino que usaría uno de validación: la acción de servidor
+ * devuelve `status: 'error'` y `FormFeedback` lo pinta.
+ */
+test.describe('panel · los errores se anuncian', () => {
+  test('el aviso de error es una región viva y se lleva el foco', async ({ page }) => {
+    await page.goto(`${PANEL_URL}/contenido/banners`);
+
+    await page
+      .getByRole('button', { name: /guardar/i })
+      .first()
+      .click();
+
+    // Filtrado por su texto, y no `getByRole('alert').first()`, que es lo
+    // natural y **no puede fallar**: Next monta siempre un
+    // `#__next-route-announcer__` con `role="alert"`, así que un aserto sin
+    // filtro lo encuentra a él y pasa aunque el aviso del formulario no tenga
+    // papel ninguno. Se descubrió mutando: el test seguía en verde.
+    const aviso = page.getByRole('alert').filter({ hasText: /no se guarda nada/i });
+    await expect(aviso).toBeVisible();
+
+    // Lo que de verdad cambia para quien no ve la pantalla: además de existir,
+    // el foco acaba ahí, así que el mensaje se lee sin ir a buscarlo.
+    await expect(aviso).toBeFocused();
+  });
+});

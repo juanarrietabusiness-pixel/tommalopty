@@ -1,7 +1,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { createSupabaseBrowserClient } from '@nebula/db';
 
 export function AdminLoginForm() {
@@ -12,6 +12,14 @@ export function AdminLoginForm() {
       ? 'Tu cuenta no tiene permisos para acceder al panel.'
       : null,
   );
+
+  const avisoRef = useRef<HTMLDivElement>(null);
+
+  // Al aparecer un error, el foco va al mensaje. Solo al aparecer: sin la
+  // dependencia, cualquier re-renderizado lo robaría mientras se escribe.
+  useEffect(() => {
+    if (error) avisoRef.current?.focus();
+  }, [error]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -54,7 +62,17 @@ export function AdminLoginForm() {
 
   return (
     <form onSubmit={handleSubmit}>
-      {error ? <div className="notice notice-error">{error}</div> : null}
+      {/*
+        `role="alert"` y foco, igual que en `FormFeedback`: este formulario pinta
+        su error a mano —no pasa por la acción de servidor— y sin esto quien usa
+        un lector de pantalla escribe la contraseña, falla, y no se entera de
+        nada. Es la primera pantalla del panel: enterarse aquí importa más.
+      */}
+      {error ? (
+        <div ref={avisoRef} tabIndex={-1} role="alert" className="notice notice-error">
+          {error}
+        </div>
+      ) : null}
 
       <div className="field">
         <label htmlFor="email">Correo electrónico</label>

@@ -4,7 +4,7 @@ import { useActionState } from 'react';
 import { slugify } from '@nebula/ui';
 import { createCategory } from '@/lib/actions/catalog-extra';
 import { IDLE } from '@/lib/actions/result';
-import { FieldError, FormFeedback, SubmitButton } from './form';
+import { FieldError, FormFeedback, SubmitButton, propsDeCampo } from './form';
 
 export function CategoryForm() {
   const [state, formAction] = useActionState(createCategory, IDLE);
@@ -29,13 +29,14 @@ export function CategoryForm() {
             ) as HTMLInputElement | null;
             if (slugInput && !slugInput.value) slugInput.value = slugify(event.currentTarget.value);
           }}
+          {...propsDeCampo(state, 'name')}
         />
         <FieldError state={state} field="name" />
       </div>
 
       <div className="field">
         <label htmlFor="slug">Slug</label>
-        <input id="slug" name="slug" required />
+        <input id="slug" name="slug" required {...propsDeCampo(state, 'slug')} />
         <FieldError state={state} field="slug" />
       </div>
 

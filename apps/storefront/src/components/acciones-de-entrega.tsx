@@ -63,7 +63,11 @@ export function AccionesDeEntrega({ token, estado }: { token: string; estado: Sh
     <section className="entrega-bloque">
       <h2>¿Cómo terminó?</h2>
 
-      {error ? <div className="notice notice-error">{error}</div> : null}
+      {error ? (
+        <div role="alert" className="notice notice-error">
+          {error}
+        </div>
+      ) : null}
 
       {estado === 'en_ruta' || estado === 'recogido' ? null : (
         <p className="field-hint">
