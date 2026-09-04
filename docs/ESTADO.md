@@ -436,8 +436,8 @@ pudimos cargar las imágenes del mapa»).
 
 ## 4. Lo que se aprendió por las malas
 
-Cuatro fallos de esta tanda comparten forma y volverán a aparecer si no se
-tienen presentes.
+Estos fallos comparten forma y volverán a aparecer si no se tienen presentes.
+Cada uno costó al menos medio día la primera vez.
 
 ### `??` no protege de una cadena vacía
 
@@ -540,6 +540,28 @@ verdad?»— cuesta más que el rato de escribir una cadena aburrida.
 El primer test del mapa pasaba en verde con el CSS roto, porque en desarrollo el
 orden de carga de las hojas es el favorable y el fallo solo aparece en el
 paquete de producción. **Comprobar siempre que el test falla sin el arreglo.**
+
+Y una segunda mitad, que costó el mismo rato otra vez el 4 de septiembre: si el
+test corre contra la aplicación **construida** —los e2e levantan un servidor
+propio—, hay que **reconstruir entre medias**. Revertir el arreglo y volver a
+lanzar los tests sin recompilar prueba el paquete viejo, y todo sigue en verde.
+
+### Un `loading.tsx` no se ve al navegar entre pantallas
+
+Se añadió uno al panel esperando que quitara la sensación de «pulso y no pasa
+nada», y **no llega a pintarse nunca** en una navegación de cliente. Medido con
+Playwright: el marcado viaja en la carga útil de Next pero no entra en el DOM,
+y el `<h1>` de la pantalla anterior sigue a la vista.
+
+El motivo es que el enrutador navega dentro de una **transición de React**, y en
+una transición React mantiene el contenido anterior en vez de sustituirlo por el
+respaldo del `Suspense`. Aquí se agrava porque el armazón lo monta cada página
+con `PanelPage` en lugar de vivir en un `layout.tsx`: la frontera de carga cubre
+la pantalla entera, menú incluido.
+
+Lo que sí funciona es avisar **dentro del enlace pulsado**, con `useLinkStatus`,
+que sobrevive a la transición porque no forma parte de lo que se sustituye.
+`loading.tsx` se queda para la primera carga de una pantalla, que es otro caso.
 
 ---
 
