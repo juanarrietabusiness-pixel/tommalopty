@@ -310,3 +310,47 @@ test.describe('panel · carga, error y no encontrado', () => {
     await expect(page.getByText('Cargando Clientes / CRM')).toBeAttached();
   });
 });
+
+/**
+ * Las acciones que existían y no tenía a mano nadie (#45).
+ *
+ * `archiveProduct`, `deleteBanner`, `toggleCategory` y `toggleDiscount` estaban
+ * escritas y funcionando, y ninguna tenía un llamador: cero referencias fuera
+ * del fichero donde se definen. La consecuencia era que una categoría o un
+ * código de descuento, una vez creados, no se podían desactivar por ninguna
+ * vía — la columna «Estado» del listado solo podía decir «Activo», para
+ * siempre.
+ *
+ * Estos tests fijan que el mando existe en la pantalla. No comprueban el
+ * efecto, que es de la acción de servidor y aquí está bloqueada por el modo
+ * demostración: comprueban justo lo que faltaba, que es poder llegar a ella.
+ */
+test.describe('panel · las acciones llegan a la pantalla', () => {
+  test('una categoría se puede desactivar desde el listado', async ({ page }) => {
+    await page.goto(`${PANEL_URL}/catalogo/categorias`);
+
+    await expect(page.getByRole('button', { name: /desactivar la categoría café/i })).toBeVisible();
+  });
+
+  test('un código de descuento se puede desactivar desde el listado', async ({ page }) => {
+    // El más caro de los cuatro: sin esto, un código publicado por error no se
+    // podía apagar. Solo caducaba, si alguien le puso fecha al crearlo.
+    await page.goto(`${PANEL_URL}/descuentos`);
+
+    await expect(
+      page.getByRole('button', { name: /desactivar el código bienvenida10/i }),
+    ).toBeVisible();
+  });
+
+  test('un producto se puede archivar desde su ficha', async ({ page }) => {
+    await page.goto(`${PANEL_URL}/catalogo/${ID('p1')}`);
+
+    await expect(page.getByRole('button', { name: 'Archivar' })).toBeVisible();
+  });
+
+  test('un banner se puede borrar desde su tarjeta', async ({ page }) => {
+    await page.goto(`${PANEL_URL}/contenido/banners`);
+
+    await expect(page.getByRole('button', { name: 'Borrar' }).first()).toBeVisible();
+  });
+});

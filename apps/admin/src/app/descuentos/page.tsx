@@ -2,7 +2,9 @@ import { money, number, shortDate } from '@nebula/ui';
 import { DataTable } from '@nebula/ui/admin';
 import { PanelPage } from '@/components/panel-page';
 import { DiscountForm } from '@/components/discount-form';
+import { InterruptorDeFila } from '@/components/interruptor-de-fila';
 import { cargarDescuentos } from '@/lib/panel-data';
+import { toggleDiscount } from '@/lib/actions/catalog-extra';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,6 +74,18 @@ export default async function DiscountsPage() {
                 ) : (
                   <span className="tag">Inactivo</span>
                 ),
+            },
+            {
+              key: 'acciones',
+              header: '',
+              align: 'right',
+              render: (discount) => (
+                <InterruptorDeFila
+                  activo={discount.is_active}
+                  nombre={`el código ${discount.code}`}
+                  alCambiar={toggleDiscount.bind(null, discount.id)}
+                />
+              ),
             },
           ]}
         />
