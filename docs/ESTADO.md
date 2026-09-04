@@ -395,6 +395,36 @@ funcionando.
 
 ---
 
+## 3.05 · La auditoría de experiencia de uso (4 de septiembre)
+
+Se revisaron las 25 pantallas del panel y las 19 de la tienda contra el código.
+Doce hallazgos, del [#45](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/45) al [#56](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/56). **Diez cerrados; dos esperan una decisión.**
+
+Lo que encontró, resumido en una frase cada uno, porque el patrón se repite y
+conviene reconocerlo: **casi todo era media función construida.**
+
+| Qué pasaba                                                                           | Cerrado en |
+| ------------------------------------------------------------------------------------ | ---------- |
+| Cuatro acciones de borrado escritas y sin ningún llamador                            | #45        |
+| El panel sin `loading.tsx`, `error.tsx` ni `not-found.tsx` — y `loading` no basta    | #47        |
+| Pedidos y clientes cortados en 50, sin paginación y enseñando el total               | #48        |
+| Ningún error se anunciaba: un `aria-live` en toda la plataforma, cero `role="alert"` | #49        |
+| La auditoría WCAG no miraba el panel — al encenderla, **seis fallos reales**         | #50        |
+| Lo irreversible se borraba al primer clic; lo reversible preguntaba                  | #51        |
+| Favoritos: una pantalla que nadie podía llenar                                       | #52        |
+| El listado de productos con un cuadro gris donde va la foto                          | #53        |
+| «Todavía no hay pedidos» cuando lo que no había era resultados del filtro            | #55        |
+| Una navegación con la misma forma que el bug de inicio de sesión                     | #56        |
+
+**Las dos que quedan no son de programar, son de decidir:**
+
+- **[#46](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/46) · Un cliente no se puede borrar ni anonimizar.** Es dato personal, así que
+  forma parte de la revisión legal pendiente. Hay que decidir si se anonimiza
+  —recomendado— o se borra en cascada, y qué pasa con sus pedidos.
+- **[#54](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/54) · Un envío creado por error solo se cierra como «entrega fallida».** Pide
+  migración (la tabla tiene un `check` que enumera los estados) y decidir si
+  anular es de `admin` o de `superadmin`.
+
 ## 3.1 · El mapa: lo que se resolvió y lo que queda
 
 **Resuelto: el recuadro salía vacío.** Lo causaba una colisión de CSS. MapLibre
