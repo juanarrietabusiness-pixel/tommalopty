@@ -14,6 +14,18 @@ import { storage } from '@nebula/integrations';
  */
 
 /** Solo la parte del binding que el panel usa. */
+interface ObjetoListado {
+  key: string;
+  size: number;
+  uploaded: Date;
+}
+
+interface ListadoR2 {
+  objects: ObjetoListado[];
+  truncated: boolean;
+  cursor?: string;
+}
+
 interface MediaBucket {
   put(
     key: string,
@@ -21,6 +33,7 @@ interface MediaBucket {
     options?: { httpMetadata?: { contentType?: string; cacheControl?: string } },
   ): Promise<unknown>;
   delete(key: string): Promise<void>;
+  list(options?: { limit?: number; cursor?: string; prefix?: string }): Promise<ListadoR2>;
 }
 
 function isMediaBucket(value: unknown): value is MediaBucket {
@@ -28,7 +41,8 @@ function isMediaBucket(value: unknown): value is MediaBucket {
     typeof value === 'object' &&
     value !== null &&
     typeof (value as MediaBucket).put === 'function' &&
-    typeof (value as MediaBucket).delete === 'function'
+    typeof (value as MediaBucket).delete === 'function' &&
+    typeof (value as MediaBucket).list === 'function'
   );
 }
 
@@ -167,5 +181,60 @@ export async function deleteMediaByUrl(url: string): Promise<DeleteMediaResult> 
   } catch (error) {
     console.error(`[media] no se pudo borrar "${clave}" de R2`, error);
     return { ok: false, reason: 'error' };
+  }
+}
+
+/**
+ * Recorre el bucket entero, página a página.
+ *
+ * Devuelve `null` —y no una lista a medias— si alguna página falla. La
+ * diferencia no es cosmética: una lista incompleta de objetos combinada con la
+ * comparación del barrido no borra de más, pero una lista incompleta de
+ * *referencias* sí borraría de más, así que la regla en todo este camino es la
+ * misma: o entero, o nada.
+ */
+export async function listarTodoElAlmacenamiento(): Promise<storage.ObjetoAlmacenado[] | null> {
+  const bucket = getMediaBucket();
+  if (!bucket) return null;
+
+  const objetos: storage.ObjetoAlmacenado[] = [];
+  let cursor: string | undefined;
+
+  // Tope de seguridad: 200 páginas de 1000 son 200.000 objetos. Si un bucket
+  // llegara ahí, es mejor devolver `null` y que alguien lo mire que iterar sin
+  // fin dentro de una petición.
+  for (let pagina = 0; pagina < 200; pagina += 1) {
+    let lote: Awaited<ReturnType<MediaBucket['list']>>;
+
+    try {
+      lote = await bucket.list({ limit: 1000, cursor });
+    } catch (error) {
+      console.error('[media] falló el listado del bucket', error);
+      return null;
+    }
+
+    for (const objeto of lote.objects) {
+      objetos.push({ key: objeto.key, bytes: objeto.size, subidoEn: new Date(objeto.uploaded) });
+    }
+
+    if (!lote.truncated) return objetos;
+    cursor = lote.cursor;
+  }
+
+  console.error('[media] el bucket tiene más páginas de las esperadas; no se barre a medias');
+  return null;
+}
+
+/** Borra una clave ya clasificada como huérfana. No deduce nada: eso ya se hizo. */
+export async function deleteMediaByKey(key: string): Promise<boolean> {
+  const bucket = getMediaBucket();
+  if (!bucket) return false;
+
+  try {
+    await bucket.delete(key);
+    return true;
+  } catch (error) {
+    console.error(`[media] no se pudo borrar "${key}"`, error);
+    return false;
   }
 }
