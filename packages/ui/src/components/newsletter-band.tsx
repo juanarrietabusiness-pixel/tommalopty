@@ -25,6 +25,10 @@ export function NewsletterBand({
   const [email, setEmail] = useState('');
   const [state, setState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle');
   const [message, setMessage] = useState<string | null>(null);
+  // La trampa para bots (#9). Una persona nunca la rellena porque no la ve; un
+  // bot que rellena todo lo que encuentra, sí. El servidor descarta el alta en
+  // silencio si viene con algo.
+  const [trampa, setTrampa] = useState('');
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,8 +39,17 @@ export function NewsletterBand({
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email, source }),
+        body: JSON.stringify({ email, source, website: trampa }),
       });
+
+      // 429: se ha pedido demasiadas veces desde esta conexión. Merece un
+      // mensaje propio, porque «inténtalo de nuevo en un momento» es
+      // literalmente lo que hay que hacer, y el genérico no lo dice.
+      if (response.status === 429) {
+        setState('error');
+        setMessage('Demasiados intentos desde esta conexión. Prueba de nuevo en un rato.');
+        return;
+      }
 
       if (!response.ok) throw new Error('request_failed');
 
@@ -72,6 +85,24 @@ export function NewsletterBand({
             value={email}
             onChange={(event) => setEmail(event.target.value)}
           />
+          {/*
+            El campo trampa. `aria-hidden` y `tabIndex={-1}` lo sacan del
+            recorrido de teclado y de los lectores de pantalla: quien navega sin
+            ver la página tampoco debe encontrarse con él, o sería una trampa
+            para la persona equivocada. `autoComplete="off"` evita que el
+            navegador lo rellene solo.
+          */}
+          <input
+            type="text"
+            name="website"
+            tabIndex={-1}
+            aria-hidden="true"
+            autoComplete="off"
+            className="visually-hidden"
+            value={trampa}
+            onChange={(event) => setTrampa(event.target.value)}
+          />
+
           <button type="submit" className="btn btn-accent" disabled={state === 'sending'}>
             {state === 'sending' ? 'Enviando…' : ctaLabel}
           </button>
