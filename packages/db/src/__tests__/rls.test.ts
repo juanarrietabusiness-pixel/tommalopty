@@ -591,29 +591,51 @@ describeIfDb('administrador', () => {
  * pedido legítimo de uno inyectado es lo que la función decide hacer.
  */
 describeIfDb('create_order y las fichas ajenas', () => {
-  /** Una variante vendible, creada para estos tests. */
+  /**
+   * Una variante que de verdad se puede comprar, creada una sola vez.
+   *
+   * Dos cosas que costaron una vuelta de CI:
+   *
+   * 1. **Hay un trigger** (`on_variant_created`) que le crea su fila de
+   *    inventario con `quantity 0` y `track_inventory true`. Una variante
+   *    recién creada no es vendible: `create_order` la rechaza con «Stock
+   *    insuficiente» antes de llegar a lo que estos tests comprueban. Hay que
+   *    darle existencias a mano.
+   * 2. **Es idempotente a propósito.** La primera versión creaba una variante
+   *    nueva en cada llamada, y como esto corre FUERA de la transacción que
+   *    cada test revierte, iba dejando variantes sueltas en la base de pruebas.
+   */
   async function varianteVendible(): Promise<string> {
+    const { rows: existente } = await client.query<{ id: string }>(
+      `select v.id from public.product_variants v
+         join public.products p on p.id = v.product_id
+        where p.slug = 'rls-checkout-10' limit 1`,
+    );
+
+    if (existente[0]) return existente[0].id;
+
     const { rows } = await client.query<{ id: string }>(
       `with p as (
          insert into public.products (slug, title, status)
          values ('rls-checkout-10', 'Producto para el checkout', 'active')
-         on conflict (slug) do update set status = 'active'
-         returning id
-       ), v as (
-         insert into public.product_variants (product_id, title, price, is_active)
-         select p.id, 'Única', 10, true from p
-         on conflict do nothing
          returning id
        )
-       select coalesce(
-         (select id from v),
-         (select v2.id from public.product_variants v2
-            join public.products p2 on p2.id = v2.product_id
-           where p2.slug = 'rls-checkout-10' limit 1)
-       ) as id`,
+       insert into public.product_variants (product_id, title, price, is_active)
+       select p.id, 'Única', 10, true from p
+       returning id`,
     );
 
-    return rows[0]!.id;
+    const variante = rows[0]!.id;
+
+    // El trigger ya creó la fila; aquí solo se le ponen existencias.
+    await client.query(
+      `update public.inventory
+          set quantity = 1000, reserved_quantity = 0
+        where variant_id = $1`,
+      [variante],
+    );
+
+    return variante;
   }
 
   it('un invitado con el correo de una cuenta registrada NO se lleva la ficha', async () => {
