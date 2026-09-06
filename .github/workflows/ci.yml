@@ -40,6 +40,13 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
 
+      # Corre aquí y no con los tests de base de datos a propósito: no necesita
+      # Postgres, tarda dos segundos y dice lo que falta antes de levantar nada.
+      # Lo que comprueba de verdad los privilegios es `permisos.test.ts`, contra
+      # una base real; esto solo caza el descuido temprano.
+      - name: Toda función nueva declara quién puede ejecutarla
+        run: pnpm validar:migraciones
+
       - if: always()
         run: echo "### Formato, lint y tipos — ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
 
@@ -79,8 +86,20 @@ jobs:
         with: { version: 10.33.0 }
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
+      # La versión va fijada, y a la misma que el `devDependency` `supabase`
+      # del repositorio (hoy 2.115.0). Dos motivos:
+      #
+      # 1. `version: latest` hace una llamada SIN AUTENTICAR a la API de GitHub
+      #    en cada ejecución para resolver la última release. Es lo que reventó
+      #    el CI del PR #60 con «Failed to resolve latest Supabase CLI release:
+      #    rate limit exceeded», antes de que corriera un solo test.
+      # 2. El CLI que aplica las migraciones en CI debe ser el mismo que las
+      #    aplica en local. Con `latest` no lo es, y una diferencia de
+      #    comportamiento entre los dos aparece como un fallo de test.
+      #
+      # Al subirlo, sube también `supabase` en el `package.json`.
       - uses: supabase/setup-cli@v1
-        with: { version: latest }
+        with: { version: 2.115.0 }
 
       - run: pnpm install --frozen-lockfile
 

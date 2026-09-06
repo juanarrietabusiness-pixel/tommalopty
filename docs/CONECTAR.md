@@ -405,6 +405,36 @@ El issue lleva la lista de candidatas y lo que falta.
 
 ---
 
+## 5.b · La revisión IA de los pull requests (opcional)
+
+Hay dos revisores automáticos —correctitud y seguridad— que comentan cada PR.
+Se activan con **un secreto y nada más**:
+
+1. Una clave de la API de Anthropic, de <https://console.anthropic.com>.
+2. GitHub → Settings → Secrets and variables → Actions, como **secreto**
+   llamado `ANTHROPIC_API_KEY`.
+
+No hay tercer paso. Sin el secreto los dos trabajos **salen en verde y lo
+dicen** en el resumen del PR, en vez de dejar cada pull request en rojo por una
+herramienta opcional.
+
+Qué esperar, para que no sorprenda:
+
+- **Dos llamadas al modelo por cada empujón a un PR.** Con el volumen de este
+  repositorio son céntimos, pero conviene saber que se paga por uso y que un PR
+  al que se le empujan diez veces se revisa diez veces.
+- **No sustituye al CI.** Lo que de verdad bloquea sigue siendo `pnpm lint`,
+  los tipos, los tests y las políticas RLS. El revisor comenta; no aprueba ni
+  rechaza.
+- **Los dos carriles no se solapan a propósito.** El de correctitud tiene
+  prohibido hablar de seguridad y al revés. Si un día hacen falta más —estilo,
+  mantenibilidad— se añaden con veinte líneas: el núcleo
+  (`_revision-ia-nucleo.yml`) acepta cualquier carril. Ahora no están porque
+  `prettier` y `eslint` ya cubren eso, y además no se equivocan.
+
+Para apagarlo: borrar el secreto, o borrar los dos ficheros
+`.github/workflows/revision-ia-*.yml`.
+
 ## 6 · El dominio, y todo lo que cuelga de él
 
 **Es el P1 número 2, y desbloquea tres cosas a la vez.** Hasta que exista, las

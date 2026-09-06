@@ -102,10 +102,19 @@ jobs:
           BASE: '${{ github.event.pull_request.base.sha }}'
           CABEZA: '${{ github.event.pull_request.head.sha }}'
         run: |
+          # Tres puntos, no dos. `base.sha` es la punta de la rama base cuando
+          # se abrió el PR, no el ancestro común: con dos puntos entrarían en la
+          # cuenta commits de `main` que este PR no tocó, y el presupuesto
+          # saldría inflado en cuanto la base avanzara.
+          #
           # Lo generado y los lockfiles no se revisan: nadie los escribió.
-          lineas=$(git diff --numstat "$BASE" "$CABEZA" \
+          lineas=$(git diff --numstat "$BASE...$CABEZA" \
             -- . ':(exclude)pnpm-lock.yaml' ':(exclude)**/generated/**' \
-            | awk '{ s += $1 } END { print s + 0 }')
+            2>/dev/null | awk '{ s += $1 } END { print s + 0 }')
+
+          # Si el diff no se pudo calcular, un presupuesto medio es mejor que un
+          # trabajo en rojo por una herramienta de apoyo.
+          [ -z "$lineas" ] && lineas=0
 
           if   [ "$lineas" -lt 40 ];   then presupuesto=2
           elif [ "$lineas" -lt 200 ];  then presupuesto=3
