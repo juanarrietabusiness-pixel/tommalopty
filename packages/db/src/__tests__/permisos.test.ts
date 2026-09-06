@@ -157,6 +157,13 @@ if (!disponible) {
  * sesión que no sea de equipo. La primera versión de este archivo la probó con
  * un superadministrador real contra la base de staging y pasó; en CI, donde la
  * sesión es un `authenticated` cualquiera, falló. El fallo era del test.
+ *
+ * Y este comentario estuvo mintiendo cinco días. La guardia existía cuando se
+ * escribió, la migración 0034 la borró sin querer al reescribir la función por
+ * otro motivo, y aquí seguía descrita como si estuviera. Lo que no lo dijo fue
+ * que este bloque solo comprueba que el equipo SÍ puede: nadie probaba que un
+ * cliente no. Esa mitad está más abajo, en «funciones alcanzables desde
+ * fuera».
  */
 const STAFF = '00000000-0000-0000-0000-0000000000a1';
 
@@ -637,6 +644,178 @@ describeSiHayBase('permisos de tabla', () => {
         { vista: 'report_sales_daily', privilegios: null },
         { vista: 'report_top_products', privilegios: null },
       ]);
+    });
+  });
+
+  /**
+   * LA RED QUE FALTABA: qué se puede llamar desde fuera, y por qué.
+   *
+   * De dónde sale
+   * -------------
+   * De leer `google/adk-samples`, que tiene un `.github/policy.yml` como única
+   * fuente de los límites que su CI exige, y validadores que los comparan
+   * contra la realidad en vez de contra la intención. Aplicado aquí, la
+   * pregunta es: **¿qué funciones de `public` puede ejecutar hoy alguien de
+   * fuera, y está cada una en esta lista con su motivo escrito?**
+   *
+   * Por qué se pregunta a la base y no se lee el código
+   * --------------------------------------------------
+   * Porque las dos veces que este repositorio tuvo el agujero, el código
+   * parecía correcto:
+   *
+   * - En los issues #9 y #10, funciones nuevas con `EXECUTE` para `PUBLIC`.
+   *   Una función nueva nace así, y `revoke ... from anon, authenticated` NO
+   *   se lo quita: el permiso no está concedido a esos roles, sino a `PUBLIC`.
+   * - En `dashboard_metrics`, la guardia `is_staff()` que puso la migración
+   *   0013 y que borró la 0034 al reescribir la función para cambiar los
+   *   ingresos de `total` a `amount_paid`. Nada que ver con permisos, y se
+   *   llevó uno por delante. Durante cinco días cualquiera que se registrara
+   *   como cliente pudo leer la facturación de la tienda por RPC.
+   *   Reproducido contra staging antes de arreglarlo.
+   * - En `limpiar_lead_intentos`, escrita sin `revoke` en la migración cuyo
+   *   asunto era exactamente ese descuido.
+   *
+   * Tres formas distintas de llegar al mismo sitio. Ninguna se ve leyendo el
+   * diff; las tres se ven preguntándole a Postgres.
+   *
+   * Cómo se añade una entrada
+   * -------------------------
+   * Si este test falla porque hay una función de más, la pregunta NO es «¿cómo
+   * la añado a la lista?». Es «¿tiene que poder llamarla alguien de fuera?».
+   * Casi siempre la respuesta es no y lo que falta es el `revoke`. Añadir una
+   * entrada es declarar que sí, y el `motivo` es lo que la próxima persona va
+   * a leer para decidir si sigue siendo verdad.
+   */
+  describe('funciones alcanzables desde fuera', () => {
+    interface FuncionAlcanzable {
+      /** ¿La puede llamar alguien SIN cuenta? */
+      anon: boolean;
+      /** Por qué se le deja. Lo lee quien audite esto dentro de un año. */
+      motivo: string;
+    }
+
+    const ALCANZABLES: Record<string, FuncionAlcanzable> = {
+      // --- Las siete de identidad -------------------------------------------
+      // Las llaman las propias políticas RLS, así que tienen que ser
+      // ejecutables por el rol que choca contra la política. Son seguras
+      // porque no aceptan argumentos: cada una responde SOLO sobre quien
+      // pregunta. `is_admin()` no dice si Fulano es admin, dice si lo eres tú.
+      'current_courier_id()': { anon: true, motivo: 'Identidad propia; la usa la RLS de envíos.' },
+      'current_customer_id()': {
+        anon: true,
+        motivo: 'Identidad propia; la usa la RLS del cliente.',
+      },
+      'current_user_role()': { anon: true, motivo: 'Identidad propia; base de is_staff/is_admin.' },
+      'is_admin()': { anon: true, motivo: 'Identidad propia; la usan las políticas de escritura.' },
+      'is_courier()': { anon: true, motivo: 'Identidad propia; la usa la RLS del motorizado.' },
+      'is_staff()': {
+        anon: true,
+        motivo: 'Identidad propia; la usan las políticas de lectura del panel.',
+      },
+      'is_superadmin()': { anon: true, motivo: 'Identidad propia; la usan roles e integraciones.' },
+
+      // --- Las tres con trabajo de verdad -----------------------------------
+      'validate_discount(p_code text, p_subtotal numeric, p_customer_id uuid)': {
+        anon: true,
+        motivo:
+          'La tienda comprueba un cupón antes del checkout, y ahí todavía no hay sesión. ' +
+          'Endurecida en el issue #8: el límite por persona se resuelve contra la ficha ' +
+          'de la sesión, no contra el uuid que llegue por parámetro.',
+      },
+      'dashboard_metrics(p_days integer)': {
+        anon: false,
+        motivo:
+          'El panel la llama con la sesión de quien mira, que es `authenticated` igual ' +
+          'que un cliente. Por eso NO se puede cerrar con privilegios: la guardia ' +
+          '`is_staff()` va dentro de la función. Ver el test de aquí abajo.',
+      },
+      'anonimizar_cliente(p_customer_id uuid)': {
+        anon: false,
+        motivo:
+          'Igual que la anterior: la llama el panel con la sesión de quien pulsa, y la ' +
+          'guardia `is_superadmin()` va dentro. Es `security definer` para poder tocar ' +
+          'los pedidos y los envíos de otro, así que sin esa guardia cualquier sesión ' +
+          'autenticada podría anonimizar a cualquiera. Issue #46.',
+      },
+    };
+
+    it('no hay ninguna más, y ninguna menos', async () => {
+      const { rows } = await client.query<{ firma: string; anon: boolean }>(
+        `select p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' as firma,
+                has_function_privilege('anon', p.oid, 'EXECUTE') as anon
+           from pg_proc p
+           join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname = 'public'
+            and p.prosecdef
+            -- Una función de disparador no se llama, se dispara: no tiene
+            -- superficie de ataque por RPC.
+            and p.prorettype <> 'trigger'::regtype::oid
+            and (has_function_privilege('anon', p.oid, 'EXECUTE')
+                 or has_function_privilege('authenticated', p.oid, 'EXECUTE'))
+          order by p.proname`,
+      );
+
+      const real = Object.fromEntries(rows.map((r) => [r.firma, { anon: r.anon }]));
+      const declarado = Object.fromEntries(
+        Object.entries(ALCANZABLES).map(([firma, v]) => [firma, { anon: v.anon }]),
+      );
+
+      // Se compara el objeto entero de una vez, a propósito. Comparar solo los
+      // nombres dejaría pasar que una función pase de `authenticated` a `anon`
+      // sin que nadie se entere, que es medio agujero.
+      expect(real).toEqual(declarado);
+    });
+
+    /**
+     * Y la mitad que no se ve en los privilegios.
+     *
+     * Las dos funciones con `anon: false` están abiertas a CUALQUIER sesión
+     * autenticada, así que su seguridad no está en el `grant` sino en el `if`
+     * de su primera línea. Un test de privilegios las da por buenas; solo
+     * llamándolas se ve si la guardia sigue ahí.
+     *
+     * Es exactamente lo que falló: la guardia de `dashboard_metrics` se perdió
+     * en un `create or replace` y los privilegios no cambiaron ni un bit.
+     */
+    it('un cliente registrado no puede leer la facturación de la tienda', async () => {
+      await client.query('begin');
+      try {
+        const { rows } = await client.query<{ id: string }>(
+          `insert into auth.users (id, email, raw_user_meta_data)
+           values (gen_random_uuid(), 'cliente-metricas@test.local', '{"full_name":"Cliente"}')
+           returning id`,
+        );
+        const cliente = rows[0]!.id;
+
+        // El disparador de alta le pone rol `customer`. Si algún día dejara de
+        // hacerlo, este test estaría probando otra cosa.
+        const { rows: perfil } = await client.query<{ role: string }>(
+          `select role from public.profiles where id = $1`,
+          [cliente],
+        );
+        expect(perfil[0]!.role).toBe('customer');
+
+        await client.query(`select set_config('request.jwt.claim.sub', $1, true)`, [cliente]);
+
+        await expect(client.query('select public.dashboard_metrics(30)')).rejects.toMatchObject({
+          code: '42501',
+        });
+      } finally {
+        await client.query('rollback');
+      }
+    });
+
+    it('y el equipo sí, o el panel se queda sin portada', async () => {
+      // La otra mitad. Sin esto, el test de arriba pasaría con una función que
+      // rechaza a todo el mundo.
+      await client.query('begin');
+      try {
+        await client.query(`select set_config('request.jwt.claim.sub', $1, true)`, [STAFF]);
+        const { rows } = await client.query(`select * from public.dashboard_metrics(30)`);
+        expect(rows).toHaveLength(1);
+      } finally {
+        await client.query('rollback');
+      }
     });
   });
 });

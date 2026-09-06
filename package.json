@@ -20,7 +20,8 @@
     "db:reset": "supabase db reset",
     "db:start": "supabase start",
     "test:e2e": "pnpm --filter @nebula/tests test:e2e",
-    "test:all": "pnpm test && pnpm test:e2e"
+    "test:all": "pnpm test && pnpm test:e2e",
+    "validar:migraciones": "node tools/validar-migraciones.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",

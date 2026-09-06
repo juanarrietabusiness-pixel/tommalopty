@@ -625,6 +625,64 @@ La regla, para la próxima: **de un fichero `'use server'` no sale nada que no
 sea una función asíncrona.** Los tipos sí (se borran al compilar), los objetos
 no.
 
+### Un `create or replace` se puede llevar por delante una guardia de seguridad
+
+La migración 0013 le puso a `dashboard_metrics` una guardia de rol:
+
+```sql
+if not public.is_staff() then
+  raise exception 'No autorizado.' using errcode = '42501';
+end if;
+```
+
+La migración 0034 reescribió la función entera —con `create or replace`, para
+cambiar los ingresos de `total` a `amount_paid`, que es contabilidad y no tiene
+nada que ver con permisos— y **la guardia desapareció en el camino**. El
+comentario que esa misma migración dejó puesto seguía diciendo «protegido por
+la guardia de rol de la app», describiendo la guardia que acababa de borrar.
+El comentario de `permisos.test.ts` también.
+
+Durante cinco días cualquiera que se registrara como cliente podía leer por RPC
+la facturación de la tienda, el ticket medio, los clientes nuevos y el stock
+bajo. Reproducido contra staging con los números reales antes de arreglarlo.
+
+Lo que no lo cazó, y por qué:
+
+- **Los privilegios no cambiaron ni un bit.** Un test de `grant`/`revoke` la
+  daba por buena, porque su seguridad no estaba en el `grant` sino en el `if` de
+  su primera línea. Y tiene que ser así: el panel la llama con la sesión de
+  quien mira, que es `authenticated` exactamente igual que un cliente.
+- **El test que había solo probaba la mitad fácil** — que el equipo SÍ puede.
+  Nadie probaba que un cliente no.
+
+La regla: **una función `security definer` cuya autorización vive dentro
+necesita un test que la llame sin permiso**, no solo uno que la llame con él.
+Los dos, siempre: el segundo sin el primero no prueba nada, y el primero sin el
+segundo pasaría con una función que rechaza a todo el mundo.
+
+### Una función nueva nace pudiéndola llamar cualquiera
+
+Ya está en § 4 más arriba para las tablas; con las funciones pasó tres veces:
+en los issues #9 y #10, y otra vez en `limpiar_lead_intentos` —escrita sin
+`revoke` **en la migración cuyo asunto era exactamente ese descuido**—.
+
+La causa es que `revoke ... from anon, authenticated` **no quita** el permiso:
+el permiso no está concedido a esos roles, sino a `PUBLIC`. Hace falta
+`revoke ... from public`.
+
+Las tres veces el diff parecía correcto, así que la comprobación no puede ser
+leer el código. Hay dos ahora, y son distintas a propósito:
+
+- `tools/validar-migraciones.mjs` — barata, sin base de datos, en el trabajo de
+  lint. Exige que toda función nueva no-disparador acabe teniendo una sentencia
+  de privilegios que la nombre. No juzga si son los correctos: eso no se lee de
+  un texto.
+- `permisos.test.ts`, «funciones alcanzables desde fuera» — la que manda. Le
+  pregunta a Postgres qué se puede ejecutar hoy y lo compara con una lista
+  blanca donde cada entrada lleva su motivo escrito. Si aparece una función de
+  más, la pregunta no es cómo añadirla a la lista: es si de verdad tiene que
+  poder llamarla alguien de fuera.
+
 ---
 
 ## 5. Por dónde seguir
