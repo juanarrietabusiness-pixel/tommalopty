@@ -30,9 +30,10 @@ No es una impresión: es lo que hay en el repositorio a día de hoy.
 ### Lo que ya funciona
 
 - **Dos aplicaciones desplegables**: tienda (`apps/storefront`) y panel
-  administrativo (`apps/admin`), con 32 pantallas entre ambas.
-- **34 tablas** con seguridad a nivel de fila (RLS) y **174 tests** automatizados,
-  incluidos tests contra Postgres real.
+  administrativo (`apps/admin`), con 44 pantallas entre ambas —25 del panel y 19
+  de la tienda—.
+- **42 tablas** con seguridad a nivel de fila (RLS) y **605 tests** automatizados
+  —443 unitarios y 162 contra Postgres real—, verificados el 6 de septiembre.
 - **Compra completa de punta a punta**: catálogo, búsqueda en español, carrito
   persistente, checkout que recalcula precios en el servidor, y creación de
   pedido dentro de una única transacción de base de datos (`create_order`), con
@@ -161,7 +162,7 @@ corre la aplicación. Netlify sería el sustituto de Cloudflare, y se descartó.
 | ------------------------------- | ----------------------------- | ------------------------------------------------ |
 | Tienda (`storefront`)           | Cloudflare Workers            | Dominio principal                                |
 | Panel (`admin`)                 | Cloudflare Workers            | Subdominio propio, cerrado con Cloudflare Access |
-| Base de datos y cuentas         | Supabase                      | 34 tablas con RLS, sesiones                      |
+| Base de datos y cuentas         | Supabase                      | 42 tablas con RLS, sesiones                      |
 | Imágenes de catálogo y CMS      | Cloudflare R2                 | Egress $0                                        |
 | Transformaciones de imagen      | Cloudflare Images             | Variantes y recortes                             |
 | Video                           | Cloudflare Stream             | Transcodificado y bitrate adaptativo             |
@@ -865,7 +866,7 @@ Servientrega y pegamos el número a mano" sin ninguna integración.
 
 ## 7. Resumen del modelo de datos nuevo
 
-Sobre las 34 tablas actuales, se añaden:
+Sobre las 34 tablas que había al escribir este plan, se añaden:
 
 | Tabla                                         | Fase | Para qué                                   |
 | --------------------------------------------- | ---- | ------------------------------------------ |
