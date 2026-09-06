@@ -867,13 +867,30 @@ describeIfDb('anonimizar un cliente', () => {
     return { id, pedido: pedido[0]!.id };
   }
 
-  /** Llama a la función con la sesión de quien se le diga. */
+  /**
+   * Llama a la función con la sesión de quien se le diga.
+   *
+   * El `catch` vacío del `finally` no es descuido, es lo contrario. Cuando la
+   * función rechaza —que es justo lo que comprueba el primer test— Postgres
+   * aborta la transacción, y entonces CUALQUIER sentencia posterior falla con
+   * «current transaction is aborted». Si el `finally` deja escapar ese error,
+   * sustituye al de verdad y el test acaba comprobando un mensaje del motor en
+   * vez del mensaje de la función. Pasó: CI lo cazó.
+   *
+   * Es el mismo defecto que la lista de «qué cazar» del carril de correctitud
+   * pone en `revision-ia-correctitud.yml`: un camino de error que se traga el
+   * error real. Escrito por quien escribió la lista.
+   */
   async function anonimizar(db: Client, customerId: string, comoQuien: string) {
     await db.query('select set_config($1, $2, true)', ['request.jwt.claim.sub', comoQuien]);
     try {
       return await db.query(`select * from public.anonimizar_cliente($1)`, [customerId]);
     } finally {
-      await db.query('select set_config($1, $2, true)', ['request.jwt.claim.sub', '']);
+      await db.query('select set_config($1, $2, true)', ['request.jwt.claim.sub', '']).catch(() => {
+        // La transacción ya está abortada y el `rollback` de cada test la
+        // cierra igual. `set_config(..., true)` es local a la transacción, así
+        // que no queda nada puesto.
+      });
     }
   }
 
