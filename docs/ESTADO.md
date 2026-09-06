@@ -394,7 +394,7 @@ funcionando.
 | 20  | **El mapa de la pantalla de Despacho**: se dejó fuera a propósito, y va detrás del plan de teselas (P1 número 3). Un mapa abierto toda la jornada consume más cuota que decenas de checkouts ([#30](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/30))                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | 21  | **La auditoría de interfaz dejó dos cosas sin cerrar**: no se ha medido el contraste más allá de lo que comprueba axe, ni el rendimiento percibido (LCP, CLS) sobre una conexión lenta. Ninguna de las dos es un fallo conocido; son medidas que no se han tomado                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | 22  | **Los códigos de descuento se pueden enumerar a fuerza bruta**: salió al cerrar el [#8](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/8) y sigue abierto. `validate_discount` ya no filtra clientes ajenos, pero nada impide probar códigos uno detrás de otro. Es un límite de tasa por IP, la misma forma que el de `leads` pero en otra puerta ([#69](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/69))                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| 23  | **El disparador `ensure_rls` no está en ninguna migración**: es lo que cerró el [#11](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/11) —activa RLS sobre toda tabla nueva de `public`— y existe solo en la base de staging. Una base levantada desde este repositorio no lo hereda: ni un proyecto de Supabase nuevo, ni un `supabase db reset`, ni el Postgres contra el que CI corre los tests de RLS. Detalle en § 4 ([#68](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/68))                                                                                                                                                                                                                                                                                                                                                            |
+| 23  | ~~**El disparador `ensure_rls` no está en ninguna migración**~~ **Resuelto (6 sep).** Migración `20260906140000_ensure_rls_en_el_repositorio.sql`, con la definición leída de staging y copiada —no reescrita: la real filtra por tres etiquetas (`CREATE TABLE`, `CREATE TABLE AS`, `SELECT INTO`), no por una—. Tres tests en `permisos.test.ts` lo fijan contra el Postgres pelado de CI, que era justo el entorno donde no existía ([#68](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/68))                                                                                                                                                                                                                                                                                                                                                               |
 
 ---
 
@@ -583,11 +583,36 @@ la revocación masiva de `EXECUTE` tiene que dejarlo fuera— y no aparece en ni
 otro sitio del repositorio. Existe en la base de staging, no en el control de
 versiones.
 
-Lo que eso implica, dicho sin dramatizar: staging está protegido, pero **una base
-levantada desde estas migraciones no hereda la garantía** — un proyecto de
-Supabase nuevo, un `supabase db reset` local, o el contenedor de Postgres contra
-el que corren los tests de RLS en CI. Hasta que el disparador esté en una
-migración, la protección no viaja con el código.
+Lo que eso implicaba: staging estaba protegido, pero **una base levantada desde
+estas migraciones no heredaba la garantía** — un proyecto de Supabase nuevo, un
+`supabase db reset` local, o el contenedor de Postgres contra el que corren los
+tests de RLS en CI.
+
+**Resuelto el 6 de septiembre** en la migración
+`20260906140000_ensure_rls_en_el_repositorio.sql`. Tres cosas que quedaron claras
+al escribirla, y que valen para la próxima:
+
+1. **La definición se leyó de la base y se copió, no se reescribió de memoria.**
+   La real filtra por tres etiquetas —`CREATE TABLE`, `CREATE TABLE AS` y
+   `SELECT INTO`, que son las tres formas de crear una tabla—, filtra además por
+   `object_type`, y envuelve cada `alter table` en su propio `exception` para no
+   abortar el DDL de quien lo lanzó. Una reescritura de memoria se habría dejado
+   las tres cosas, y dos de esas puertas se quedan abiertas.
+2. **Hizo falta un `revoke` explícito**, por el orden. La migración 0021 revoca
+   `EXECUTE` en masa a las funciones de disparador, y corre antes. En staging da
+   igual —la función ya existía, y `create or replace` conserva privilegios— pero
+   en una base nueva se crea de cero después del barrido, y una función nueva
+   nace con `EXECUTE` para `PUBLIC`. Arreglar esto sin el `revoke` habría abierto
+   en toda base nueva justo lo que cerró el PR #67. Lo cazó
+   `pnpm validar:migraciones`, que es para lo que está.
+3. **El test vive en `packages/db`, no en una comprobación contra staging**, a
+   propósito: corre contra un Postgres levantado solo desde `supabase/migrations`,
+   que era exactamente el entorno donde la garantía no existía.
+
+**La lección, que vale más que el arreglo:** preguntarle a la base de datos y
+preguntarle al código son **dos comprobaciones distintas**, y hacen falta las
+dos. La primera dice qué hay; la segunda, qué se reproduce. El #11 se cerró
+haciendo solo la primera.
 
 **Y lo que el disparador no hace, aunque esté:** activa RLS, no escribe
 políticas. Una tabla nueva sale con RLS y cero políticas — el estado seguro

@@ -573,6 +573,98 @@ describeSiHayBase('permisos de tabla', () => {
     });
 
     /**
+     * Y que además nazca con RLS activo (issue #68).
+     *
+     * El test de arriba mira los PRIVILEGIOS de una tabla nueva; este mira su
+     * RLS. Son dos cosas distintas y las dos hacen falta: sin privilegios pero
+     * sin RLS, cualquier `grant` posterior la abre entera.
+     *
+     * Lo garantiza un disparador de eventos DDL, `ensure_rls`. Este test existe
+     * porque el disparador estuvo meses **fuera del control de versiones**: vivía
+     * en la base de staging y en ningún fichero. El issue #11 se cerró
+     * comprobándolo contra staging —donde funcionaba— sin comprobar que se
+     * reprodujera desde las migraciones, que es donde no estaba.
+     *
+     * Por eso el test vive aquí y no en staging: corre contra un Postgres
+     * levantado solo desde `supabase/migrations`, que era exactamente el
+     * entorno donde la garantía no existía. Si alguien borra la migración
+     * `20260906140000`, esto se pone rojo.
+     *
+     * **La lección, que vale más que el arreglo:** preguntarle a la base de
+     * datos y preguntarle al código son dos comprobaciones distintas. La
+     * primera dice qué hay; la segunda, qué se reproduce.
+     */
+    describe('el disparador que activa RLS en toda tabla nueva', () => {
+      it('existe, con las tres etiquetas que crean una tabla', async () => {
+        const { rows } = await client.query<{
+          evento: string;
+          tags: string | null;
+          habilitado: string;
+        }>(
+          `select e.evtevent as evento,
+                  array_to_string(e.evttags, ',') as tags,
+                  e.evtenabled::text as habilitado
+             from pg_event_trigger e
+            where e.evtname = 'ensure_rls'`,
+        );
+
+        // Las tres, no solo `CREATE TABLE`: `CREATE TABLE AS` y `SELECT INTO`
+        // también crean una tabla, y dejarlas fuera es dejar dos puertas.
+        expect(rows[0]).toEqual({
+          evento: 'ddl_command_end',
+          tags: 'CREATE TABLE,CREATE TABLE AS,SELECT INTO',
+          habilitado: 'O',
+        });
+      });
+
+      it('una tabla nueva sale con RLS sin que nadie lo pida', async () => {
+        await client.query('begin');
+        try {
+          await client.query('create table public.zz_prueba_rls (id int)');
+
+          const { rows } = await client.query<{ rls: boolean; politicas: number }>(
+            `select c.relrowsecurity as rls,
+                    (select count(*)::int from pg_policies
+                      where schemaname = 'public' and tablename = 'zz_prueba_rls') as politicas
+               from pg_class c
+               join pg_namespace n on n.oid = c.relnamespace
+              where n.nspname = 'public' and c.relname = 'zz_prueba_rls'`,
+          );
+
+          // `politicas: 0` no es un detalle de más: es la mitad que hay que
+          // recordar. El disparador activa RLS, NO escribe políticas. Una tabla
+          // nueva queda en el estado seguro —nadie ve nada— y no en el útil.
+          expect(rows[0]).toEqual({ rls: true, politicas: 0 });
+        } finally {
+          await client.query('rollback');
+        }
+      });
+
+      /**
+       * La trampa del orden, que es lo que casi se cuela.
+       *
+       * La migración 0021 revoca `EXECUTE` en masa a las funciones de
+       * disparador consultando el catálogo, y corre ANTES que la que crea esta.
+       * En staging da igual —la función ya existía y `create or replace`
+       * conserva privilegios— pero en una base nueva se crea de cero DESPUÉS
+       * del barrido, y una función nueva nace con `EXECUTE` para `PUBLIC`.
+       *
+       * O sea que arreglar #68 sin un `revoke` explícito habría abierto en toda
+       * base nueva justo lo que #67 vino a cerrar.
+       */
+      it('y su función no la puede ejecutar nadie de fuera', async () => {
+        const { rows } = await client.query<Record<string, boolean>>(
+          `select has_function_privilege('public', 'public.rls_auto_enable()', 'EXECUTE') as publico,
+                  has_function_privilege('anon', 'public.rls_auto_enable()', 'EXECUTE') as anon,
+                  has_function_privilege('authenticated', 'public.rls_auto_enable()', 'EXECUTE')
+                    as autenticado`,
+        );
+
+        expect(rows[0]).toEqual({ publico: false, anon: false, autenticado: false });
+      });
+    });
+
+    /**
      * La bóveda de credenciales, que es la tabla con más que perder del
      * proyecto: ahí van a vivir las claves de Yappy, Meta y Resend.
      *
