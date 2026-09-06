@@ -683,6 +683,45 @@ leer el código. Hay dos ahora, y son distintas a propósito:
   más, la pregunta no es cómo añadirla a la lista: es si de verdad tiene que
   poder llamarla alguien de fuera.
 
+### Lo que se copió de `google/adk-samples`, y lo que no
+
+Se revisó ese repositorio buscando prácticas. Sus recetas —agentes de Python
+para el ADK de Google— no sirven aquí: no hay nada que importar. Lo que sí vale
+es su `.github/` y su `tools/`, donde no enseñan agentes sino **cómo se opera un
+repositorio con IA sin que la IA lo estropee**.
+
+Se copió:
+
+- **Un núcleo reutilizable de revisión, con carriles que no se solapan.** Sus
+  cuatro carriles habían sido copias 95% idénticas que ya habían divergido: una
+  mejora del 95% común era una edición en cuatro ficheros. Aquí el prompt vive
+  una vez y cada carril aporta tres campos.
+- **La disciplina del prompt**, que es el verdadero contenido: «un diff es una
+  ventana, no el fichero» —prohibido reportar que algo falta cuando lo único que
+  sabes es que no lo ves—; el filtro por **coste de comprobación** y no por
+  gravedad; el presupuesto de comentarios proporcional al tamaño del PR; y tres
+  o más del mismo tipo son un solo comentario.
+- **Validadores con sus propios tests.** Una comprobación de CI sin tests se
+  desactiva al primer falso positivo.
+- **Las excepciones en un sitio, con su motivo escrito**, y el CI comparándolas
+  contra la realidad.
+
+No se copió, y conviene saber por qué:
+
+- **`pull_request_target` y el reparto en tres trabajos.** Ellos lo necesitan
+  porque el 90% de sus contribuciones vienen de forks, y un `pull_request` de un
+  fork no recibe secretos; el reparto mantiene la credencial del modelo lejos
+  del token de escritura mientras se lee el diff de un desconocido. Aquí no hay
+  forks. `pull_request` no da secretos a código ajeno, así que el problema no
+  existe — y `pull_request_target` sí traería el suyo.
+- **Cuatro carriles.** Hay dos: correctitud y seguridad. Todos los fallos serios
+  de este repositorio caen en esos dos; la higiene y el estilo los cubren
+  `prettier` y `eslint`, que además no se equivocan.
+
+La lección general, que es la que hay que llevarse: **copiar una forma sin su
+motivo es el mismo error que un hallazgo mal razonado.** Lo que se importa de
+otro repositorio es la pregunta que se hacía, no su respuesta.
+
 ---
 
 ## 5. Por dónde seguir
