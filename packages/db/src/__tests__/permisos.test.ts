@@ -409,16 +409,87 @@ describeSiHayBase('permisos de tabla', () => {
       });
     }
 
-    // El formulario de contacto escribe aquí sin sesión, y leerlos es del
-    // equipo. Es la única tabla con esa forma, y por eso va suelta.
-    it('anon escribe en leads pero no los lee', async () => {
+    /**
+     * `leads` ya no tiene puerta pública (#9).
+     *
+     * Antes `anon` podía INSERTAR, y la política lo permitía con `check (true)`.
+     * Eso convertía en decorativo cualquier límite de tasa en `/api/newsletter`:
+     * bastaba con ir directo a PostgREST con la clave publicable, que va en el
+     * navegador por diseño.
+     *
+     * Ahora la ruta es la única puerta y usa `service_role`. Este test es lo que
+     * impide que alguien devuelva el privilegio «para que funcione el
+     * formulario» sin darse cuenta de lo que reabre.
+     */
+    it('ni anon ni authenticated tocan leads', async () => {
       const { rows } = await client.query<Record<string, boolean>>(
-        `select has_table_privilege('anon', 'public.leads', 'SELECT')   as leer,
-                has_table_privilege('anon', 'public.leads', 'INSERT')   as insertar,
-                has_table_privilege('anon', 'public.leads', 'TRUNCATE') as vaciar`,
+        `select has_table_privilege('anon', 'public.leads', 'SELECT')            as anon_lee,
+                has_table_privilege('anon', 'public.leads', 'INSERT')            as anon_inserta,
+                has_table_privilege('authenticated', 'public.leads', 'SELECT')   as auth_lee,
+                has_table_privilege('authenticated', 'public.leads', 'INSERT')   as auth_inserta,
+                has_table_privilege('authenticated', 'public.leads', 'TRUNCATE') as auth_vacia`,
       );
 
-      expect(rows[0]).toEqual({ leer: false, insertar: true, vaciar: false });
+      expect(rows[0]).toEqual({
+        anon_lee: false,
+        anon_inserta: false,
+        auth_lee: false,
+        auth_inserta: false,
+        auth_vacia: false,
+      });
+    });
+
+    /**
+     * Y lo que cuenta los intentos tampoco se ve desde fuera.
+     *
+     * `lead_intentos` guarda hashes de IP. Poder leerlos, o poder llamar a
+     * `hash_de_ip`, permitiría comprobar si una IP concreta pasó por aquí — que
+     * es exactamente lo que hashearlas venía a evitar.
+     */
+    it('el contador de intentos y su sal son solo del servidor', async () => {
+      const { rows } = await client.query<Record<string, boolean>>(
+        `select has_table_privilege('anon', 'public.lead_intentos', 'SELECT')          as anon_ve_intentos,
+                has_table_privilege('authenticated', 'public.lead_intentos', 'SELECT') as auth_ve_intentos,
+                has_table_privilege('anon', 'public.lead_sal', 'SELECT')               as anon_ve_sal,
+                has_table_privilege('authenticated', 'public.lead_sal', 'SELECT')      as auth_ve_sal,
+                has_function_privilege('anon', 'public.hash_de_ip(text)', 'EXECUTE')   as anon_hashea,
+                has_function_privilege('anon', 'public.registrar_lead(text, text, jsonb, text, integer)', 'EXECUTE') as anon_registra`,
+      );
+
+      expect(rows[0]).toEqual({
+        anon_ve_intentos: false,
+        auth_ve_intentos: false,
+        anon_ve_sal: false,
+        auth_ve_sal: false,
+        anon_hashea: false,
+        anon_registra: false,
+      });
+    });
+
+    /**
+     * `create_order` sigue siendo solo del servidor (#10).
+     *
+     * Añadirle un parámetro creó una función NUEVA, y una función nueva nace con
+     * EXECUTE para PUBLIC. Sin revocar a mano, el arreglo del checkout de
+     * invitado habría abierto un agujero mayor que el que cerraba.
+     */
+    it('create_order no la puede llamar nadie de fuera', async () => {
+      const firma =
+        'public.create_order(text, jsonb, jsonb, uuid, text, text, text, text, text, uuid)';
+
+      const { rows } = await client.query<Record<string, boolean | number>>(
+        `select has_function_privilege('anon', '${firma}', 'EXECUTE')          as anon,
+                has_function_privilege('authenticated', '${firma}', 'EXECUTE') as autenticado,
+                has_function_privilege('service_role', '${firma}', 'EXECUTE')  as servidor,
+                (select count(*) from pg_proc p
+                   join pg_namespace n on n.oid = p.pronamespace
+                  where n.nspname = 'public' and p.proname = 'create_order')::int as cuantas`,
+      );
+
+      // `cuantas: 1` es la mitad que se olvida: si la sobrecarga vieja de nueve
+      // argumentos siguiera existiendo, seguiría siendo llamable y el arreglo no
+      // serviría de nada.
+      expect(rows[0]).toEqual({ anon: false, autenticado: false, servidor: true, cuantas: 1 });
     });
 
     /**

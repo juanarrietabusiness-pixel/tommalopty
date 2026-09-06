@@ -1065,6 +1065,36 @@ export type Database = {
           },
         ];
       };
+      lead_intentos: {
+        Row: {
+          creado_en: string;
+          ip_hash: string;
+        };
+        Insert: {
+          creado_en?: string;
+          ip_hash: string;
+        };
+        Update: {
+          creado_en?: string;
+          ip_hash?: string;
+        };
+        Relationships: [];
+      };
+      lead_sal: {
+        Row: {
+          id: boolean;
+          sal: string;
+        };
+        Insert: {
+          id?: boolean;
+          sal: string;
+        };
+        Update: {
+          id?: boolean;
+          sal?: string;
+        };
+        Relationships: [];
+      };
       leads: {
         Row: {
           created_at: string;
@@ -2197,6 +2227,7 @@ export type Database = {
           p_last_name?: string;
           p_lines: Json;
           p_phone?: string;
+          p_profile_id?: string;
           p_shipping_address?: Json;
           p_shipping_method_id?: string;
         };
@@ -2227,10 +2258,12 @@ export type Database = {
           revenue: number;
         }[];
       };
+      hash_de_ip: { Args: { p_ip: string }; Returns: string };
       is_admin: { Args: never; Returns: boolean };
       is_courier: { Args: never; Returns: boolean };
       is_staff: { Args: never; Returns: boolean };
       is_superadmin: { Args: never; Returns: boolean };
+      limpiar_lead_intentos: { Args: never; Returns: undefined };
       record_audit: {
         Args: {
           p_action: string;
@@ -2239,6 +2272,16 @@ export type Database = {
           p_entity_id?: string;
         };
         Returns: undefined;
+      };
+      registrar_lead: {
+        Args: {
+          p_email: string;
+          p_ip: string;
+          p_limite?: number;
+          p_source: string;
+          p_utm: Json;
+        };
+        Returns: boolean;
       };
       search_products: {
         Args: { p_limit?: number; p_offset?: number; p_query: string };

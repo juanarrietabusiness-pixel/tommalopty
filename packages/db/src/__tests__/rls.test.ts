@@ -251,13 +251,24 @@ describeIfDb('visitante anónimo', () => {
     });
   });
 
-  it('sí puede suscribirse a la newsletter', async () => {
+  /**
+   * Este test afirmaba lo contrario hasta el 4 de septiembre (#9).
+   *
+   * Decía «sí puede suscribirse a la newsletter» y comprobaba que `anon`
+   * insertara directamente en `leads`. Era cierto, y era el problema: con esa
+   * puerta abierta, cualquier límite de tasa en `/api/newsletter` se saltaba
+   * yendo a PostgREST con la clave publicable.
+   *
+   * Suscribirse sigue funcionando sin sesión — por la ruta, que usa
+   * `service_role` y cuenta los intentos. Lo que ya no funciona es esquivarla.
+   */
+  it('no puede escribir en leads por su cuenta', async () => {
     await asRole(client, { role: 'anon' }, async (db) => {
       const blocked = await isWriteBlocked(
         db,
         `insert into public.leads (email, source) values ('visitante@test.local', 'rls-test')`,
       );
-      expect(blocked).toBe(false);
+      expect(blocked).toBe(true);
     });
   });
 });
@@ -568,5 +579,165 @@ describeIfDb('administrador', () => {
       const result = await db.query(`update public.integrations set is_enabled = true`);
       expect(result.rowCount).toBe(0);
     });
+  });
+});
+
+/**
+ * El checkout de invitado no se cuelga de una cuenta ajena (#10).
+ *
+ * Va aquí y no en `permisos.test.ts` porque no es una cuestión de privilegios
+ * sino de comportamiento: `create_order` corre como `security definer` y con
+ * `service_role`, así que ningún permiso la frena. Lo único que separa un
+ * pedido legítimo de uno inyectado es lo que la función decide hacer.
+ */
+describeIfDb('create_order y las fichas ajenas', () => {
+  /**
+   * Una variante que de verdad se puede comprar, creada una sola vez.
+   *
+   * Dos cosas que costaron una vuelta de CI:
+   *
+   * 1. **Hay un trigger** (`on_variant_created`) que le crea su fila de
+   *    inventario con `quantity 0` y `track_inventory true`. Una variante
+   *    recién creada no es vendible: `create_order` la rechaza con «Stock
+   *    insuficiente» antes de llegar a lo que estos tests comprueban. Hay que
+   *    darle existencias a mano.
+   * 2. **Es idempotente a propósito.** La primera versión creaba una variante
+   *    nueva en cada llamada, y como esto corre FUERA de la transacción que
+   *    cada test revierte, iba dejando variantes sueltas en la base de pruebas.
+   */
+  async function varianteVendible(): Promise<string> {
+    const { rows: existente } = await client.query<{ id: string }>(
+      `select v.id from public.product_variants v
+         join public.products p on p.id = v.product_id
+        where p.slug = 'rls-checkout-10' limit 1`,
+    );
+
+    if (existente[0]) return existente[0].id;
+
+    const { rows } = await client.query<{ id: string }>(
+      `with p as (
+         insert into public.products (slug, title, status)
+         values ('rls-checkout-10', 'Producto para el checkout', 'active')
+         returning id
+       )
+       insert into public.product_variants (product_id, title, price, is_active)
+       select p.id, 'Única', 10, true from p
+       returning id`,
+    );
+
+    const variante = rows[0]!.id;
+
+    // El trigger ya creó la fila; aquí solo se le ponen existencias.
+    await client.query(
+      `update public.inventory
+          set quantity = 1000, reserved_quantity = 0
+        where variant_id = $1`,
+      [variante],
+    );
+
+    return variante;
+  }
+
+  it('un invitado con el correo de una cuenta registrada NO se lleva la ficha', async () => {
+    const variante = await varianteVendible();
+
+    await client.query('begin');
+    try {
+      const { rows: antes } = await client.query<{ email: string; first_name: string | null }>(
+        `select email, first_name from public.customers where profile_id = $1`,
+        [CLIENTE_A],
+      );
+      const victima = antes[0]!;
+
+      const { rows: creado } = await client.query<{ order_id: string }>(
+        `select order_id from public.create_order(
+           p_email := $1,
+           p_lines := jsonb_build_array(jsonb_build_object('variant_id', $2::uuid, 'quantity', 1)),
+           p_first_name := 'Impostor',
+           p_last_name := 'Cualquiera',
+           p_profile_id := null
+         )`,
+        [victima.email, variante],
+      );
+
+      const { rows: pedido } = await client.query<{ customer_id: string | null }>(
+        `select customer_id from public.orders where id = $1`,
+        [creado[0]!.order_id],
+      );
+
+      // Lo que veía la víctima en «Mis pedidos»: un pedido que no hizo.
+      expect(pedido[0]!.customer_id).toBeNull();
+
+      // Y la segunda mitad, que el issue no mencionaba: el `on conflict do
+      // update` le rellenaba los huecos del nombre con lo que escribiera quien
+      // compraba. No solo veía un pedido ajeno: le cambiaban los datos.
+      const { rows: despues } = await client.query<{ first_name: string | null }>(
+        `select first_name from public.customers where profile_id = $1`,
+        [CLIENTE_A],
+      );
+      expect(despues[0]!.first_name).toBe(victima.first_name);
+    } finally {
+      await client.query('rollback');
+    }
+  });
+
+  it('la dueña de la cuenta, con sesión, sí se lleva su pedido', async () => {
+    // La otra mitad. Sin esto, el test de arriba pasaría con una función que no
+    // adjudica nunca nada a nadie, que rompería la tienda entera.
+    const variante = await varianteVendible();
+
+    await client.query('begin');
+    try {
+      const { rows: cuenta } = await client.query<{ email: string }>(
+        `select email from public.customers where profile_id = $1`,
+        [CLIENTE_A],
+      );
+
+      const { rows: creado } = await client.query<{ order_id: string }>(
+        `select order_id from public.create_order(
+           p_email := $1,
+           p_lines := jsonb_build_array(jsonb_build_object('variant_id', $2::uuid, 'quantity', 1)),
+           p_profile_id := $3
+         )`,
+        [cuenta[0]!.email, variante, CLIENTE_A],
+      );
+
+      const { rows: pedido } = await client.query<{ customer_id: string | null }>(
+        `select customer_id from public.orders where id = $1`,
+        [creado[0]!.order_id],
+      );
+
+      expect(pedido[0]!.customer_id).not.toBeNull();
+    } finally {
+      await client.query('rollback');
+    }
+  });
+
+  it('un correo que todavía no es de nadie sí se adjudica', async () => {
+    // A propósito: si no, un invitado legítimo nunca vería su primer pedido al
+    // registrarse después. Es el límite conocido del arreglo, y queda fijado
+    // aquí para que nadie lo «corrija» sin saber lo que rompe.
+    const variante = await varianteVendible();
+
+    await client.query('begin');
+    try {
+      const { rows: creado } = await client.query<{ order_id: string }>(
+        `select order_id from public.create_order(
+           p_email := 'nadie-todavia@test.local',
+           p_lines := jsonb_build_array(jsonb_build_object('variant_id', $1::uuid, 'quantity', 1)),
+           p_profile_id := null
+         )`,
+        [variante],
+      );
+
+      const { rows: pedido } = await client.query<{ customer_id: string | null }>(
+        `select customer_id from public.orders where id = $1`,
+        [creado[0]!.order_id],
+      );
+
+      expect(pedido[0]!.customer_id).not.toBeNull();
+    } finally {
+      await client.query('rollback');
+    }
   });
 });

@@ -2,7 +2,7 @@ import { after, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { LOCATION_PRECISIONS } from '@nebula/domain';
 import { email as emails, payments } from '@nebula/integrations';
-import { getSupabaseServiceClient } from '@/lib/supabase';
+import { getSupabaseServerClient, getSupabaseServiceClient } from '@/lib/supabase';
 import { createEventId, sendServerEvent } from '@/lib/tracking';
 import { siteUrl } from '@/lib/site';
 
@@ -92,6 +92,21 @@ export async function POST(request: Request) {
   const input = parsed.data;
   const supabase = getSupabaseServiceClient();
 
+  // Quién compra, si es que hay alguien identificado (#10).
+  //
+  // Se lee de la cookie de sesión **en el servidor**, nunca del cuerpo de la
+  // petición: si viniera del navegador, cualquiera podría escribir el
+  // identificador de otra persona y el arreglo no serviría de nada. Un invitado
+  // deja esto en `undefined`, que es lo correcto.
+  //
+  // El cliente de servicio sigue siendo el que crea el pedido, porque un
+  // invitado no tiene sesión que RLS pueda autorizar. Este segundo cliente solo
+  // se usa para preguntar «¿hay alguien dentro?».
+  const conSesion = await getSupabaseServerClient();
+  const {
+    data: { user },
+  } = await conSesion.auth.getUser();
+
   // Toda la creación del pedido ocurre dentro de `create_order`, una función
   // transaccional de Postgres. Ahí se validan catálogo y stock, se bloquea el
   // inventario, se reservan las unidades, se calculan los totales con los
@@ -114,6 +129,9 @@ export async function POST(request: Request) {
     p_customer_note: input.customerNote ?? undefined,
     p_first_name: input.shippingAddress.firstName,
     p_last_name: input.shippingAddress.lastName,
+    // Con esto, `create_order` puede distinguir a la dueña de un correo de
+    // alguien que lo escribió. Ver la migración de #10.
+    p_profile_id: user?.id ?? undefined,
   });
 
   if (orderError) {
