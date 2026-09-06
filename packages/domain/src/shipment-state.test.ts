@@ -5,6 +5,7 @@ import {
   SHIPMENT_STATUS_LABELS,
   allowedShipmentTransitions,
   canTransitionShipment,
+  esEstadoDelMotorizado,
   estaEnLaCalle,
   isShipmentStatus,
   isTerminalShipmentStatus,
@@ -119,7 +120,7 @@ describe('validateShipmentTransition', () => {
 });
 
 describe('isShipmentStatus', () => {
-  it('reconoce los siete estados', () => {
+  it('reconoce los ocho estados', () => {
     for (const estado of SHIPMENT_STATUSES) {
       expect(isShipmentStatus(estado)).toBe(true);
     }
@@ -129,6 +130,48 @@ describe('isShipmentStatus', () => {
     expect(isShipmentStatus('en ruta')).toBe(false);
     expect(isShipmentStatus('shipped')).toBe(false);
     expect(isShipmentStatus('')).toBe(false);
+  });
+});
+
+/**
+ * Anular un envío creado por error (issue #54).
+ *
+ * Lo que se prueba aquí no es que el estado exista —eso lo dice el tipo—, sino
+ * las dos reglas que lo hacen seguro: que solo se alcanza desde «pendiente» y
+ * que no se sale de él. Si alguien añade «anulado» a otra transición, estos
+ * tests fallan, que es exactamente para lo que están.
+ */
+describe('anular un envío', () => {
+  it('solo se anula lo que sigue pendiente', () => {
+    expect(canTransitionShipment('pendiente', 'anulado')).toBe(true);
+
+    for (const estado of SHIPMENT_STATUSES) {
+      if (estado === 'pendiente' || estado === 'anulado') continue;
+      expect(canTransitionShipment(estado, 'anulado')).toBe(false);
+    }
+  });
+
+  it('un envío anulado no se resucita', () => {
+    expect(isTerminalShipmentStatus('anulado')).toBe(true);
+
+    for (const estado of SHIPMENT_STATUSES) {
+      if (estado === 'anulado') continue;
+      expect(canTransitionShipment('anulado', estado)).toBe(false);
+    }
+  });
+
+  // La lista del motorizado es una lista blanca, y por eso «anulado» quedó
+  // fuera sin tocarla. El test existe para que siga siendo verdad: anular es
+  // una decisión de quien despacha, no de quien reparte.
+  it('un motorizado no puede anular', () => {
+    expect(esEstadoDelMotorizado('anulado')).toBe(false);
+    expect((ESTADOS_DESDE_LA_CALLE as readonly string[]).includes('anulado')).toBe(false);
+  });
+
+  it('explica por qué no se puede anular lo que ya salió', () => {
+    const error = validateShipmentTransition('en_ruta', 'anulado');
+
+    expect(error?.message).toBe('Un envío "En camino" no puede pasar a "Anulado".');
   });
 });
 

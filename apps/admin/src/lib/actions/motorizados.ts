@@ -231,7 +231,10 @@ export async function darDeBajaMotorizado(courierId: string): Promise<ActionResu
     .from('shipments')
     .select('id', { count: 'exact', head: true })
     .eq('assigned_to', ficha.profile_id)
-    .not('status', 'in', '("entregado","fallido","devuelto")');
+    // Lista de exclusión, así que «anulado» tiene que nombrarse: un envío
+    // anulado no lo lleva nadie encima, y contarlo bloquearía una baja por un
+    // envío que ya no existe.
+    .not('status', 'in', '("entregado","fallido","devuelto","anulado")');
 
   if ((count ?? 0) > 0) {
     return failure(

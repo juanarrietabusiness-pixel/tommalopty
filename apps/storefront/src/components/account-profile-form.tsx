@@ -1,7 +1,8 @@
 'use client';
 
 import { useActionState } from 'react';
-import { ACCOUNT_IDLE, updateMyProfile, type AccountResult } from '@/lib/actions/cuenta';
+import { updateMyProfile } from '@/lib/actions/cuenta';
+import { ACCOUNT_IDLE, type AccountResult } from '@/lib/actions/cuenta-result';
 
 export interface ProfileValues {
   firstName: string;

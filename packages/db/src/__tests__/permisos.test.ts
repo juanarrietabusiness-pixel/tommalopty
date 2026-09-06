@@ -493,6 +493,41 @@ describeSiHayBase('permisos de tabla', () => {
     });
 
     /**
+     * `anonimizar_cliente` la puede llamar una sesión, pero no cualquiera (#46).
+     *
+     * Es lo contrario de `create_order`, y la diferencia es deliberada. Esta se
+     * concede a `authenticated` a propósito: corre con la sesión de quien pulsa
+     * y su primera línea es `is_superadmin()`, así que la base decide por sí
+     * misma quién puede. Si se llamara con la clave de servicio, esa
+     * comprobación no significaría nada — el servidor siempre pasaría — y el
+     * único guardia sería el `if` de la Server Action.
+     *
+     * Lo que sí tiene que estar cerrado es `anon`: la función se salta RLS.
+     */
+    it('anonimizar_cliente está cerrada a anónimos y abierta a la sesión', async () => {
+      const firma = 'public.anonimizar_cliente(uuid)';
+
+      const { rows } = await client.query<Record<string, boolean>>(
+        `select has_function_privilege('anon', '${firma}', 'EXECUTE')          as anon,
+                has_function_privilege('authenticated', '${firma}', 'EXECUTE') as autenticado,
+                has_function_privilege('service_role', '${firma}', 'EXECUTE')  as servidor,
+                (select p.prosecdef from pg_proc p
+                   join pg_namespace n on n.oid = p.pronamespace
+                  where n.nspname = 'public' and p.proname = 'anonimizar_cliente') as definer`,
+      );
+
+      expect(rows[0]).toEqual({
+        anon: false,
+        autenticado: true,
+        servidor: true,
+        // `security definer` es lo que le deja saltarse RLS para tocar los
+        // pedidos y los envíos de otro. Si dejara de serlo, la función pasaría
+        // los tests de arriba y no anonimizaría nada.
+        definer: true,
+      });
+    });
+
+    /**
      * Y que las futuras nazcan limpias.
      *
      * Esto es lo que cierra el agujero en vez de taparlo: sin este test, la

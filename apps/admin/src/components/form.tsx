@@ -8,15 +8,26 @@ import type { ActionResult } from '@/lib/actions/result';
 export function SubmitButton({
   children = 'Guardar',
   className = 'btn btn-dark btn-sm',
+  etiqueta,
+  pendiente = 'Guardando…',
 }: {
   children?: React.ReactNode;
   className?: string;
+  /**
+   * Nombre accesible, para cuando el texto visible se repite.
+   *
+   * Una tabla de usuarios tiene un «Desactivar» por fila, y un lector de
+   * pantalla los lee todos iguales sin decir a quién desactiva cada uno.
+   */
+  etiqueta?: string;
+  /** Qué dice mientras está en vuelo, cuando «Guardando…» no es lo que hace. */
+  pendiente?: string;
 }) {
   const { pending } = useFormStatus();
 
   return (
-    <button type="submit" className={className} disabled={pending}>
-      {pending ? 'Guardando…' : children}
+    <button type="submit" className={className} disabled={pending} aria-label={etiqueta}>
+      {pending ? pendiente : children}
     </button>
   );
 }

@@ -15,6 +15,7 @@ const CLIENTE_A = '11111111-1111-1111-1111-111111111111';
 const CLIENTE_B = '22222222-2222-2222-2222-222222222222';
 const OPERADOR = '33333333-3333-3333-3333-333333333333';
 const ADMIN = '44444444-4444-4444-4444-444444444444';
+const SUPERADMIN = '55555555-5555-5555-5555-555555555555';
 
 let client: Client;
 
@@ -45,13 +46,15 @@ beforeAll(async () => {
        ($1, 'clientea@test.local', '{"full_name":"Cliente A"}'),
        ($2, 'clienteb@test.local', '{"full_name":"Cliente B"}'),
        ($3, 'operador@test.local', '{"full_name":"Operador"}'),
-       ($4, 'admin@test.local',    '{"full_name":"Admin"}')
+       ($4, 'admin@test.local',    '{"full_name":"Admin"}'),
+       ($5, 'super@test.local',    '{"full_name":"Superadmin"}')
      on conflict (id) do nothing`,
-    [CLIENTE_A, CLIENTE_B, OPERADOR, ADMIN],
+    [CLIENTE_A, CLIENTE_B, OPERADOR, ADMIN, SUPERADMIN],
   );
 
   await client.query(`update public.profiles set role = 'operator' where id = $1`, [OPERADOR]);
   await client.query(`update public.profiles set role = 'admin' where id = $1`, [ADMIN]);
+  await client.query(`update public.profiles set role = 'superadmin' where id = $1`, [SUPERADMIN]);
 
   // Un producto publicado y uno en borrador.
   await client.query(
@@ -133,6 +136,7 @@ async function cleanup(db: Client): Promise<void> {
   await db.query(`delete from public.discounts where code in ('RLSSECRETO', 'RLSLIMITE')`);
   await db.query(`delete from public.leads where source = 'rls-test'`);
   await db.query(`delete from public.crm_tags where name = 'rls-etiqueta'`);
+  await db.query(`delete from public.customers where email like '%@anonimo.invalid'`);
 }
 
 describeIfDb('visitante anónimo', () => {
@@ -530,6 +534,7 @@ describeIfDb('operador (solo lectura del panel)', () => {
     // consulta falle.
     await asRole(client, { role: 'authenticated', userId: OPERADOR }, async (db) => {
       await db.query(`delete from public.crm_tags where name = 'rls-etiqueta'`);
+      await db.query(`delete from public.customers where email like '%@anonimo.invalid'`);
       const { rows } = await db.query(`select 1 from public.crm_tags where name = 'rls-etiqueta'`);
       expect(rows).toHaveLength(1);
     });
@@ -736,6 +741,222 @@ describeIfDb('create_order y las fichas ajenas', () => {
       );
 
       expect(pedido[0]!.customer_id).not.toBeNull();
+    } finally {
+      await client.query('rollback');
+    }
+  });
+});
+
+/**
+ * Anular un envío creado por error (#54).
+ *
+ * La máquina de estados vive dos veces: en `@nebula/domain` y en
+ * `guard_shipment_transition`. La de TypeScript ya tiene sus tests; estos son
+ * para la que de verdad no se puede saltar, porque es la única que sigue
+ * puesta cuando alguien corrige una fila a mano en el panel de Supabase.
+ */
+describeIfDb('anular un envío', () => {
+  async function envioPendiente(db: Client): Promise<string> {
+    const { rows } = await db.query<{ id: string }>(
+      `insert into public.shipments (order_id, tracking_number, status, destination)
+       select o.id, 'RLS-ANULAR-' || substr(md5(random()::text), 1, 8), 'pendiente',
+              '{"city":"Panamá"}'::jsonb
+         from public.orders o where o.email like '%@test.local' limit 1
+       returning id`,
+    );
+    return rows[0]!.id;
+  }
+
+  it('un envío pendiente se anula', async () => {
+    await client.query('begin');
+    try {
+      const envio = await envioPendiente(client);
+      await client.query(`update public.shipments set status = 'anulado' where id = $1`, [envio]);
+
+      const { rows } = await client.query<{ status: string }>(
+        `select status from public.shipments where id = $1`,
+        [envio],
+      );
+      expect(rows[0]!.status).toBe('anulado');
+    } finally {
+      await client.query('rollback');
+    }
+  });
+
+  it('un envío ya asignado no se anula: eso es una entrega fallida', async () => {
+    await client.query('begin');
+    try {
+      const envio = await envioPendiente(client);
+      await client.query(`update public.shipments set status = 'asignado' where id = $1`, [envio]);
+
+      await expect(
+        client.query(`update public.shipments set status = 'anulado' where id = $1`, [envio]),
+      ).rejects.toThrow(/no puede pasar a "anulado"/);
+    } finally {
+      await client.query('rollback');
+    }
+  });
+
+  it('un envío anulado no vuelve: es terminal', async () => {
+    await client.query('begin');
+    try {
+      const envio = await envioPendiente(client);
+      await client.query(`update public.shipments set status = 'anulado' where id = $1`, [envio]);
+
+      await expect(
+        client.query(`update public.shipments set status = 'pendiente' where id = $1`, [envio]),
+      ).rejects.toThrow(/no puede pasar a "pendiente"/);
+    } finally {
+      await client.query('rollback');
+    }
+  });
+});
+
+/**
+ * Anonimizar un cliente (#46).
+ *
+ * Dos preguntas, y las dos importan igual:
+ *
+ * 1. ¿Se van los datos personales? Si no, la función miente y alguien la usa
+ *    creyendo que ha cumplido con una petición de supresión.
+ * 2. ¿Se quedan los pedidos? Si no, la función destruye la contabilidad, que es
+ *    exactamente el motivo por el que no se podía borrar un cliente.
+ */
+describeIfDb('anonimizar un cliente', () => {
+  /** Un cliente con de todo, dentro de la transacción que el test revierte. */
+  async function clienteConDeTodo(db: Client): Promise<{ id: string; pedido: string }> {
+    const { rows: cliente } = await db.query<{ id: string }>(
+      `insert into public.customers (email, first_name, last_name, phone, accepts_marketing, tags)
+       values ('anon@test.local', 'Ana', 'Rodríguez', '6000-0000', true, array['vip'])
+       returning id`,
+    );
+    const id = cliente[0]!.id;
+
+    await db.query(
+      `insert into public.addresses (customer_id, first_name, last_name, line1, city, phone)
+       values ($1, 'Ana', 'Rodríguez', 'Calle 50, casa 12', 'Panamá', '6000-0000')`,
+      [id],
+    );
+    await db.query(`insert into public.crm_notes (customer_id, body) values ($1, 'Llamar antes')`, [
+      id,
+    ]);
+    await db.query(
+      `insert into public.leads (email, name, customer_id, source)
+       values ('anon@test.local', 'Ana', $1, 'rls-test')`,
+      [id],
+    );
+
+    const { rows: pedido } = await db.query<{ id: string }>(
+      `insert into public.orders (customer_id, email, phone, customer_note, subtotal, total,
+                                  shipping_address)
+       values ($1, 'anon@test.local', '6000-0000', 'Dejar con el guardia', 25, 25,
+               '{"firstName":"Ana","line1":"Calle 50, casa 12","city":"Panamá"}'::jsonb)
+       returning id`,
+      [id],
+    );
+
+    await db.query(
+      `insert into public.shipments (order_id, tracking_number, status, destination,
+                                     latitude, longitude, delivery_proof_key)
+       values ($1, 'RLS-ANON-1', 'pendiente',
+               '{"firstName":"Ana","line1":"Calle 50, casa 12","city":"Panamá"}'::jsonb,
+               8.98, -79.52, 'pruebas/ana.jpg')`,
+      [pedido[0]!.id],
+    );
+
+    return { id, pedido: pedido[0]!.id };
+  }
+
+  /** Llama a la función con la sesión de quien se le diga. */
+  async function anonimizar(db: Client, customerId: string, comoQuien: string) {
+    await db.query('select set_config($1, $2, true)', ['request.jwt.claim.sub', comoQuien]);
+    try {
+      return await db.query(`select * from public.anonimizar_cliente($1)`, [customerId]);
+    } finally {
+      await db.query('select set_config($1, $2, true)', ['request.jwt.claim.sub', '']);
+    }
+  }
+
+  it('un admin que no es superadmin no puede', async () => {
+    await client.query('begin');
+    try {
+      const { id } = await clienteConDeTodo(client);
+
+      // Un admin normal gestiona catálogo y pedidos todo el día. Que también
+      // pudiera borrar la identidad de una persona sería otra categoría de
+      // permiso metida en la misma cuenta.
+      await expect(anonimizar(client, id, ADMIN)).rejects.toThrow(/superadministrador/i);
+    } finally {
+      await client.query('rollback');
+    }
+  });
+
+  it('se van los datos personales y se quedan los pedidos', async () => {
+    await client.query('begin');
+    try {
+      const { id, pedido } = await clienteConDeTodo(client);
+      await anonimizar(client, id, SUPERADMIN);
+
+      const { rows: ficha } = await client.query<Record<string, unknown>>(
+        `select email::text, first_name, phone, accepts_marketing, tags from public.customers
+          where id = $1`,
+        [id],
+      );
+      expect(ficha[0]!.email).toMatch(/@anonimo\.invalid$/);
+      expect(ficha[0]!.phone).toBeNull();
+      expect(ficha[0]!.accepts_marketing).toBe(false);
+
+      // Lo que se borra entero.
+      for (const tabla of ['addresses', 'crm_notes']) {
+        const { rows } = await client.query<{ n: string }>(
+          `select count(*)::text as n from public.${tabla} where customer_id = $1`,
+          [id],
+        );
+        expect(rows[0]!.n).toBe('0');
+      }
+
+      // Y lo que NO se borra, que es la mitad que hace útil a esta función: el
+      // pedido sigue ahí, con su número y su importe.
+      const { rows: orden } = await client.query<Record<string, unknown>>(
+        `select email::text, phone, customer_note, total::text, order_number, shipping_address
+           from public.orders where id = $1`,
+        [pedido],
+      );
+      expect(orden[0]!.total).toBe('25.00');
+      expect(orden[0]!.order_number).toBeTruthy();
+      expect(orden[0]!.email).toMatch(/@anonimo\.invalid$/);
+      expect(orden[0]!.phone).toBeNull();
+      expect(orden[0]!.customer_note).toBeNull();
+      // De la dirección queda la zona, que sirve para el informe de ventas y no
+      // señala a nadie; la calle y el nombre se van.
+      expect(orden[0]!.shipping_address).toEqual({ city: 'Panamá' });
+    } finally {
+      await client.query('rollback');
+    }
+  });
+
+  it('las coordenadas del envío desaparecen, y la clave de la foto se devuelve antes', async () => {
+    await client.query('begin');
+    try {
+      const { id, pedido } = await clienteConDeTodo(client);
+
+      const { rows: resumen } = await anonimizar(client, id, SUPERADMIN);
+      // Se devuelve porque Postgres no puede borrar un fichero de R2. Si esto
+      // llegara vacío, quien llama daría por hecho que no había nada que
+      // borrar y la foto de la puerta de su casa se quedaría en el bucket.
+      expect(resumen[0]!.pruebas_de_entrega).toEqual(['pruebas/ana.jpg']);
+
+      const { rows: envio } = await client.query<Record<string, unknown>>(
+        `select destination, latitude, longitude, delivery_proof_key, tracking_number
+           from public.shipments where order_id = $1`,
+        [pedido],
+      );
+      expect(envio[0]!.latitude).toBeNull();
+      expect(envio[0]!.longitude).toBeNull();
+      expect(envio[0]!.delivery_proof_key).toBeNull();
+      expect(envio[0]!.destination).toEqual({ city: 'Panamá' });
+      // La guía sigue existiendo: es de la tienda, no de la persona.
+      expect(envio[0]!.tracking_number).toBe('RLS-ANON-1');
     } finally {
       await client.query('rollback');
     }

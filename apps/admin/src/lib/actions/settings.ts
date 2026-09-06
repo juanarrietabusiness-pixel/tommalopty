@@ -112,3 +112,72 @@ export async function updateUserRole(
   revalidatePath('/usuarios');
   return success('Rol actualizado.');
 }
+
+/**
+ * Activar o desactivar una cuenta del panel.
+ *
+ * Una cuenta del panel no se borra: se desactiva. Borrarla dejaría huérfano
+ * todo lo que firmó —pedidos tocados, notas del CRM, despachos asignados— y esa
+ * trazabilidad es justo lo que hace útil el registro.
+ *
+ * Toda la mitad de abajo existía desde hace meses: el middleware ya echa a
+ * quien tiene `is_active = false`, `current_app_role()` devuelve nulo para esa
+ * cuenta, y `guard_profile_privileges` reserva el cambio al superadministrador.
+ * Lo que no existía era el interruptor. La pantalla enseñaba el estado y no
+ * dejaba cambiarlo, así que la única forma de cerrar el acceso a alguien que se
+ * va era entrar en la base de datos a mano.
+ */
+const estadoDeCuentaSchema = z.object({
+  profileId: z.uuid(),
+  // Llega el estado que se quiere dejar, no «alternar»: si dos personas abren
+  // la pantalla a la vez, alternar deja el resultado a merced del orden.
+  activo: z.enum(['si', 'no']),
+});
+
+export async function setUserActive(
+  _previous: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const session = await requireStaff();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
+
+  if (session.role !== 'superadmin') {
+    return failure('Solo un superadministrador puede activar o desactivar cuentas.');
+  }
+
+  const parsed = estadoDeCuentaSchema.safeParse({
+    profileId: formData.get('profileId'),
+    activo: formData.get('activo'),
+  });
+
+  if (!parsed.success) return fromZodError(parsed.error);
+
+  // Desactivarse a uno mismo cierra la sesión en el siguiente clic y deja la
+  // tienda sin superadministrador si era el último. No hay forma de deshacerlo
+  // desde el panel: haría falta entrar en la base de datos.
+  if (parsed.data.profileId === session.userId) {
+    return failure('No puedes desactivar tu propia cuenta.');
+  }
+
+  const activo = parsed.data.activo === 'si';
+  const supabase = await getSupabaseServerClient();
+  const problema = checkWrite(
+    await supabase
+      .from('profiles')
+      .update({ is_active: activo })
+      .eq('id', parsed.data.profileId)
+      .select('id'),
+    'No se cambió el estado: hace falta ser superadministrador.',
+  );
+
+  if (problema) return problema;
+
+  revalidatePath('/usuarios');
+  return success(
+    activo
+      ? 'Cuenta reactivada. Ya puede entrar al panel.'
+      : 'Cuenta desactivada. Deja de entrar al panel en cuanto se recargue.',
+  );
+}

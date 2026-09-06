@@ -57,7 +57,12 @@ export default async function SeguimientoPage({ params }: { params: Promise<{ to
 
   if (!pedido) notFound();
 
-  const envios = pedido.shipments ?? [];
+  // Un envío anulado no sale de aquí. Se anula el que se creó por error —el
+  // pedido equivocado, el envío duplicado—, así que para quien compró nunca
+  // existió: enseñarlo solo abriría la pregunta «¿y ese otro paquete?». Quien
+  // sí tiene que verlo es quien sostiene la guía impresa, y esa es otra
+  // pantalla: `/g/[token]`.
+  const envios = (pedido.shipments ?? []).filter((envio) => envio.status !== 'anulado');
 
   const total = Number(pedido.total);
   const abonado = Number(pedido.amount_paid ?? 0);

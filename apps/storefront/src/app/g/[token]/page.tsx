@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import {
   SHIPMENT_STATUS_LABELS,
   isShipmentStatus,
+  isTerminalShipmentStatus,
   navigationLinks,
   type ShipmentStatus,
 } from '@nebula/domain';
@@ -83,7 +84,10 @@ export default async function PaginaDeEntrega({ params }: { params: Promise<{ to
 
   const telefono = destino.phone ?? pedido?.phone ?? null;
   const nombre = [destino.firstName, destino.lastName].filter(Boolean).join(' ');
-  const cerrado = estado === 'entregado' || estado === 'devuelto';
+  // Se pregunta a la máquina de estados en vez de repetir la lista: cuando
+  // apareció «anulado» —terminal— esta pantalla habría seguido ofreciendo
+  // «Marcar entregado» sobre un envío que la base ya rechaza mover.
+  const cerrado = isTerminalShipmentStatus(estado);
 
   return (
     <main className="entrega">
@@ -173,7 +177,12 @@ export default async function PaginaDeEntrega({ params }: { params: Promise<{ to
         </section>
       ) : null}
 
-      {cerrado ? (
+      {estado === 'anulado' ? (
+        <div className="notice notice-warning">
+          Este envío se anuló y no llegó a salir. Si tienes el paquete en la mano, no lo entregues:
+          avisa a la tienda.
+        </div>
+      ) : cerrado ? (
         <div className="notice notice-success">
           Este envío ya está {SHIPMENT_STATUS_LABELS[estado].toLowerCase()}. No hay nada más que
           hacer aquí.

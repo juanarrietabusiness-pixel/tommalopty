@@ -55,8 +55,7 @@ bloqueando?»**, porque la respuesta cambia a quién hay que ir a buscar.
 
 | Lo bloquea…                 | Qué queda ahí                                                                                                                                                                                                                                                            | Qué hacer                                                               |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
-| **Nada. Es programar**      | Los avisos de correo que faltan (en camino, entregado, recordatorio de saldo), el envío de la posición del motorizado desde el teléfono ([#29](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/29)), `/cuenta/direcciones` de solo lectura                | Se puede hacer hoy, sin accesos                                         |
-| **Una decisión de diseño**  | El buzón abierto de `leads` ([#9](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/9)) y el checkout de invitado con correo ajeno ([#10](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/10)) — el plan concreto está escrito en cada issue | Un visto bueno, y se implementa                                         |
+| **Nada. Es programar**      | Los avisos de correo que faltan (en camino, entregado, recordatorio de saldo), el envío de la posición del motorizado desde el teléfono ([#29](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/29))                                                        | Se puede hacer hoy, sin accesos                                         |
 | **Un acceso que tú tienes** | El secreto de la bóveda + republicar, la prueba del bucket privado, backups, Cloudflare Access, _Leaked Password Protection_                                                                                                                                             | [`CONECTAR.md`](CONECTAR.md)                                            |
 | **Comprar algo**            | El dominio (bloquea Resend, R2 y las pasarelas), el plan de teselas del mapa (bloquea también el mapa de despacho, [#30](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/30))                                                                             | Es de la dueña. Pídelo cuanto antes                                     |
 | **Una decisión de negocio** | Las liquidaciones de motorizados ([#28](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/28))                                                                                                                                                              | Una pregunta a la dueña, con las cuatro respuestas posibles ya escritas |
@@ -81,10 +80,10 @@ legales y dos respuestas de Yappy.
 
 ---
 
-## Cinco cosas que este repositorio aprendió por las malas
+## Seis cosas que este repositorio aprendió por las malas
 
 Están en [`ESTADO.md` § 4](ESTADO.md) con el detalle. Se resumen aquí porque las
-cinco cuestan medio día si se descubren de nuevo:
+seis cuestan medio día si se descubren de nuevo:
 
 1. **`NEXT_PUBLIC_*` hay que escribirlo literal.** Una lectura por nombre
    —`env[clave]`— no la sustituye Next, y en el Worker esa variable no existe.
@@ -98,6 +97,10 @@ cinco cuestan medio día si se descubren de nuevo:
 5. **Un elemento de rejilla no encoge por debajo de su contenido.** `1fr` es
    `minmax(auto, 1fr)`, y ese `auto` estira la página entera. Es lo que hacía que
    el panel no se pudiera usar en un teléfono.
+6. **De un fichero `'use server'` no sale nada que no sea una función asíncrona.**
+   Exportar un objeto rompe el módulo entero **al evaluarlo**, así que la pantalla
+   se pinta perfecta y cada envío devuelve un 500. «Mis datos» estuvo así desde
+   que se construyó.
 
 ---
 
@@ -127,7 +130,7 @@ Antes de dar nada por bueno, esto es lo que corre:
 ```bash
 pnpm lint && pnpm typecheck    # 7 paquetes en TypeScript estricto
 pnpm test                      # dominio, integraciones, y RLS contra Postgres real
-pnpm test:e2e                  # 310 tests en escritorio, tablet y móvil
+pnpm test:e2e                  # 451 tests en escritorio, tablet y móvil
 ```
 
 Los end-to-end incluyen una **auditoría de accesibilidad WCAG 2.1 AA** en cada

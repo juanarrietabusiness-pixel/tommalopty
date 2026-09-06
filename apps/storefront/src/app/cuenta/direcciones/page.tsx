@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { listMyAddresses } from '@nebula/db';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
 import { getDemoDirecciones } from '@/lib/demo-data';
+import { LibretaDeDirecciones, type DireccionGuardada } from '@/components/libreta-de-direcciones';
 
 export const metadata: Metadata = {
   title: 'Mis direcciones',
@@ -10,72 +11,79 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Las direcciones del cliente.
+ *
+ * La pantalla existía desde el principio, pero solo leía. Decía «la que uses en
+ * tu próximo pedido aparecerá aquí» y era mentira: el checkout guarda la
+ * dirección como copia dentro del pedido (`orders.shipping_address`), no en
+ * esta tabla. Comprar no llenaba nunca esta lista, y no había forma de llenarla
+ * a mano.
+ */
 export default async function AddressesPage() {
-  if (!isSupabaseConfigured()) return <DireccionesDemo />;
-
-  const supabase = await getSupabaseServerClient();
-  const addresses = await listMyAddresses(supabase);
+  const { direcciones, soloLectura } = await cargarDirecciones();
 
   return (
     <>
       <h1 className="page-title">Mis direcciones</h1>
       <p className="page-subtitle">Direcciones guardadas para agilizar tus compras.</p>
 
-      {addresses.length === 0 ? (
-        <p className="field-hint">
-          Aún no has guardado ninguna dirección. La que uses en tu próximo pedido aparecerá aquí.
-        </p>
-      ) : (
-        addresses.map((address) => (
-          <article className="order-card" key={address.id}>
-            <div className="order-card-head">
-              <strong>
-                {address.first_name} {address.last_name}
-              </strong>
-              {address.is_default ? <span className="tag tag-dark">Predeterminada</span> : null}
-            </div>
-            <p style={{ margin: 0, fontSize: '0.85rem', lineHeight: 1.6 }}>
-              {address.line1}
-              {address.line2 ? `, ${address.line2}` : ''}
-              <br />
-              {address.city}
-              {address.province ? `, ${address.province}` : ''} · {address.country_code}
-              {address.phone ? (
-                <>
-                  <br />
-                  {address.phone}
-                </>
-              ) : null}
-            </p>
-          </article>
-        ))
-      )}
+      {soloLectura ? (
+        <div className="notice notice-info" style={{ marginBottom: 20 }}>
+          Estas son direcciones de ejemplo. Con la tienda conectada, aquí guardas las tuyas.
+        </div>
+      ) : null}
+
+      <LibretaDeDirecciones direcciones={direcciones} />
     </>
   );
 }
 
-function DireccionesDemo() {
-  return (
-    <>
-      <h1 className="page-title">Mis direcciones</h1>
-      <p className="page-subtitle">Direcciones guardadas para agilizar tus compras.</p>
+async function cargarDirecciones(): Promise<{
+  direcciones: DireccionGuardada[];
+  soloLectura: boolean;
+}> {
+  if (!isSupabaseConfigured()) {
+    return {
+      soloLectura: true,
+      direcciones: getDemoDirecciones().map((demo, indice) => {
+        const [firstName, ...resto] = demo.nombre.split(' ');
+        return {
+          id: `demo-${indice}`,
+          label: null,
+          firstName: firstName ?? demo.nombre,
+          lastName: resto.join(' '),
+          line1: demo.linea1,
+          line2: demo.linea2,
+          city: demo.ciudad,
+          province: demo.provincia,
+          countryCode: demo.pais,
+          postalCode: null,
+          phone: demo.telefono,
+          isDefault: demo.predeterminada,
+        };
+      }),
+    };
+  }
 
-      {getDemoDirecciones().map((direccion) => (
-        <article className="order-card" key={direccion.linea1}>
-          <div className="order-card-head">
-            <strong>{direccion.nombre}</strong>
-            {direccion.predeterminada ? <span className="tag tag-dark">Predeterminada</span> : null}
-          </div>
-          <p style={{ margin: 0, fontSize: '0.85rem', lineHeight: 1.6 }}>
-            {direccion.linea1}
-            {direccion.linea2 ? `, ${direccion.linea2}` : ''}
-            <br />
-            {direccion.ciudad}, {direccion.provincia} · {direccion.pais}
-            <br />
-            {direccion.telefono}
-          </p>
-        </article>
-      ))}
-    </>
-  );
+  const supabase = await getSupabaseServerClient();
+  const addresses = await listMyAddresses(supabase);
+
+  return {
+    soloLectura: false,
+    direcciones: addresses.map((address) => ({
+      id: address.id,
+      label: address.label,
+      firstName: address.first_name,
+      lastName: address.last_name,
+      line1: address.line1,
+      line2: address.line2,
+      city: address.city,
+      province: address.province,
+      countryCode: address.country_code,
+      postalCode: address.postal_code,
+      phone: address.phone,
+      isDefault: address.is_default,
+    })),
+  };
 }

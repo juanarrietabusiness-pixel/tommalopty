@@ -21,6 +21,7 @@ export const SHIPMENT_STATUSES = [
   'entregado',
   'fallido',
   'devuelto',
+  'anulado',
 ] as const;
 
 export type ShipmentStatus = (typeof SHIPMENT_STATUSES)[number];
@@ -41,10 +42,16 @@ export const SHIPMENT_STATUS_LABELS: Record<ShipmentStatus, string> = {
   entregado: 'Entregado',
   fallido: 'Entrega fallida',
   devuelto: 'Devuelto',
+  anulado: 'Anulado',
 };
 
 const TRANSITIONS: Record<ShipmentStatus, readonly ShipmentStatus[]> = {
-  pendiente: ['asignado', 'fallido'],
+  // «Anulado» solo se alcanza desde aquí, y es a propósito: es el único estado
+  // en el que el envío todavía no es nada —sin motorizado, sin salir, sin nadie
+  // esperándolo—. Desde «asignado» ya hay una persona con una tarea, y desde
+  // «recogido» hay un paquete en la calle: eso es «fallido» o «devuelto», que
+  // es lo que de verdad pasó. Ver la migración 0035.
+  pendiente: ['asignado', 'fallido', 'anulado'],
   asignado: ['recogido', 'pendiente', 'fallido'],
   recogido: ['en_ruta', 'fallido'],
   en_ruta: ['entregado', 'fallido'],
@@ -52,9 +59,11 @@ const TRANSITIONS: Record<ShipmentStatus, readonly ShipmentStatus[]> = {
   // a «entregado» directamente: si al final se entregó, hubo un segundo intento
   // y ese intento merece constar.
   fallido: ['pendiente', 'devuelto'],
-  // Terminales.
+  // Terminales. «Anulado» también: un envío anulado no se resucita. Si el
+  // pedido vuelve a despacharse es un envío nuevo, con su guía y su número.
   entregado: [],
   devuelto: [],
+  anulado: [],
 };
 
 export function canTransitionShipment(from: ShipmentStatus, to: ShipmentStatus): boolean {
