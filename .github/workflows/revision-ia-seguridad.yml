@@ -1,0 +1,77 @@
+name: '🔒 Revisión IA · Seguridad'
+
+# El segundo carril. La justificación de por qué solo hay dos está en
+# `revision-ia-correctitud.yml`.
+#
+# La lista de «qué cazar» de este carril no es genérica: está escrita a partir
+# de los fallos que este repositorio ya tuvo. Ver `docs/ESTADO.md` § 4.
+
+on:
+  pull_request:
+    types: ['opened', 'synchronize', 'reopened']
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.event.pull_request.number }}'
+  cancel-in-progress: true
+
+jobs:
+  revisar:
+    uses: './.github/workflows/_revision-ia-nucleo.yml'
+    permissions:
+      contents: 'read'
+      pull-requests: 'write'
+    secrets:
+      ANTHROPIC_API_KEY: '${{ secrets.ANTHROPIC_API_KEY }}'
+    with:
+      carril: 'Seguridad'
+      rol: |-
+        Buscas lo que deja entrar a quien no debe, o salir a lo que no debería.
+        Esta es una tienda: hay dinero, datos personales y direcciones de casas
+        de gente.
+      ambito: |-
+        ## Tu ámbito, y solo el tuyo
+
+        Comentas ÚNICAMENTE seguridad y privacidad. Los fallos de lógica tienen
+        su propio carril; un hallazgo suyo puesto aquí es un duplicado.
+
+        Lo que este proyecto ya aprendió, y que es tu material:
+
+        - **Una función nueva de Postgres nace con `EXECUTE` para `PUBLIC`.**
+          `revoke ... from anon, authenticated` NO se lo quita: el permiso está
+          concedido a `PUBLIC`. Pasó tres veces.
+        - **Un `create or replace` puede llevarse por delante una guardia.** La
+          reescritura de `dashboard_metrics` para cambiar los ingresos borró su
+          `is_staff()`, y los privilegios no cambiaron ni un bit.
+        - **`authenticated` no es sinónimo de cliente.** Quien administra también
+          lo es. Un permiso que se decide por rol de Postgres no distingue a los
+          dos: la guardia va dentro de la función.
+        - **RLS decide filas, no columnas.** Un `select *` nuevo sobre una tabla
+          con columnas revocadas rompe la tienda entera.
+      que_cazar: |-
+        * en una migración: un `create function` sin un `revoke ... from public`
+          que la nombre (hay un validador, `pnpm validar:migraciones`, pero
+          puede haber caminos que no vea)
+        * un `create or replace function` que reescribe una función existente:
+          **compara con la anterior** y di si se ha perdido una comprobación de
+          rol, un `set search_path` o un `security invoker`
+        * una función `security definer` nueva sin `set search_path` fijo
+        * una política RLS nueva cuyo `using` no ata la fila a quien consulta
+        * un `grant` a `anon` o a `authenticated` sobre algo que no lo necesita
+        * una consulta de escritura sin filtro redundante por el dueño de la
+          fila — la convención del proyecto es filtrar además de confiar en RLS
+        * un secreto, una clave o un token en el código, en un comentario, en un
+          test o en una variable `NEXT_PUBLIC_*`
+        * un dato personal que sale por donde no debe: un correo, un teléfono o
+          una coordenada en una respuesta pública, en un log o en un mensaje de
+          error
+        * una URL pública hacia el bucket PRIVADO — ahí viven los comprobantes y
+          las fotos de prueba de entrega
+        * un importe, un precio o un descuento que llega del cliente en vez de
+          calcularse en el servidor
+        * un identificador que llega por parámetro y decide a quién se le aplica
+          algo, sin comprobar que quien llama es esa persona
+        * una acción del panel sin `requireAdmin` / `requireStaff`, o con la
+          comprobación de rol solo en la pantalla y no en la acción
+        * un `dangerouslySetInnerHTML` con algo que no es contenido del CMS
+        * en un workflow: un `pull_request_target`, un `version: latest`, o un
+          secreto que llega a un trabajo que no lo necesita

@@ -577,3 +577,45 @@ test.describe('panel · el listado dice lo que hay', () => {
     await expect(page.getByText(/ningún resultado con estos filtros/i)).toBeVisible();
   });
 });
+
+/**
+ * «¿Por qué no puedo eliminar pedidos, clientes, usuarios?»
+ *
+ * La respuesta no puede vivir solo en la documentación: tiene que estar en la
+ * pantalla donde alguien busca el botón que no existe. Estos tests fijan que
+ * está, porque una explicación que se borra en el siguiente rediseño vuelve a
+ * dejar la pregunta sin respuesta.
+ *
+ * El recorrido corre con rol `admin`, no `superadmin` (ver `SESION_DEMO`), así
+ * que aquí se comprueba justo la mitad que más se olvida: qué ve quien NO puede
+ * hacerlo. Esconder el botón sin decir nada deja a esa persona buscando.
+ */
+test.describe('panel · lo que no se borra, y por qué', () => {
+  test('un pedido dice que se cancela, y qué conserva la cancelación', async ({ page }) => {
+    await page.goto(`${PANEL_URL}/pedidos/${ID('o1')}`);
+
+    const aviso = page.getByText(/un pedido no se borra: se cancela/i);
+    await expect(aviso).toBeVisible();
+    // Lo que hace útil el aviso no es la negativa, es lo que explica: que
+    // cancelar devuelve el stock y conserva el número y los importes.
+    await expect(aviso).toContainText(/stock reservado/i);
+  });
+
+  test('una ficha de cliente explica que se anonimiza, y quién puede', async ({ page }) => {
+    await page.goto(`${PANEL_URL}/clientes/${ID('u1')}`);
+
+    await expect(page.getByRole('heading', { name: 'Datos personales' })).toBeVisible();
+    await expect(page.getByText(/un cliente no se borra: se anonimiza/i)).toBeVisible();
+    await expect(page.getByText(/solo un superadministrador/i)).toBeVisible();
+
+    // Y el botón NO está: el recorrido es de administrador. Si apareciera,
+    // pulsarlo daría un error de permisos en vez de una explicación.
+    await expect(page.getByRole('button', { name: /anonimizar/i })).toHaveCount(0);
+  });
+
+  test('los usuarios se desactivan, y la pantalla lo dice', async ({ page }) => {
+    await page.goto(`${PANEL_URL}/usuarios`);
+
+    await expect(page.getByText(/las cuentas no se borran: se desactivan/i)).toBeVisible();
+  });
+});

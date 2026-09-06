@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
-import { updateIntegration, updateUserRole } from '@/lib/actions/settings';
+import { setUserActive, updateIntegration, updateUserRole } from '@/lib/actions/settings';
 import { IDLE } from '@/lib/actions/result';
 import { FormFeedback, SubmitButton } from './form';
 
@@ -107,6 +107,49 @@ export function UserRoleForm({
       </select>
       <SubmitButton className="btn btn-outline btn-sm">Cambiar</SubmitButton>
       {state.status === 'error' ? <span className="tag tag-danger">!</span> : null}
+    </form>
+  );
+}
+
+/**
+ * El interruptor de acceso al panel.
+ *
+ * No pregunta antes, y es a propósito: la regla del proyecto es que se confirma
+ * lo irreversible y no se confirma lo que se deshace solo. Desactivar una
+ * cuenta se deshace con el mismo botón, así que un diálogo aquí solo enseñaría
+ * a la gente a darle a «Aceptar» sin leer, que es lo que rompe la confirmación
+ * de lo que sí importa.
+ */
+export function UserActiveForm({
+  profileId,
+  isActive,
+  canEdit,
+  isSelf,
+  nombre,
+}: {
+  profileId: string;
+  isActive: boolean;
+  canEdit: boolean;
+  isSelf: boolean;
+  /** Para el nombre accesible: la tabla repite «Desactivar» en cada fila. */
+  nombre: string;
+}) {
+  const [state, formAction] = useActionState(setUserActive, IDLE);
+
+  if (!canEdit || isSelf) return null;
+
+  return (
+    <form action={formAction}>
+      <input type="hidden" name="profileId" value={profileId} />
+      <input type="hidden" name="activo" value={isActive ? 'no' : 'si'} />
+      <SubmitButton
+        className="btn btn-outline btn-sm"
+        etiqueta={`${isActive ? 'Desactivar' : 'Reactivar'} a ${nombre}`}
+        pendiente={isActive ? 'Desactivando…' : 'Reactivando…'}
+      >
+        {isActive ? 'Desactivar' : 'Reactivar'}
+      </SubmitButton>
+      <FormFeedback state={state} />
     </form>
   );
 }

@@ -282,9 +282,10 @@ export async function listMisEnvios(client: Client): Promise<Shipment[]> {
   const { data, error } = await client
     .from('shipments')
     .select(CAMPOS_ENVIO)
-    // Lo entregado y lo devuelto no se listan: la pantalla es «lo que llevo
-    // encima», y una lista que crece para siempre deja de servir en la calle.
-    .not('status', 'in', '("entregado","devuelto")')
+    // Lo entregado, lo devuelto y lo anulado no se listan: la pantalla es «lo
+    // que llevo encima», y una lista que crece para siempre deja de servir en
+    // la calle. Un envío anulado, además, no lo lleva nadie.
+    .not('status', 'in', '("entregado","devuelto","anulado")')
     .order('created_at', { ascending: true });
 
   if (error) throw error;

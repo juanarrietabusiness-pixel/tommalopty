@@ -1,7 +1,7 @@
 import { shortDate } from '@nebula/ui';
 import { DataTable } from '@nebula/ui/admin';
 import { PanelPage } from '@/components/panel-page';
-import { UserRoleForm } from '@/components/settings-forms';
+import { UserActiveForm, UserRoleForm } from '@/components/settings-forms';
 import { requireAdmin, roleLabel } from '@/lib/auth';
 import { cargarUsuarios } from '@/lib/panel-data';
 
@@ -14,7 +14,7 @@ export default async function UsersPage() {
   return (
     <PanelPage
       title="Usuarios y roles"
-      description="Operador consulta, administrador gestiona catálogo y pedidos, superadministrador controla roles e integraciones."
+      description="Operador consulta, administrador gestiona catálogo y pedidos, superadministrador controla roles e integraciones. Las cuentas no se borran: se desactivan, y así lo que firmaron sigue teniendo autor."
     >
       {session.role !== 'superadmin' ? (
         <div className="notice notice-info">
@@ -45,12 +45,22 @@ export default async function UsersPage() {
           {
             key: 'active',
             header: 'Estado',
-            render: (profile) =>
-              profile.is_active ? (
-                <span className="tag tag-success">Activo</span>
-              ) : (
-                <span className="tag tag-danger">Desactivado</span>
-              ),
+            render: (profile) => (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {profile.is_active ? (
+                  <span className="tag tag-success">Activo</span>
+                ) : (
+                  <span className="tag tag-danger">Desactivado</span>
+                )}
+                <UserActiveForm
+                  profileId={profile.id}
+                  isActive={profile.is_active}
+                  canEdit={session.role === 'superadmin'}
+                  isSelf={profile.id === session.userId}
+                  nombre={profile.full_name ?? profile.email}
+                />
+              </div>
+            ),
           },
           {
             key: 'created',

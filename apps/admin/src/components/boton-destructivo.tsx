@@ -29,6 +29,7 @@ export function BotonDestructivo({
   alConfirmar,
   children,
   etiqueta,
+  pendienteTexto = 'Borrando…',
   disabled,
   className = 'btn btn-outline btn-sm',
 }: {
@@ -43,6 +44,14 @@ export function BotonDestructivo({
    * de pantalla los lee «Borrar, Borrar, Borrar» sin decir cuál es cuál.
    */
   etiqueta?: string;
+  /**
+   * Qué dice mientras está en vuelo, cuando no se está borrando.
+   *
+   * Anular un envío no borra nada —esa es justo la mitad del mensaje que se le
+   * da a quien lo hace—, así que un botón que pone «Borrando…» desmiente por
+   * un segundo lo que acaba de leer en el diálogo.
+   */
+  pendienteTexto?: string;
   disabled?: boolean;
   className?: string;
 }) {
@@ -67,7 +76,7 @@ export function BotonDestructivo({
           });
         }}
       >
-        {pendiente ? 'Borrando…' : children}
+        {pendiente ? pendienteTexto : children}
       </button>
       <FormFeedback state={state} />
     </>

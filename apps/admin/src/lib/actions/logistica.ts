@@ -5,6 +5,7 @@ import { z } from 'zod';
 import {
   POLITICAS_DE_DESPACHO,
   SHIPMENT_STATUSES,
+  SHIPMENT_STATUS_LABELS,
   isShipmentStatus,
   parsePolygon,
   validateShipmentTransition,
@@ -290,6 +291,72 @@ export async function updateShipment(
 
   revalidatePath(`/pedidos/${envio.order_id}`);
   return success('Envío actualizado.');
+}
+
+/**
+ * Anular un envío creado por error (issue #54).
+ *
+ * POR QUÉ NO ES UNA OPCIÓN MÁS DEL SELECTOR
+ *
+ * Anular no se deshace: «anulado» es terminal, y si el pedido vuelve a
+ * despacharse será un envío nuevo con otra guía. La regla del proyecto —la que
+ * vive en `BotonDestructivo`— es que lo irreversible se confirma, y una opción
+ * en un desplegable junto a «Asignado» no confirma nada: se elige por error con
+ * la misma facilidad con la que se creó el envío que se viene a anular.
+ *
+ * Por eso el desplegable de `EnvioForm` deja fuera «anulado» y esto vive en su
+ * propio botón, con su propia pregunta.
+ *
+ * POR QUÉ NO SE BORRA LA FILA
+ *
+ * Por lo mismo que no se borran los pedidos: la guía ya pudo imprimirse, y un
+ * número de guía en papel que el sistema no conoce es peor que uno anulado.
+ * Anulado, quien escanee el QR lee que no salga.
+ *
+ * La transición se valida aquí para dar un mensaje entendible, y otra vez en
+ * `guard_shipment_transition`, que es la que no se puede saltar.
+ */
+export async function anularEnvio(shipmentId: string): Promise<ActionResult> {
+  await requireAdmin();
+
+  const demo = bloqueadoEnDemostracion();
+  if (demo) return demo;
+
+  if (!z.uuid().safeParse(shipmentId).success) return failure('Ese envío ya no existe.');
+
+  const supabase = await getSupabaseServerClient();
+
+  const { data: envio } = await supabase
+    .from('shipments')
+    .select('id, order_id, status, tracking_number')
+    .eq('id', shipmentId)
+    .maybeSingle();
+
+  if (!envio) return failure('Ese envío ya no existe.');
+
+  const actual = isShipmentStatus(envio.status) ? envio.status : 'pendiente';
+  const problema = validateShipmentTransition(actual, 'anulado');
+  if (problema) {
+    // El mensaje genérico de la máquina de estados es correcto pero no dice qué
+    // hacer en su lugar, y aquí sí se sabe: el envío ya salió.
+    return failure(
+      `Solo se anula un envío que sigue pendiente. Este está «${SHIPMENT_STATUS_LABELS[actual]}»: ` +
+        'si el paquete ya salió, márcalo como entrega fallida y luego devuelto, que es lo que pasó.',
+    );
+  }
+
+  const cambio = checkWrite(
+    await supabase
+      .from('shipments')
+      .update({ status: 'anulado' })
+      .eq('id', shipmentId)
+      .select('id'),
+  );
+
+  if (cambio) return cambio;
+
+  revalidatePath(`/pedidos/${envio.order_id}`);
+  return success(`Envío ${envio.tracking_number} anulado. No saldrá del almacén.`);
 }
 
 /* --- La regla de despacho (D4) ---------------------------------------------- */

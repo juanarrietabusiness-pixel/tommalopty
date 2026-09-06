@@ -34,6 +34,11 @@ export function OrderStatusForm({
           <option value="cancelled">Cancelado</option>
           <option value="refunded">Reembolsado</option>
         </select>
+        <span className="field-hint">
+          Un pedido no se borra: se cancela. Cancelarlo devuelve el stock reservado y lo deja fuera
+          de las ventas, pero conserva el número, los artículos y los pagos, que es lo que hace
+          falta si mañana hay que reclamar algo o cuadrar la contabilidad.
+        </span>
       </div>
 
       <div className="field">

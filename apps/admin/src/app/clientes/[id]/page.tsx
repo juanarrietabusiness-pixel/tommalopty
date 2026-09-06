@@ -3,13 +3,15 @@ import { notFound } from 'next/navigation';
 import { dateTime, money, number, shortDate } from '@nebula/ui';
 import { DataTable, StatCard, StatGrid, StatusBadge, Timeline } from '@nebula/ui/admin';
 import { PanelPage } from '@/components/panel-page';
-import { CustomerNoteForm, CustomerTagsForm } from '@/components/crm-forms';
+import { AnonimizarClienteForm, CustomerNoteForm, CustomerTagsForm } from '@/components/crm-forms';
+import { requireStaff } from '@/lib/auth';
 import { cargarCliente } from '@/lib/panel-data';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const session = await requireStaff();
   const datos = await cargarCliente(id);
   if (!datos) notFound();
 
@@ -130,6 +132,22 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
               <h3>Actividad</h3>
             </div>
             <p className="field-hint">Ficha actualizada {dateTime(customer.updated_at)}</p>
+          </section>
+
+          {/*
+            La última tarjeta, y a propósito: no es una operación del día a día,
+            y estar al final es parte de que nadie la pulse de paso.
+          */}
+          <section className="card">
+            <div className="card-head">
+              <h3>Datos personales</h3>
+            </div>
+            <AnonimizarClienteForm
+              customerId={customer.id}
+              nombre={fullName}
+              esSuperadmin={session.role === 'superadmin'}
+              yaAnonimizado={customer.email.endsWith('@anonimo.invalid')}
+            />
           </section>
         </aside>
       </div>

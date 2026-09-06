@@ -374,6 +374,131 @@ test.describe('área de cliente en modo demostración', () => {
     await page.goto('/cuenta');
     await expect(page.getByText(/recorrido de demostración/i)).toBeVisible();
   });
+
+  /**
+   * Enviar el formulario de «Mis datos» devolvía un 500. Siempre.
+   *
+   * `lib/actions/cuenta.ts` lleva `'use server'`, y esos módulos solo pueden
+   * exportar funciones asíncronas; exportaba también `ACCOUNT_IDLE`, un objeto,
+   * y eso rompía el módulo entero al cargarse. Como el fallo era al evaluar el
+   * módulo y no al llamar a la acción, la pantalla se pintaba perfecta y solo
+   * fallaba al enviar — y ningún test enviaba.
+   *
+   * Este es ese test. No comprueba la redacción del aviso, sino que la acción
+   * llega y responde: es lo que faltaba.
+   */
+  test('el formulario de datos llega al servidor y contesta', async ({ page }) => {
+    await page.goto('/cuenta/datos');
+
+    const [respuesta] = await Promise.all([
+      page.waitForResponse((r) => r.request().method() === 'POST'),
+      page.getByRole('button', { name: /guardar cambios/i }).click(),
+    ]);
+
+    expect(respuesta.status()).toBe(200);
+    await expect(page.getByText(/no se guarda nada/i)).toBeVisible();
+  });
+});
+
+/**
+ * La libreta de direcciones (#24).
+ *
+ * La pantalla llevaba desde el principio leyendo direcciones sin poder escribir
+ * ninguna: no había formulario ni acción. Decía «la que uses en tu próximo
+ * pedido aparecerá aquí», y era falso — el checkout guarda la dirección dentro
+ * del pedido, no en esta tabla.
+ *
+ * En modo demostración los botones NO están deshabilitados, a propósito: se
+ * puede abrir el formulario, rellenarlo y enviarlo, y lo que se recibe es el
+ * aviso de la acción. Es lo que permite que estos tests recorran el formulario
+ * de verdad sin base de datos.
+ */
+test.describe('mis direcciones', () => {
+  test('se puede abrir el formulario, y trae los campos que hacen falta', async ({ page }) => {
+    await page.goto('/cuenta/direcciones');
+
+    await page.getByRole('button', { name: 'Añadir dirección' }).click();
+
+    for (const campo of ['Dirección', 'Ciudad', 'Nombre de quien recibe', 'Apellido']) {
+      await expect(page.getByLabel(campo, { exact: true })).toBeVisible();
+    }
+  });
+
+  test('editar una dirección la abre con sus datos dentro', async ({ page }) => {
+    await page.goto('/cuenta/direcciones');
+
+    // La primera de las dos de ejemplo. Sin `defaultValue`, editar sería
+    // reescribir la dirección entera desde cero.
+    await page
+      .getByRole('button', { name: /^Editar / })
+      .first()
+      .click();
+
+    await expect(page.getByLabel('Dirección', { exact: true })).toHaveValue(
+      /Torre Global Bank|Los Robles/,
+    );
+  });
+
+  test('guardar en la demostración lo dice, en vez de fingir que guardó', async ({ page }) => {
+    await page.goto('/cuenta/direcciones');
+    await page.getByRole('button', { name: 'Añadir dirección' }).click();
+
+    await page.getByLabel('Nombre de quien recibe', { exact: true }).fill('Ana');
+    await page.getByLabel('Apellido', { exact: true }).fill('Rodríguez');
+    await page.getByLabel('Dirección', { exact: true }).fill('Calle 50, casa 12');
+    await page.getByLabel('Ciudad', { exact: true }).fill('Ciudad de Panamá');
+    await page.getByRole('button', { name: 'Guardar dirección' }).click();
+
+    await expect(page.getByRole('alert').filter({ hasText: /no se guarda nada/i })).toBeVisible();
+  });
+
+  test('cancelar cierra el formulario sin llamar al servidor', async ({ page }) => {
+    await page.goto('/cuenta/direcciones');
+    await page.getByRole('button', { name: 'Añadir dirección' }).click();
+
+    // Se vigila la petición de la Server Action: afirmar solo que el
+    // formulario se cerró pasaría también con un «Cancelar» que guardara.
+    let llamó = false;
+    page.on('request', (peticion) => {
+      if (peticion.method() === 'POST') llamó = true;
+    });
+
+    await page.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(page.getByLabel('Dirección', { exact: true })).toBeHidden();
+    expect(llamó).toBe(false);
+
+    // Y la otra mitad: enviar SÍ llama. Sin esto, el test de arriba pasaría
+    // aunque el formulario no enviara nunca.
+    await page.getByRole('button', { name: 'Añadir dirección' }).click();
+    await page.getByLabel('Nombre de quien recibe', { exact: true }).fill('Ana');
+    await page.getByLabel('Apellido', { exact: true }).fill('Rodríguez');
+    await page.getByLabel('Dirección', { exact: true }).fill('Calle 50');
+    await page.getByLabel('Ciudad', { exact: true }).fill('Panamá');
+    await Promise.all([
+      page.waitForRequest((peticion) => peticion.method() === 'POST'),
+      page.getByRole('button', { name: 'Guardar dirección' }).click(),
+    ]);
+  });
+
+  test('borrar pregunta antes, y dice qué se pierde', async ({ page }) => {
+    await page.goto('/cuenta/direcciones');
+
+    let mensaje = '';
+    page.on('dialog', async (dialogo) => {
+      mensaje = dialogo.message();
+      await dialogo.dismiss();
+    });
+
+    await page
+      .getByRole('button', { name: /^Borrar / })
+      .first()
+      .click();
+
+    // No basta con que pregunte: un «¿Seguro?» no se puede responder con
+    // criterio. Tiene que decir qué se pierde y que los pedidos no cambian.
+    expect(mensaje).toMatch(/no se puede deshacer/i);
+    expect(mensaje).toMatch(/pedidos anteriores no cambian/i);
+  });
 });
 
 test.describe('acceso y registro', () => {

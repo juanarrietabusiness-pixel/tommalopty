@@ -6,8 +6,9 @@ import {
   allowedShipmentTransitions,
   type ShipmentStatus,
 } from '@nebula/domain';
-import { createShipment, updateShipment } from '@/lib/actions/logistica';
+import { anularEnvio, createShipment, updateShipment } from '@/lib/actions/logistica';
 import { IDLE } from '@/lib/actions/result';
+import { BotonDestructivo } from './boton-destructivo';
 import { FormFeedback, SubmitButton } from './form';
 
 export interface EnvioEnPantalla {
@@ -49,7 +50,13 @@ export function EnvioForm({
   operadores: { id: string; nombre: string }[];
 }) {
   const [state, formAction] = useActionState(updateShipment, IDLE);
-  const destinos = allowedShipmentTransitions(envio.status);
+
+  // «Anulado» sale del desplegable a propósito: no se deshace, y lo que no se
+  // deshace se confirma. Tiene su propio botón, abajo. Ver `anularEnvio`.
+  const destinos = allowedShipmentTransitions(envio.status).filter(
+    (destino) => destino !== 'anulado',
+  );
+  const sePuedeAnular = allowedShipmentTransitions(envio.status).includes('anulado');
 
   return (
     <form action={formAction} className="envio-fila">
@@ -83,6 +90,11 @@ export function EnvioForm({
           </select>
           {destinos.length === 0 ? (
             <span className="field-hint">Este envío ya terminó su recorrido.</span>
+          ) : null}
+          {sePuedeAnular ? (
+            <span className="field-hint">
+              ¿Se creó por error? No se borra: se anula, con el botón de abajo.
+            </span>
           ) : null}
         </div>
 
@@ -128,7 +140,25 @@ export function EnvioForm({
         </div>
       </div>
 
-      <SubmitButton>Guardar envío</SubmitButton>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <SubmitButton>Guardar envío</SubmitButton>
+
+        {sePuedeAnular ? (
+          <BotonDestructivo
+            etiqueta={`Anular el envío ${envio.trackingNumber}`}
+            pendienteTexto="Anulando…"
+            confirmacion={
+              `Se anulará el envío ${envio.trackingNumber}. No se puede deshacer: ` +
+              'si el pedido vuelve a despacharse será un envío nuevo, con otra guía.\n\n' +
+              'La fila no se borra, para que una guía ya impresa siga existiendo en el sistema. ' +
+              'Quien escanee su QR leerá que no la entregue.'
+            }
+            alConfirmar={() => anularEnvio(envio.id)}
+          >
+            Anular envío
+          </BotonDestructivo>
+        ) : null}
+      </div>
     </form>
   );
 }

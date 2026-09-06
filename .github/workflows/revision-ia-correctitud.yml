@@ -1,0 +1,87 @@
+name: '🔍 Revisión IA · Correctitud'
+
+# Uno de los dos carriles. El otro es `revision-ia-seguridad.yml`.
+#
+# POR QUÉ DOS Y NO CUATRO
+#
+# `google/adk-samples` tiene cuatro (correctitud, seguridad, mantenibilidad,
+# higiene). Aquí hay dos, y la razón es la historia de este repositorio y no la
+# comodidad: todos los fallos serios que se han encontrado —el `create or
+# replace` que se llevó una guardia de rol, las funciones ejecutables por
+# cualquiera, el módulo `'use server'` que devolvía un 500 en cada envío, los
+# tests que no podían fallar— caen en estos dos carriles.
+#
+# La higiene y el estilo ya los cubren `prettier` y `eslint` en el trabajo
+# `Formato · Lint · Tipos`, que además no se equivocan. Un tercer revisor que
+# opine sobre nombres sería ruido pagado por llamada.
+#
+# Si algún día hacen falta, se añaden con veinte líneas: el núcleo acepta
+# cualquier carril. Lo que NO hay que hacer es añadirlos porque Google los
+# tenga.
+
+on:
+  pull_request:
+    types: ['opened', 'synchronize', 'reopened']
+    paths-ignore:
+      # Un cambio solo de documentación no necesita revisor de correctitud.
+      - 'docs/**'
+      - '**/*.md'
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.event.pull_request.number }}'
+  cancel-in-progress: true
+
+jobs:
+  revisar:
+    uses: './.github/workflows/_revision-ia-nucleo.yml'
+    permissions:
+      contents: 'read'
+      pull-requests: 'write'
+    secrets:
+      ANTHROPIC_API_KEY: '${{ secrets.ANTHROPIC_API_KEY }}'
+    with:
+      carril: 'Correctitud'
+      rol: |-
+        Buscas fallos: lógica equivocada, valores mal devueltos, casos que el
+        código no contempla y cosas que revientan en ejecución. Nada más.
+      ambito: |-
+        ## Tu ámbito, y solo el tuyo
+
+        Comentas ÚNICAMENTE correctitud. Nada de estilo, nombres, formato,
+        documentación ni seguridad: la seguridad tiene su propio carril, y un
+        hallazgo suyo puesto aquí es un duplicado, no un extra.
+
+        Dentro de tu ámbito:
+
+        - condiciones al revés, ramas equivocadas, booleanos invertidos;
+        - errores que nadie recoge, o que se tragan en silencio;
+        - errores de uno en índices, cortes y bucles;
+        - datos sin validar: nulos, respuestas de la base, entrada de usuario;
+        - mal uso de una API: orden de argumentos, valor de retorno ignorado;
+        - un coste algorítmico objetivamente malo en un camino caliente.
+      que_cazar: |-
+        * una condición que, tal y como está escrita, es siempre cierta o
+          siempre falsa
+        * un bucle que no puede entrar, o que no puede terminar
+        * un error de uno en un rango, un `slice` o un índice visible
+        * código inalcanzable después de un `return`, `throw` o `continue`
+        * la variable equivocada en una línea que por lo demás es paralela a
+          la de al lado
+        * un `await` que falta sobre una promesa, o una promesa pasada donde se
+          quería su resultado
+        * un `catch` vacío, o uno que devuelve algo que quien llama trata como
+          éxito
+        * dos literales a la vista que se contradicen
+        * un camino de error que devuelve una forma distinta a la del camino
+          bueno — este proyecto usa `ActionResult` y `AccountResult`: mira que
+          `status`, `message` y `fieldErrors` sean coherentes
+        * un `null`/`undefined` que llega a un acceso a propiedad en un camino
+          visible
+        * en Supabase: un `update` o un `delete` cuyo resultado no se comprueba.
+          **RLS filtra las escrituras sin devolver error**, así que cero filas
+          no significa que todo fuera bien. El proyecto tiene `checkWrite` para
+          esto
+        * una Server Action que revalida una ruta y no la que cambió
+        * un test cuya aserción no puede fallar: comprobar una ausencia que se
+          cumple al instante, o un `getByRole('alert')` sin filtro de texto —
+          Next monta un `#__next-route-announcer__` permanente con ese rol

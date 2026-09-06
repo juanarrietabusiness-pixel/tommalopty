@@ -2204,6 +2204,20 @@ export type Database = {
       };
     };
     Functions: {
+      anonimizar_cliente: {
+        Args: { p_customer_id: string };
+        Returns: {
+          cuenta_de_acceso: string;
+          direcciones: number;
+          email_anterior: string;
+          envios: number;
+          notas: number;
+          pedidos: number;
+          pruebas_de_entrega: string[];
+          resenas: number;
+          suscripciones: number;
+        }[];
+      };
       build_product_search_vector: {
         Args: {
           p_brand: string;

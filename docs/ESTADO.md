@@ -416,14 +416,29 @@ conviene reconocerlo: **casi todo era media función construida.**
 | «Todavía no hay pedidos» cuando lo que no había era resultados del filtro            | #55        |
 | Una navegación con la misma forma que el bug de inicio de sesión                     | #56        |
 
-**Las dos que quedan no son de programar, son de decidir:**
+**Las dos que quedaban pedían una decisión, y ya está tomada (6 de septiembre):**
 
-- **[#46](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/46) · Un cliente no se puede borrar ni anonimizar.** Es dato personal, así que
-  forma parte de la revisión legal pendiente. Hay que decidir si se anonimiza
-  —recomendado— o se borra en cascada, y qué pasa con sus pedidos.
-- **[#54](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/54) · Un envío creado por error solo se cierra como «entrega fallida».** Pide
-  migración (la tabla tiene un `check` que enumera los estados) y decidir si
-  anular es de `admin` o de `superadmin`.
+- **[#46](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/46) · Un cliente no se podía borrar ni anonimizar.** Se anonimiza, no se borra
+  en cascada. Función `anonimizar_cliente`, solo superadministrador. Se van
+  correo, nombre, teléfono, direcciones, notas del CRM, favoritos, carritos y
+  suscripciones; de la dirección del pedido queda ciudad y provincia, que sirve
+  para el informe por zona y no señala a nadie. Se quedan los pedidos con sus
+  números e importes: una venta que ocurrió hay que poder declararla. La función
+  **devuelve** —en vez de intentar— las dos cosas que viven fuera de Postgres,
+  la cuenta de `auth.users` y las fotos de prueba de entrega en R2, y la Server
+  Action las remata e informa por separado si alguna falla.
+- **[#54](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/54) · Un envío creado por error solo se cerraba como «entrega fallida».** Estado
+  nuevo `anulado`, alcanzable solo desde `pendiente` y terminal. Lo puede hacer
+  `admin`, por coherencia con `updateShipment`, que es quien ya mueve envíos.
+  No está en el desplegable de estados: vive en su propio botón con
+  confirmación, porque no se deshace.
+
+**Y de paso, la respuesta a la pregunta que las abrió** —«¿por qué no puedo
+eliminar pedidos, clientes, productos, despachos, usuarios?»— quedó escrita en
+las pantallas, no solo aquí: los pedidos dicen ahora que se cancelan y qué
+conserva la cancelación; los usuarios del panel se desactivan desde `/usuarios`
+(la mitad de abajo —middleware, `current_app_role`, `guard_profile_privileges`—
+llevaba meses puesta y no había interruptor); y los clientes se anonimizan.
 
 ## 3.1 · El mapa: lo que se resolvió y lo que queda
 
@@ -592,6 +607,23 @@ la pantalla entera, menú incluido.
 Lo que sí funciona es avisar **dentro del enlace pulsado**, con `useLinkStatus`,
 que sobrevive a la transición porque no forma parte de lo que se sustituye.
 `loading.tsx` se queda para la primera carga de una pantalla, que es otro caso.
+
+### Un fichero `'use server'` solo puede exportar funciones asíncronas
+
+`lib/actions/cuenta.ts` exportaba también `ACCOUNT_IDLE`, un objeto. Next lo
+rechaza al **evaluar el módulo**, no al llamar a la acción, y ahí está la
+trampa: la pantalla de «Mis datos» se pintaba perfecta y **cada envío devolvía
+un 500**. Guardar el nombre o el teléfono no funcionó nunca desde que se
+construyó esa pantalla.
+
+Nada lo dijo porque ningún test enviaba el formulario: los había de que la
+pantalla respondía 200 y traía texto, que es exactamente el tipo de prueba que
+un fallo así se salta. Ahora hay uno que pulsa «Guardar cambios» y comprueba que
+la petición llega y responde 200. El valor y su tipo viven en `cuenta-result.ts`.
+
+La regla, para la próxima: **de un fichero `'use server'` no sale nada que no
+sea una función asíncrona.** Los tipos sí (se borran al compilar), los objetos
+no.
 
 ---
 
