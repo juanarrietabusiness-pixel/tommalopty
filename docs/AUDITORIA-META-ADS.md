@@ -9,6 +9,46 @@ de la plataforma salvo donde bloquean esta funcionalidad.
 
 **Fecha:** agosto 2026 · **Rama:** `claude/meta-ads-integration-analysis-5lvoot`
 
+> ## ⏱ Repasado el 6 de septiembre, y no todo sigue igual
+>
+> Esta auditoría se escribió el **21 de agosto** y estuvo tres semanas en una
+> rama sin pull request, así que nunca llegó a `main`. Se rescata tal cual —el
+> análisis de qué permite Meta y qué no sigue siendo válido entero— pero **los
+> hallazgos sobre el código de § 6 se han vuelto a comprobar hoy**, uno por uno,
+> y tres han cambiado:
+>
+> | Hallazgo                                                     | En agosto          | Hoy, 6 de septiembre                                                                                                                           |
+> | ------------------------------------------------------------ | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+> | **6.1** `ViewContent` no se dispara nunca                    | 🔴                 | ✅ **Resuelto.** Se emite en `/producto/[slug]` con `event_id` derivado del producto, y además hay `Search` en `/buscar`                       |
+> | **6.2** `content_ids` inconsistentes                         | 🔴 · dos criterios | 🔴 **Peor: ahora son cuatro** (ver abajo)                                                                                                      |
+> | **6.3** La deduplicación nunca se ejercita                   | 🟡                 | 🟡 Igual. Hay `event_id` compartido y determinista, listo para usarse, pero ningún evento va todavía por los dos canales                       |
+> | **6.4** Faltan `barcode`/GTIN y `condition` en el formulario | 🟡                 | 🟡 Igual                                                                                                                                       |
+> | **6.5** No hay subida de imágenes                            | 🟡                 | ✅ **Resuelto.** Sube a Cloudflare R2 desde el panel, banner y galería de producto                                                             |
+> | **6.6** Las credenciales no admiten OAuth por comercio       | 🟡                 | 🟡 Igual para multi-tienda; para mono-tienda sigue funcionando sin cambios. La bóveda cifrada que se construyó después no cambia la conclusión |
+> | **6.7** No hay tareas programadas                            | 🟡                 | 🟡 A medias. `pg_cron` ya se usa (caducidad de reservas, barrido de intentos de alta); en Workers sigue sin haber `triggers.crons`             |
+> | **6.8** Sin pasarela no hay conversiones reales              | 🔴                 | 🔴 **Igual, y sigue siendo lo que manda el orden.** Es el [issue #3](https://github.com/juanarrietabusiness-pixel/tommalopty/issues/3)         |
+>
+> Y **§ 5.4 sigue siendo cierto**: no hay ninguna columna de tenant en ninguna
+> migración. La plataforma es mono-tienda, que es el escenario fácil.
+>
+> ### El 6.2 hay que mirarlo, porque el arreglo del 6.1 lo agravó
+>
+> En agosto había dos criterios distintos para `content_ids`. Hoy hay **cuatro**,
+> y el tercero lo introdujo justo el código que resolvió el 6.1:
+>
+> | Dónde                                           | Qué manda                                                    |
+> | ----------------------------------------------- | ------------------------------------------------------------ |
+> | `components/product-purchase-panel.tsx:52`      | `variant.sku ?? variant.id`                                  |
+> | `app/producto/[slug]/page.tsx:126`              | `defaultVariant?.sku ?? product.id` ← **nuevo**              |
+> | `app/checkout/confirmacion/[token]/page.tsx:90` | `item.sku ?? item.id` — `item.id` es la **línea del pedido** |
+> | `app/buscar/page.tsx:58`                        | `p.id`                                                       |
+>
+> Cuatro identificadores para la misma cosa. El diagnóstico de § 6.2 no solo
+> sigue en pie: es más urgente que cuando se escribió, porque cada evento nuevo
+> que se añade sin un identificador canónico añade una forma más de no emparejar
+> con el feed. **El arreglo sigue siendo el mismo:** un solo helper compartido,
+> usado en el feed, en el Pixel y en la CAPI.
+
 ---
 
 ## 1. Veredicto
@@ -20,10 +60,10 @@ conjuntos de anuncios con presupuesto, creativos y anuncios por HTTP.
 
 **Pero en esta plataforma hoy no existe ni una línea de ese código.** Lo que hay
 es Pixel + Conversions API, que es **medición**, no gestión de publicidad: envía
-señales *hacia* Meta y nunca lee ni escribe nada en una cuenta publicitaria.
+señales _hacia_ Meta y nunca lee ni escribe nada en una cuenta publicitaria.
 
 Traducido: **la infraestructura para publicitar hay que construirla entera.** No
-está «pensado para eso y estamos bien». Está pensado para *medir*, que es la
+está «pensado para eso y estamos bien». Está pensado para _medir_, que es la
 mitad previa y necesaria, y esa mitad está a medio terminar (ver §6).
 
 Y hay una frontera que conviene entender antes de prometer nada al cliente: **el
@@ -35,15 +75,15 @@ propia cuenta publicitaria.
 
 ## 2. Lo que pediste, traducido a piezas técnicas
 
-| Lo que pediste | Pieza técnica real | ¿Existe? |
-| --- | --- | --- |
-| «que se conecte un API a la web» | Marketing API (Graph API) de Meta | 🔲 No |
-| «seleccionar productos del catálogo» | Catálogo de Meta + feed de productos | 🔲 No |
-| «darle publicitar en el panel» | UI de anuncios en `apps/admin` | 🔲 No |
-| «que se vaya a anuncios» | Modelo de datos campaña/anuncio | 🔲 No |
-| «conectar ese presupuesto» | `daily_budget` / `lifetime_budget` del ad set | 🔲 No |
-| «al Meta Business» | Business Manager + cuenta publicitaria + token | 🔲 No |
-| (implícito) medir el resultado | Pixel + Conversions API | 🟡 Parcial |
+| Lo que pediste                       | Pieza técnica real                             | ¿Existe?   |
+| ------------------------------------ | ---------------------------------------------- | ---------- |
+| «que se conecte un API a la web»     | Marketing API (Graph API) de Meta              | 🔲 No      |
+| «seleccionar productos del catálogo» | Catálogo de Meta + feed de productos           | 🔲 No      |
+| «darle publicitar en el panel»       | UI de anuncios en `apps/admin`                 | 🔲 No      |
+| «que se vaya a anuncios»             | Modelo de datos campaña/anuncio                | 🔲 No      |
+| «conectar ese presupuesto»           | `daily_budget` / `lifetime_budget` del ad set  | 🔲 No      |
+| «al Meta Business»                   | Business Manager + cuenta publicitaria + token | 🔲 No      |
+| (implícito) medir el resultado       | Pixel + Conversions API                        | 🟡 Parcial |
 
 ---
 
@@ -51,14 +91,14 @@ propia cuenta publicitaria.
 
 Todo lo que hay de Meta en el repo:
 
-| Archivo | Qué hace |
-| --- | --- |
-| `packages/integrations/src/meta/conversions-api.ts` | `POST` a `graph.facebook.com/<version>/<pixelId>/events` |
-| `packages/integrations/src/meta/events.ts` | Catálogo de nombres de evento y `event_id` compartido |
-| `packages/integrations/src/meta/hash.ts` | Normalización + SHA-256 de datos personales |
-| `apps/storefront/src/components/meta-pixel.tsx` | Pixel de navegador (`fbq`) |
-| `apps/storefront/src/lib/tracking.ts` | Envío de eventos servidor con IP, UA y cookies `_fbp`/`_fbc` |
-| `apps/admin/src/app/configuracion/page.tsx` | Interruptor de activación de `meta_pixel` |
+| Archivo                                             | Qué hace                                                     |
+| --------------------------------------------------- | ------------------------------------------------------------ |
+| `packages/integrations/src/meta/conversions-api.ts` | `POST` a `graph.facebook.com/<version>/<pixelId>/events`     |
+| `packages/integrations/src/meta/events.ts`          | Catálogo de nombres de evento y `event_id` compartido        |
+| `packages/integrations/src/meta/hash.ts`            | Normalización + SHA-256 de datos personales                  |
+| `apps/storefront/src/components/meta-pixel.tsx`     | Pixel de navegador (`fbq`)                                   |
+| `apps/storefront/src/lib/tracking.ts`               | Envío de eventos servidor con IP, UA y cookies `_fbp`/`_fbc` |
+| `apps/admin/src/app/configuracion/page.tsx`         | Interruptor de activación de `meta_pixel`                    |
 
 Está bien hecho para lo que es: hashea la PII antes de salir, usa Web Crypto
 para correr igual en Node/Workers/Edge, nunca lanza excepción (el marketing no
@@ -112,15 +152,15 @@ estándar y estable desde hace años.
 
 **Esta es la expectativa que hay que corregir antes de vender la función.**
 
-La API permite *fijar* el presupuesto de un conjunto de anuncios. No permite
-*cobrarlo*. El medio de pago se registra en Ads Manager / Business Manager de la
+La API permite _fijar_ el presupuesto de un conjunto de anuncios. No permite
+_cobrarlo_. El medio de pago se registra en Ads Manager / Business Manager de la
 dueña, y Meta le factura directamente a ella. La plataforma puede leer el estado
 de facturación de la cuenta, pero dar de alta una tarjeta es un flujo de la
 interfaz de Meta, no de la API.
 
 Consecuencia práctica: el panel puede decir «presupuesto: 20 $/día» y Meta
 cobrará esos 20 $/día a la tarjeta de la dueña. Lo que el panel **no** puede
-hacer es que la dueña pague la publicidad *a través* de la plataforma.
+hacer es que la dueña pague la publicidad _a través_ de la plataforma.
 
 ### 5.3 No se puede: publicar sin revisión de Meta
 
@@ -138,15 +178,15 @@ arquitectura que verifiqué en el esquema: **no hay ninguna columna de tenant,
 
 Eso cambia radicalmente la dificultad:
 
-| Escenario | Qué hace falta | Plazo |
-| --- | --- | --- |
-| **Mono-tienda (el actual)** — la dueña gestiona *su propia* cuenta | App de Meta en el Business Manager de ella + **System User token** (no caduca) con `ads_management`, `business_management`, `catalog_management`. La app puede quedarse sin publicar: gestiona activos propios. **Sin App Review.** | días |
-| **SaaS multi-tienda (si algún día se vende a terceros)** | App en modo Live + Facebook Login for Business + **App Review** de `ads_management` + **Verificación de Negocio** + nivel de acceso de la Marketing API + posible registro como Tech Provider | semanas, y puede ser rechazado |
+| Escenario                                                          | Qué hace falta                                                                                                                                                                                                                      | Plazo                          |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| **Mono-tienda (el actual)** — la dueña gestiona _su propia_ cuenta | App de Meta en el Business Manager de ella + **System User token** (no caduca) con `ads_management`, `business_management`, `catalog_management`. La app puede quedarse sin publicar: gestiona activos propios. **Sin App Review.** | días                           |
+| **SaaS multi-tienda (si algún día se vende a terceros)**           | App en modo Live + Facebook Login for Business + **App Review** de `ads_management` + **Verificación de Negocio** + nivel de acceso de la Marketing API + posible registro como Tech Provider                                       | semanas, y puede ser rechazado |
 
 Sobre el segundo escenario, Meta cambió las reglas el **4 de mayo de 2026**: lo
-que se llamaba *Standard/Advanced Access* pasó a llamarse **Marketing API Access
-Tier**, con dos niveles — *Limited Access* (Business Manager verificado + app
-publicada con Marketing API activada) y *Full Access* (≥ 500 llamadas en 15 días
+que se llamaba _Standard/Advanced Access_ pasó a llamarse **Marketing API Access
+Tier**, con dos niveles — _Limited Access_ (Business Manager verificado + app
+publicada con Marketing API activada) y _Full Access_ (≥ 500 llamadas en 15 días
 con menos del 15 % de error). Si el proyecto se convierte en SaaS, esto hay que
 releerlo en la fuente antes de planificar.
 
@@ -211,7 +251,7 @@ y Meta no podrá atribuir la venta al producto anunciado. El síntoma clásico e
 
 **Arreglo:** definir un identificador canónico de producto (recomiendo
 `variant.id`, que es estable y siempre existe, o el SKU si se hace obligatorio) y
-usar *el mismo* en el feed, en el Pixel y en la CAPI. Un solo helper compartido.
+usar _el mismo_ en el feed, en el Pixel y en la CAPI. Un solo helper compartido.
 
 ### 6.3 🟡 Ningún evento se envía por los dos canales — la deduplicación nunca se ejercita
 
@@ -219,13 +259,13 @@ El README y `docs/ARQUITECTURA.md` describen Pixel + CAPI con `event_id`
 compartido para que Meta deduplique. En el código, cada evento va por un solo
 canal:
 
-| Evento | Pixel (cliente) | CAPI (servidor) |
-| --- | --- | --- |
-| `PageView` | ✅ | ❌ |
-| `AddToCart` | ✅ | ❌ |
-| `InitiateCheckout` | ❌ | ✅ |
-| `Purchase` | ❌ | ✅ |
-| `Lead` | ❌ | ✅ |
+| Evento             | Pixel (cliente) | CAPI (servidor) |
+| ------------------ | --------------- | --------------- |
+| `PageView`         | ✅              | ❌              |
+| `AddToCart`        | ✅              | ❌              |
+| `InitiateCheckout` | ❌              | ✅              |
+| `Purchase`         | ❌              | ✅              |
+| `Lead`             | ❌              | ✅              |
 
 La infraestructura de deduplicación está construida y es correcta, pero **no hay
 un solo evento que la use**. `AddToCart` va solo por navegador (lo pierden los
@@ -289,17 +329,17 @@ pasarela → conversiones reales → catálogo → anuncios.
 Estimación para el escenario mono-tienda, una persona desarrollando, sin contar
 la latencia de Meta (verificación del negocio, revisión de anuncios).
 
-| # | Fase | Contenido | Días |
-| --- | --- | --- | --- |
-| 0 | **Arreglos de medición** | `ViewContent`, id canónico compartido, doble canal en `AddToCart`/`Purchase` | 2–3 |
-| 1 | **Campos y medios** | `barcode`/GTIN y `condition` en el formulario; subida de imágenes a R2 *(ya pendiente en el ROADMAP)* | 5–8 |
-| 2 | **Feed de catálogo** | Ruta pública XML/CSV con los campos obligatorios, paginada y cacheada | 3–4 |
-| 3 | **Conexión con Meta** | Variables de entorno, System User token, ad account / página / catálogo, prueba de conexión en Integraciones | 2–3 |
-| 4 | **Modelo de datos** | Tablas `meta_ad_campaigns` / `meta_ads` (producto → ids de Meta, presupuesto, estado, gasto) + RLS | 1–2 |
-| 5 | **Servicio Marketing API** | Crear campaña/conjunto/creativo/anuncio, pausar, reanudar, cambiar presupuesto, manejo de errores y reintentos | 5–8 |
-| 6 | **UI del panel** | Botón «Publicitar» en catálogo + sección «Anuncios» con presupuesto, estado de revisión y resultados | 4–6 |
-| 7 | **Sincronía de resultados** | Cron de `insights`, gasto e integración con Reportes | 3–4 |
-| | **Total** | | **25–38 días** ≈ **5–8 semanas** |
+| #   | Fase                        | Contenido                                                                                                      | Días                             |
+| --- | --------------------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| 0   | **Arreglos de medición**    | `ViewContent`, id canónico compartido, doble canal en `AddToCart`/`Purchase`                                   | 2–3                              |
+| 1   | **Campos y medios**         | `barcode`/GTIN y `condition` en el formulario; subida de imágenes a R2 _(ya pendiente en el ROADMAP)_          | 5–8                              |
+| 2   | **Feed de catálogo**        | Ruta pública XML/CSV con los campos obligatorios, paginada y cacheada                                          | 3–4                              |
+| 3   | **Conexión con Meta**       | Variables de entorno, System User token, ad account / página / catálogo, prueba de conexión en Integraciones   | 2–3                              |
+| 4   | **Modelo de datos**         | Tablas `meta_ad_campaigns` / `meta_ads` (producto → ids de Meta, presupuesto, estado, gasto) + RLS             | 1–2                              |
+| 5   | **Servicio Marketing API**  | Crear campaña/conjunto/creativo/anuncio, pausar, reanudar, cambiar presupuesto, manejo de errores y reintentos | 5–8                              |
+| 6   | **UI del panel**            | Botón «Publicitar» en catálogo + sección «Anuncios» con presupuesto, estado de revisión y resultados           | 4–6                              |
+| 7   | **Sincronía de resultados** | Cron de `insights`, gasto e integración con Reportes                                                           | 3–4                              |
+|     | **Total**                   |                                                                                                                | **25–38 días** ≈ **5–8 semanas** |
 
 Más, por fuera del desarrollo: verificación del negocio de la dueña en Meta,
 creación del Business Manager y la cuenta publicitaria, alta del medio de pago y
