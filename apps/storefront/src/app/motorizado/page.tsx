@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { SHIPMENT_STATUS_LABELS, type ShipmentStatus } from '@nebula/domain';
-import { listMisEnvios, listMiDia } from '@nebula/db';
+import { listMisEnvios, listMiDia, tieneFichaDeMotorizado } from '@nebula/db';
 import { getSupabaseServerClient, isSupabaseConfigured } from '@/lib/supabase';
 import { destinoDelEnvio, resumenDeDestino } from '@/lib/entregas';
 
@@ -11,11 +11,21 @@ import { destinoDelEnvio, resumenDeDestino } from '@/lib/entregas';
  *
  * POR QUÉ ESTA PANTALLA NO PIDE UN IDENTIFICADOR
  *
- * No recibe ni pide el identificador del motorizado: la consulta trae lo que la
- * política RLS deja ver, que son los envíos con `assigned_to = auth.uid()`.
- * Pedirlo como parámetro habría dejado una pantalla que sabe preguntar por los
- * envíos de otro —la política lo impediría hoy, pero una pantalla que pide lo
- * que no le toca es la que un día se despliega sin la política.
+ * No recibe ni pide el identificador del motorizado: sale de la sesión, leída en
+ * el servidor. Pedirlo como parámetro habría dejado una pantalla que sabe
+ * preguntar por los envíos de otro —la política lo impediría hoy, pero una
+ * pantalla que pide lo que no le toca es la que un día se despliega sin la
+ * política.
+ *
+ * Y SIN EMBARGO FILTRA, ADEMÁS DE RLS
+ *
+ * Antes se apoyaba solo en la política. Falla en un caso real: las políticas
+ * permisivas de Postgres se SUMAN, y hay dos sobre `shipments` —la del equipo,
+ * `is_staff()`, y la del motorizado, `assigned_to = auth.uid()`—. Quien sea las
+ * dos cosas veía aquí los envíos de toda la flota, sin asignar incluidos, bajo
+ * un título que dice «Mis entregas». No era una fuga —el equipo puede verlos—
+ * pero sí una pantalla que mentía, y la primera persona a la que confundió fue
+ * la dueña probándola.
  *
  * POR QUÉ VIVE EN LA TIENDA Y NO EN EL PANEL
  *
@@ -57,9 +67,10 @@ export default async function MisEntregasPage() {
 
   if (!user) redirect('/entrar?siguiente=/motorizado');
 
-  const [pendientes, cerradosHoy] = await Promise.all([
-    listMisEnvios(supabase),
-    listMiDia(supabase, comienzoDelDiaEnPanama()),
+  const [pendientes, cerradosHoy, esMotorizado] = await Promise.all([
+    listMisEnvios(supabase, user.id),
+    listMiDia(supabase, user.id, comienzoDelDiaEnPanama()),
+    tieneFichaDeMotorizado(supabase, user.id),
   ]);
 
   const entregados = cerradosHoy.filter((envio) => envio.status === 'entregado').length;
@@ -93,10 +104,23 @@ export default async function MisEntregasPage() {
       </div>
 
       {pendientes.length === 0 ? (
-        <div className="notice notice-info">
-          Cuando te asignen una entrega aparecerá aquí. No hace falta que recargues: vuelve a abrir
-          la aplicación y estará.
-        </div>
+        /*
+          Dos vacíos distintos, y decirle el equivocado a cada uno cuesta caro:
+          al motorizado le sobra una explicación de qué es esto, y a quien no
+          tiene ficha le sobra esperar una asignación que nadie le hará.
+        */
+        esMotorizado ? (
+          <div className="notice notice-info">
+            Cuando te asignen una entrega aparecerá aquí. No hace falta que recargues: vuelve a
+            abrir la aplicación y estará.
+          </div>
+        ) : (
+          <div className="notice notice-info">
+            Esta pantalla es la de quien reparte: enseña solo los envíos asignados a tu cuenta, y no
+            tienes ficha de motorizado. Si eres del equipo, el reparto entero se ve en{' '}
+            <strong>Despacho</strong>, dentro del panel.
+          </div>
+        )
       ) : (
         <ul className="motorizado-lista">
           {pendientes.map((envio) => {

@@ -271,17 +271,48 @@ export async function listCouriers(
 }
 
 /**
+ * ¿Tiene ficha de motorizado la cuenta que consulta?
+ *
+ * Sirve para distinguir dos vacíos que no son el mismo: «hoy no llevas nada» y
+ * «esta pantalla no es para ti». Sin esto, alguien de la oficina que entra a
+ * `/motorizado` lee «cuando te asignen una entrega aparecerá aquí» y se queda
+ * esperando una asignación que nadie le va a hacer.
+ *
+ * Devuelve `false` también cuando RLS tapa la fila, que es lo correcto: si no
+ * puede ver su propia ficha, no la tiene.
+ */
+export async function tieneFichaDeMotorizado(client: Client, profileId: string): Promise<boolean> {
+  const { data, error } = await client
+    .from('couriers')
+    .select('id')
+    .eq('profile_id', profileId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data !== null;
+}
+
+/**
  * Los envíos que lleva encima quien consulta.
  *
- * No recibe el identificador del motorizado: lo decide RLS a partir de la
- * sesión. Pasarlo como parámetro habría dejado la puerta abierta a consultar los
- * de otro —la política lo impediría, pero una pantalla que pide lo que no puede
- * tener es una pantalla que un día se despliega sin la política.
+ * Recibe el identificador de la sesión, leído en el servidor — nunca de la URL.
+ * RLS sigue siendo la barrera; esto es lo que hace que la pantalla enseñe lo que
+ * su título promete cuando quien mira es además del equipo (ver el comentario
+ * dentro de la consulta).
  */
-export async function listMisEnvios(client: Client): Promise<Shipment[]> {
+export async function listMisEnvios(client: Client, motorizadoId: string): Promise<Shipment[]> {
   const { data, error } = await client
     .from('shipments')
     .select(CAMPOS_ENVIO)
+    // El filtro es explícito aunque RLS ya lo haga, y no sobra: la política del
+    // equipo (`shipments_staff_read`) y la del motorizado son permisivas, así
+    // que se SUMAN. Quien sea las dos cosas —la dueña probando, alguien de la
+    // oficina que también reparte— tenía aquí los envíos de todo el mundo bajo
+    // un título que dice «Mis entregas».
+    //
+    // El identificador sale de la sesión en el servidor, nunca de la URL: esta
+    // pantalla sigue sin saber preguntar por los envíos de otro.
+    .eq('assigned_to', motorizadoId)
     // Lo entregado, lo devuelto y lo anulado no se listan: la pantalla es «lo
     // que llevo encima», y una lista que crece para siempre deja de servir en
     // la calle. Un envío anulado, además, no lo lleva nadie.
@@ -293,10 +324,17 @@ export async function listMisEnvios(client: Client): Promise<Shipment[]> {
 }
 
 /** Lo cerrado hoy por quien consulta: es la pantalla de «mi día». */
-export async function listMiDia(client: Client, desdeISO: string): Promise<Shipment[]> {
+export async function listMiDia(
+  client: Client,
+  motorizadoId: string,
+  desdeISO: string,
+): Promise<Shipment[]> {
   const { data, error } = await client
     .from('shipments')
     .select(CAMPOS_ENVIO)
+    // Mismo motivo que en `listMisEnvios`: sin esto, «entregadas hoy» le contaba
+    // a la oficina las entregas de toda la flota como si fueran suyas.
+    .eq('assigned_to', motorizadoId)
     .in('status', ['entregado', 'fallido'])
     .gte('updated_at', desdeISO)
     .order('updated_at', { ascending: false });
