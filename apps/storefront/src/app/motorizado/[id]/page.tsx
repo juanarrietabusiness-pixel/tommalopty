@@ -9,11 +9,18 @@ import { CerrarEntrega } from '@/components/cerrar-entrega';
 /**
  * El envío que se está haciendo ahora mismo.
  *
- * No comprueba de quién es: no hace falta. La política RLS solo devuelve los
- * envíos con `assigned_to = auth.uid()`, así que pedir el de otro devuelve
- * «no encontrado» sin que esta pantalla tenga que saber nada de permisos.
- * Comprobarlo aquí además sería repetir la regla en un sitio donde puede quedar
- * desactualizada.
+ * POR QUÉ SÍ COMPRUEBA DE QUIÉN ES
+ *
+ * Antes no lo hacía, y se apoyaba en que RLS solo devuelve los envíos con
+ * `assigned_to = auth.uid()`. Eso es cierto para un motorizado y falso para
+ * quien además es del equipo: las políticas permisivas se suman, y con
+ * `is_staff()` esta pantalla abría cualquier envío de la flota y dejaba cerrar
+ * la entrega de otro desde la aplicación del motorizado.
+ *
+ * No es una fuga —el equipo puede ver y cerrar cualquier envío, y para eso está
+ * Despacho en el panel— pero esta pantalla no es ese sitio. El filtro va contra
+ * el identificador de la sesión, leído en el servidor: sigue sin poder pedirse
+ * el envío de otro desde la URL.
  */
 
 export const metadata: Metadata = {
@@ -47,6 +54,7 @@ export default async function DetalleDeEntregaPage({
        delivery_note, received_by, failure_reason, delivery_proof_key`,
     )
     .eq('id', id)
+    .eq('assigned_to', user.id)
     .maybeSingle();
 
   if (!envio) notFound();
